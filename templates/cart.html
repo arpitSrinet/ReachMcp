@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shopping Cart</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+      padding: 16px;
+      background: #f5f5f5;
+    }
+    
+    .cart-container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    .cart-header {
+      font-size: 24px;
+      font-weight: bold;
+      margin-bottom: 24px;
+      color: #333;
+    }
+    
+    .cart-header::before {
+      content: "✨ ";
+    }
+    
+    .charge-section {
+      margin-bottom: 24px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    
+    .charge-section:last-of-type {
+      border-bottom: none;
+      margin-bottom: 0;
+    }
+    
+    .section-title {
+      font-size: 18px;
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 16px;
+    }
+    
+    .charge-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      font-size: 16px;
+    }
+    
+    .charge-label {
+      color: #666;
+    }
+    
+    .charge-value {
+      font-weight: 600;
+      color: #333;
+    }
+    
+    .tax-note {
+      font-size: 14px;
+      color: #999;
+      font-style: italic;
+      padding: 8px 0;
+    }
+    
+    .section-total {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      margin-top: 8px;
+      font-size: 18px;
+      font-weight: bold;
+      color: #333;
+    }
+    
+    .total-due-today {
+      background: #00C853;
+      color: white;
+      padding: 16px 24px;
+      border-radius: 8px;
+      margin-top: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 20px;
+      font-weight: bold;
+    }
+    
+    .confirm-button {
+      width: 100%;
+      padding: 16px;
+      font-size: 18px;
+      font-weight: bold;
+      border: none;
+      background: #00C853;
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 24px;
+      transition: background 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    
+    .confirm-button:hover {
+      background: #00B248;
+    }
+    
+    .confirm-button::before {
+      content: "← ";
+    }
+    
+    .payment-info {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid #e0e0e0;
+      font-size: 14px;
+      color: #666;
+      text-align: center;
+    }
+    
+    .payment-info a {
+      color: #00C853;
+      text-decoration: none;
+    }
+    
+    .empty-cart {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div class="cart-container" id="cart-container">
+    <div style="padding: 40px; text-align: center; color: #666; font-size: 18px;">
+      <div style="margin-bottom: 10px;">⏳</div>
+      <div>Loading cart...</div>
+    </div>
+  </div>
+
+  <script>
+    // Function to categorize cart items
+    function categorizeItems(items) {
+      const monthly = [];
+      const devices = [];
+      const oneTime = [];
+      
+      items.forEach(item => {
+        if (item.type === 'plan' || item.itemType === 'plan') {
+          monthly.push(item);
+        } else if (item.type === 'device' || item.itemType === 'device') {
+          devices.push(item);
+        } else {
+          oneTime.push(item);
+        }
+      });
+      
+      return { monthly, devices, oneTime };
+    }
+    
+    // Function to calculate totals
+    function calculateTotals(categorized) {
+      const monthlyTotal = categorized.monthly.reduce((sum, item) => sum + (item.price || 0), 0);
+      const deviceTotal = categorized.devices.reduce((sum, item) => sum + (item.price || 0), 0);
+      
+      // One-time charges: handling + shipping
+      const handling = 5.00;
+      const shipping = 35.00;
+      const oneTimeTotal = handling + shipping;
+      
+      const totalDueToday = deviceTotal + oneTimeTotal;
+      
+      return {
+        monthlyTotal,
+        deviceTotal,
+        oneTimeTotal,
+        handling,
+        shipping,
+        totalDueToday
+      };
+    }
+    
+    // Function to render cart
+    function renderCart(cart, sessionId) {
+      const container = document.getElementById('cart-container');
+      if (!container) {
+        console.error('Cart container not found');
+        return false;
+      }
+      
+      const items = cart.items || [];
+      
+      // Debug logging
+      console.log('=== DEBUG: Rendering cart ===');
+      console.log('Items count:', items.length);
+      console.log('Cart:', cart);
+      console.log('SessionId:', sessionId);
+      console.log('============================');
+      
+      // Don't show "empty" immediately - return false so retry continues
+      if (items.length === 0) {
+        // Keep showing "Loading cart..." instead of "empty"
+        return false;
+      }
+      
+      const categorized = categorizeItems(items);
+      const totals = calculateTotals(categorized);
+      
+      // Render monthly charges section
+      let monthlyHtml = '';
+      if (categorized.monthly.length > 0) {
+        monthlyHtml = `
+          <div class="charge-section">
+            <div class="section-title">Due monthly:</div>
+            ${categorized.monthly.map(item => `
+              <div class="charge-item">
+                <span class="charge-label">${item.name || 'Plan'}</span>
+                <span class="charge-value">$${(item.price || 0).toFixed(2)}</span>
+              </div>
+            `).join('')}
+            <div class="tax-note">Taxes and fees</div>
+            <div class="tax-note">Tax calculates in the next step</div>
+            <div class="section-total">
+              <span>Total monthly charges</span>
+              <span>$${totals.monthlyTotal.toFixed(2)}</span>
+            </div>
+          </div>
+        `;
+      }
+      
+      // Render device charges section
+      let deviceHtml = '';
+      if (categorized.devices.length > 0) {
+        deviceHtml = `
+          <div class="charge-section">
+            <div class="section-title">Device charges:</div>
+            ${categorized.devices.map(item => `
+              <div class="charge-item">
+                <span class="charge-label">${item.name || 'Device'}</span>
+                <span class="charge-value">$${(item.price || 0).toFixed(2)}</span>
+              </div>
+            `).join('')}
+            <div class="tax-note">Taxes and fees</div>
+            <div class="tax-note">Tax calculates in the next step</div>
+            <div class="section-total">
+              <span>Total device charges</span>
+              <span>$${totals.deviceTotal.toFixed(2)}</span>
+            </div>
+          </div>
+        `;
+      }
+      
+      // Render one-time charges section
+      const oneTimeHtml = `
+        <div class="charge-section">
+          <div class="section-title">One-time charges:</div>
+          <div class="charge-item">
+            <span class="charge-label">Handling charges</span>
+            <span class="charge-value">$${totals.handling.toFixed(2)}</span>
+          </div>
+          <div class="tax-note">Taxes and fees</div>
+          <div class="tax-note">Tax calculates in the next step</div>
+          <div class="charge-item">
+            <span class="charge-label">Device shipping & handling charges</span>
+            <span class="charge-value">$${totals.shipping.toFixed(2)}</span>
+          </div>
+          <div class="section-total">
+            <span>Total one-time charges</span>
+            <span>$${totals.oneTimeTotal.toFixed(2)}</span>
+          </div>
+        </div>
+      `;
+      
+      container.innerHTML = `
+        <div class="cart-header">Here's a quick review of everything you've selected</div>
+        ${monthlyHtml}
+        ${deviceHtml}
+        ${oneTimeHtml}
+        <div class="total-due-today">
+          <span>Total due today</span>
+          <span>$${totals.totalDueToday.toFixed(2)}</span>
+        </div>
+        <button class="confirm-button" onclick="proceedToCheckout()">
+          Confirm
+        </button>
+        <div class="payment-info">
+          <div style="margin-bottom: 8px;">
+            <span style="color: #00C853;">+</span> <a href="#" onclick="return false;">numobile.com</a>
+          </div>
+          <div>numobile.com for payment.</div>
+        </div>
+      `;
+      
+      return true;
+    }
+    
+    function proceedToCheckout() {
+      if (window.openai?.callTool) {
+        window.openai.callTool('get_cart', {
+          sessionId: window.openai?.toolOutput?.sessionId || 'default'
+        }).then(result => {
+          alert('✅ Proceeding to checkout!');
+          console.log('Checkout initiated:', result);
+        }).catch(error => {
+          alert(`Error: ${error.message}`);
+          console.error('Error during checkout:', error);
+        });
+      } else {
+      alert('Checkout functionality coming soon!');
+        console.log('Checkout for session:', window.openai?.toolOutput?.sessionId || 'default');
+      }
+    }
+    
+    // Make proceedToCheckout available globally
+    window.proceedToCheckout = proceedToCheckout;
+    
+    // Function to check if toolOutput has valid data
+    function hasValidToolOutput() {
+      if (!window.openai) return false;
+      
+      // Check if toolOutput exists and is not null and has cart
+      const toolOutput = window.openai.toolOutput;
+      if (toolOutput && toolOutput !== null && typeof toolOutput === 'object') {
+        // Check if it has cart object
+        if (toolOutput.cart && typeof toolOutput.cart === 'object') {
+          return true;
+        }
+        // Or check structuredContent.cart
+        if (toolOutput.structuredContent && toolOutput.structuredContent.cart && 
+            typeof toolOutput.structuredContent.cart === 'object') {
+          return true;
+        }
+      }
+      
+      // Also check toolResponseMetadata
+      const metadata = window.openai.toolResponseMetadata;
+      if (metadata && metadata !== null && typeof metadata === 'object') {
+        if (metadata.cart && typeof metadata.cart === 'object') {
+          return true;
+        }
+      }
+      
+      return false;
+    }
+    
+    // Function to extract cart data from toolOutput
+    function extractCartData() {
+      if (!window.openai) {
+        console.log('extractCartData: window.openai not available');
+        return { cart: { items: [], total: 0 }, sessionId: 'default' };
+      }
+      
+      // Try toolOutput first
+      let toolOutput = window.openai.toolOutput;
+      console.log('extractCartData: toolOutput =', toolOutput);
+      
+      if (toolOutput && toolOutput !== null && typeof toolOutput === 'object') {
+        // Try direct cart property
+        if (toolOutput.cart && typeof toolOutput.cart === 'object') {
+          console.log('extractCartData: Found cart in toolOutput.cart, items:', toolOutput.cart.items?.length || 0);
+          return {
+            cart: toolOutput.cart,
+            sessionId: toolOutput.sessionId || 'default'
+          };
+        }
+        // Try structuredContent.cart
+        if (toolOutput.structuredContent && toolOutput.structuredContent.cart && 
+            typeof toolOutput.structuredContent.cart === 'object') {
+          console.log('extractCartData: Found cart in structuredContent, items:', toolOutput.structuredContent.cart.items?.length || 0);
+          return {
+            cart: toolOutput.structuredContent.cart,
+            sessionId: toolOutput.structuredContent.sessionId || toolOutput.sessionId || 'default'
+          };
+        }
+      }
+      
+      // Try toolResponseMetadata
+      const metadata = window.openai.toolResponseMetadata;
+      if (metadata && metadata !== null && typeof metadata === 'object') {
+        if (metadata.cart && typeof metadata.cart === 'object') {
+          console.log('extractCartData: Found cart in toolResponseMetadata, items:', metadata.cart.items?.length || 0);
+          return {
+            cart: metadata.cart,
+            sessionId: metadata.sessionId || 'default'
+          };
+        }
+      }
+      
+      console.log('extractCartData: No cart data found, returning empty cart');
+      return { cart: { items: [], total: 0 }, sessionId: 'default' };
+    }
+    
+    // Function to render all cart data
+    function renderAllCart() {
+      const cartData = extractCartData();
+      const items = cartData.cart.items || [];
+      
+      // Only render if we have valid cart data (even if empty, as long as it's from toolOutput)
+      // If items array exists (even if empty), it means we got data from toolOutput
+      if (items.length === 0 && !hasValidToolOutput()) {
+        // No valid toolOutput yet, don't render empty cart - keep showing loading
+        console.log('renderAllCart: No valid toolOutput yet, waiting...');
+        return false;
+      }
+      
+      const success = renderCart(cartData.cart, cartData.sessionId);
+      return success;
+    }
+    
+    // Permanent solution: Watch for toolOutput changing from null to data
+    let rendered = false;
+    let lastToolOutputValue = null;
+    let checkCount = 0;
+    const maxChecks = 500; // Check for up to 25 seconds (500 * 50ms)
+    
+    // Very fast polling to detect when toolOutput changes from null to data
+    const fastObserver = setInterval(() => {
+      if (rendered) {
+        clearInterval(fastObserver);
+        return;
+      }
+
+      checkCount++;
+
+      // Try to set up property watcher if window.openai is available
+      if (window.openai && !toolOutputProxy) {
+        setupToolOutputWatcher();
+      }
+
+      // Check if toolOutput is now populated with data
+      if (hasValidToolOutput()) {
+        const success = renderAllCart();
+        if (success) {
+          console.log('✅ Cart rendered successfully (fast observer detected)');
+          rendered = true;
+          clearInterval(fastObserver);
+          return;
+        }
+      }
+
+      // Track value changes
+      const currentValue = window.openai?.toolOutput;
+      if (currentValue !== lastToolOutputValue) {
+        lastToolOutputValue = currentValue;
+        if (hasValidToolOutput()) {
+          const success = renderAllCart();
+          if (success) {
+            console.log('✅ Cart rendered (value change detected)');
+            rendered = true;
+            clearInterval(fastObserver);
+            return;
+          }
+        }
+      }
+
+      // Log progress every 20 checks (1 second) - but only if toolOutput is still null
+      if (checkCount % 20 === 0 && window.openai?.toolOutput === null) {
+        console.log(`Waiting for toolOutput to be populated... (${checkCount * 50}ms)`, {
+          hasOpenAI: !!window.openai,
+          toolOutputIsNull: window.openai?.toolOutput === null,
+          toolOutputType: typeof window.openai?.toolOutput
+        });
+      }
+
+      if (checkCount >= maxChecks) {
+        console.log('Fast observer timeout after 25 seconds');
+        clearInterval(fastObserver);
+        if (!rendered) {
+          // Show debug info only after all attempts fail
+          const container = document.getElementById('cart-container');
+          if (container) {
+            const debugInfo = window.openai ?
+              `<p style="padding: 10px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; margin: 10px 0;">
+                <strong>Debug Info:</strong><br>
+                window.openai exists: ✅<br>
+                toolOutput exists: ${window.openai.toolOutput ? '✅' : '❌'}<br>
+                toolResponseMetadata exists: ${window.openai.toolResponseMetadata ? '✅' : '❌'}<br>
+                Available keys: ${Object.keys(window.openai).join(', ')}<br>
+                toolOutput value: ${JSON.stringify(window.openai.toolOutput || 'null', null, 2)}
+              </p>` :
+              '<p style="padding: 10px; background: #f8d7da; border: 1px solid #dc3545; border-radius: 4px; margin: 10px 0;"><strong>Error:</strong> window.openai is not available</p>';
+
+            container.innerHTML = debugInfo + '<p style="padding: 20px; text-align: center; color: #d32f2f;">⚠️ Unable to load cart. Please try again.</p>';
+          }
+        }
+      }
+    }, 50); // Check every 50ms - very fast!
+    
+    // Try to intercept toolOutput property changes using Proxy/defineProperty
+    let toolOutputProxy = null;
+    
+    function setupToolOutputWatcher() {
+      if (!window.openai || toolOutputProxy) return;
+
+      try {
+        // Store original descriptor
+        const originalDescriptor = Object.getOwnPropertyDescriptor(window.openai, 'toolOutput');
+
+        // Check if property is configurable
+        if (originalDescriptor && originalDescriptor.configurable === false) {
+          console.warn('toolOutput property is not configurable, using polling only');
+          toolOutputProxy = true; // Mark as attempted
+          return;
+        }
+
+        // Create a proxy-like watcher by redefining the property
+        let currentValue = window.openai.toolOutput;
+
+        Object.defineProperty(window.openai, 'toolOutput', {
+          get: function() {
+            return currentValue;
+          },
+          set: function(newValue) {
+            const oldValue = currentValue;
+            currentValue = newValue;
+
+            // If value changed from null/undefined to actual data, render
+            if ((oldValue === null || oldValue === undefined) &&
+                newValue !== null && newValue !== undefined &&
+                typeof newValue === 'object') {
+              if (newValue.cart || (newValue.structuredContent && newValue.structuredContent.cart)) {
+                console.log('✅ toolOutput changed from null to data!', newValue);
+                setTimeout(() => {
+                  if (!rendered) {
+                    const success = renderAllCart();
+                    if (success) {
+                      rendered = true;
+                      console.log('✅ Cart rendered (property setter detected)');
+                    }
+                  }
+                }, 10);
+              }
+            }
+
+            // Call original setter if it exists
+            if (originalDescriptor && originalDescriptor.set) {
+              originalDescriptor.set.call(this, newValue);
+            }
+          },
+          configurable: true,
+          enumerable: true
+        });
+
+        toolOutputProxy = true;
+        console.log('✅ Set up toolOutput property watcher for cart');
+      } catch (e) {
+        console.warn('Could not set up property watcher:', e);
+        toolOutputProxy = true; // Mark as attempted
+      }
+    }
+    
+    // Start the permanent solution immediately
+    // 1. Set up property watcher (if possible)
+    setupToolOutputWatcher();
+    
+    // 2. Also listen for load event as fallback
+    window.addEventListener("load", () => {
+      console.log('Load event fired, attempting to render cart');
+      if (!rendered) {
+        const success = renderAllCart();
+        if (success) {
+          rendered = true;
+        }
+      }
+    });
+    
+    // 3. Also try on DOMContentLoaded
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        console.log('DOMContentLoaded fired, attempting to render cart');
+        if (!rendered) {
+          const success = renderAllCart();
+          if (success) {
+            rendered = true;
+          }
+        }
+      });
+    } else {
+      // DOM already loaded, try immediately with delay
+      setTimeout(() => {
+        console.log('DOM already loaded, attempting to render cart');
+        if (!rendered) {
+          const success = renderAllCart();
+          if (success) {
+            rendered = true;
+          }
+        }
+      }, 500);
+    }
+    
+    // 4. Also try periodically as a last resort (more frequent)
+    const intervalId = setInterval(() => {
+      if (rendered) {
+        clearInterval(intervalId);
+        return;
+      }
+
+      if (hasValidToolOutput()) {
+        const success = renderAllCart();
+        if (success) {
+          console.log('✅ Cart rendered successfully (interval check)');
+          rendered = true;
+          clearInterval(intervalId);
+        }
+      }
+    }, 150); // Check every 150ms
+
+    // Clear interval after 20 seconds
+    setTimeout(() => {
+      clearInterval(intervalId);
+    }, 20000);
+  </script>
+</body>
+</html>

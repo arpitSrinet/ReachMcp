@@ -1,0 +1,21 @@
+{
+  "name": "reach-mobile-app",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Reach Mobile Apps SDK Application",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "test": "node -e \"import('./app.js').then(() => console.log('App loaded successfully'))\"",
+    "test:widgets": "node test-widgets.js"
+  },
+  "dependencies": {
+    "@openai/apps-sdk-ui": "^0.2.1"
+  },
+  "keywords": [
+    "openai",
+    "apps-sdk",
+    "mcp",
+    "reach-mobile"
+  ]
+}

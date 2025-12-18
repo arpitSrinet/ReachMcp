@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "reach-mobile-mcp": {
+      "command": "/Users/arpitsingh/.nvm/versions/node/v23.11.0/bin/node",
+      "args": [
+        "/Users/arpitsingh/Downloads/MCP_test/server.js"
+      ]
+    }
+  }
+}
+

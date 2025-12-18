@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mobile Plans</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+      padding: 16px;
+      background: #f5f5f5;
+    }
+    
+    .plans-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 20px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    
+    .plan-card {
+      border: 2px solid #e0e0e0;
+      border-radius: 12px;
+      padding: 24px;
+      background: white;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      transition: all 0.3s ease;
+    }
+    
+    .plan-card:hover {
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+      transform: translateY(-2px);
+    }
+    
+    .plan-header {
+      margin-bottom: 16px;
+      border-bottom: 1px solid #e0e0e0;
+      padding-bottom: 12px;
+    }
+    
+    .plan-name {
+      font-size: 24px;
+      font-weight: bold;
+      color: #023d1a;
+      margin-bottom: 8px;
+    }
+    
+    .plan-data {
+      font-size: 18px;
+      color: #666;
+    }
+    
+    .plan-pricing {
+      margin-bottom: 16px;
+    }
+    
+    .current-price {
+      font-size: 32px;
+      font-weight: bold;
+      color: #00C853;
+      display: block;
+    }
+    
+    .original-price {
+      font-size: 20px;
+      color: #999;
+      text-decoration: line-through;
+      margin-right: 8px;
+    }
+    
+    .taxes-note {
+      font-size: 14px;
+      color: #666;
+      margin-top: 4px;
+    }
+    
+    .discount-badge {
+      display: inline-block;
+      background: #4caf50;
+      color: white;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      margin-top: 8px;
+    }
+    
+    .plan-features {
+      margin-bottom: 16px;
+    }
+    
+    .feature {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+    
+    .feature-icon {
+      margin-right: 8px;
+      font-size: 18px;
+    }
+    
+    .select-button {
+      width: 100%;
+      background: #00C853;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+    
+    .select-button:hover {
+      background: #063418;
+    }
+    
+    .broadband-facts {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid #e0e0e0;
+    }
+    
+    .broadband-facts summary {
+      cursor: pointer;
+      font-weight: bold;
+      color: #666;
+      margin-bottom: 8px;
+    }
+    
+    .facts-content {
+      font-size: 12px;
+      color: #666;
+      background: #f5f5f5;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="plans-container" id="plans-container">
+    <p style="padding: 20px; text-align: center; color: #666;">Loading plans...</p>
+  </div>
+
+  <script>
+    // Function to render a single plan card
+    function renderPlan(plan) {
+      const planId = plan.id || plan.uniqueIdentifier;
+      const name = plan.name || plan.displayName;
+      const price = plan.price || plan.baseLinePrice || 0;
+      const data = plan.data || plan.planData || 0;
+      const dataUnit = plan.dataUnit || 'GB';
+      const discountPctg = plan.discountPctg || 0;
+      
+      let originalPrice = null;
+      let discountAmount = 0;
+      if (discountPctg > 0) {
+        originalPrice = Math.round(price / (1 - discountPctg / 100));
+        discountAmount = Math.round(originalPrice - price);
+      }
+      
+      const features = [];
+      if (plan.isUnlimited || plan.unlimited) {
+        features.push({ icon: '📞', text: 'Unlimited calls' });
+      }
+      if (data > 0) {
+        features.push({ icon: '📊', text: `${data}${dataUnit} high-speed data` });
+      }
+      if (plan.overageAllowedData && plan.overageAllowedData > 0) {
+        features.push({ icon: '📈', text: `${plan.overageAllowedData}${plan.overageAllowedDataUnit || 'MB'} additional data` });
+      }
+      if (plan.maxLines && plan.maxLines > 1) {
+        features.push({ icon: '👥', text: `Up to ${plan.maxLines} lines` });
+      }
+      if (plan.additionalLinePrice) {
+        features.push({ icon: '➕', text: `Additional lines: $${plan.additionalLinePrice}/mo` });
+      }
+      if (plan.allowPlanChange) {
+        features.push({ icon: '🔄', text: 'Plan changes allowed' });
+      }
+      
+      return `
+        <div class="plan-card">
+          <div class="plan-header">
+            <div class="plan-name">${name}</div>
+            <div class="plan-data">${data}${dataUnit}</div>
+          </div>
+          
+          <div class="plan-pricing">
+            ${originalPrice ? `<span class="original-price">$${originalPrice}</span>` : ''}
+            <span class="current-price">$${price}/mo</span>
+            <div class="taxes-note">(Taxes & fees included)</div>
+            ${discountAmount > 0 ? `<div class="discount-badge">$${discountAmount} off applied</div>` : ''}
+          </div>
+          
+          <div class="plan-features">
+            ${features.map(f => `
+              <div class="feature">
+                <span class="feature-icon">${f.icon}</span>
+                <span>${f.text}</span>
+              </div>
+            `).join('')}
+          </div>
+          
+          <button class="select-button" onclick="selectPlan('${planId}')">
+            🔘 Select Plan
+          </button>
+          
+          <details class="broadband-facts">
+            <summary>📋 Broadband Facts</summary>
+            <div class="facts-content">
+              <p>Plan ID: <code>${planId}</code></p>
+              ${plan.planType ? `<p>Type: ${plan.planType}</p>` : ''}
+              ${plan.serviceCode ? `<p>Service: ${plan.serviceCode}</p>` : ''}
+              ${plan.planCharging ? `<p>Charging: ${plan.planCharging}</p>` : ''}
+            </div>
+          </details>
+        </div>
+      `;
+    }
+    
+    function selectPlan(planId) {
+      // Call MCP tool via OpenAI SDK
+      if (window.openai?.callTool) {
+        window.openai.callTool('add_to_cart', {
+          itemType: 'plan',
+          itemId: planId
+        }).then(result => {
+          alert(`✅ Plan added to cart!`);
+          console.log('Cart updated:', result);
+        }).catch(error => {
+          alert(`Error: ${error.message}`);
+          console.error('Error adding to cart:', error);
+        });
+      } else {
+        console.error('window.openai.callTool not available');
+        alert('Unable to add to cart. Please try again.');
+      }
+    }
+    
+    // Function to check if toolOutput has valid data
+    function hasValidToolOutput() {
+      if (!window.openai) return false;
+      
+      // Check if toolOutput exists and is not null and has plans
+      const toolOutput = window.openai.toolOutput;
+      if (toolOutput && toolOutput !== null && typeof toolOutput === 'object') {
+        // Check if it has plans array with data
+        if (toolOutput.plans && Array.isArray(toolOutput.plans) && toolOutput.plans.length > 0) {
+          return true;
+        }
+        // Or check structuredContent.plans
+        if (toolOutput.structuredContent && toolOutput.structuredContent.plans && 
+            Array.isArray(toolOutput.structuredContent.plans) && toolOutput.structuredContent.plans.length > 0) {
+          return true;
+        }
+      }
+      
+      // Also check toolResponseMetadata
+      const metadata = window.openai.toolResponseMetadata;
+      if (metadata && metadata !== null && typeof metadata === 'object') {
+        if (metadata.plans && Array.isArray(metadata.plans) && metadata.plans.length > 0) {
+          return true;
+        }
+      }
+      
+      return false;
+    }
+    
+    // Function to extract plans from toolOutput
+    function extractPlans() {
+      if (!window.openai) return [];
+      
+      // Try toolOutput first
+      let toolOutput = window.openai.toolOutput;
+      if (toolOutput && toolOutput !== null && typeof toolOutput === 'object') {
+        // Try direct plans property
+        if (toolOutput.plans && Array.isArray(toolOutput.plans)) {
+          return toolOutput.plans;
+        }
+        // Try structuredContent.plans
+        if (toolOutput.structuredContent && toolOutput.structuredContent.plans && Array.isArray(toolOutput.structuredContent.plans)) {
+          return toolOutput.structuredContent.plans;
+        }
+      }
+      
+      // Try toolResponseMetadata
+      const metadata = window.openai.toolResponseMetadata;
+      if (metadata && metadata !== null && typeof metadata === 'object') {
+        if (metadata.plans && Array.isArray(metadata.plans)) {
+          return metadata.plans;
+        }
+      }
+      
+      return [];
+    }
+    
+    // Function to render all plans
+    function renderAllPlans() {
+      const container = document.getElementById('plans-container');
+      if (!container) {
+        console.error('Plans container not found');
+        return false;
+      }
+      
+      // Extract plans using the robust extraction function
+      const plans = extractPlans();
+    
+    // Render all plans
+      if (plans.length === 0) {
+        // Don't show error yet - just return false so retry continues
+        return false;
+      } else {
+        container.innerHTML = plans.map(renderPlan).join('');
+        return true;
+      }
+    }
+    
+    // Permanent solution: Watch for toolOutput changing from null to data
+    let rendered = false;
+    let lastToolOutputValue = null;
+    let checkCount = 0;
+    const maxChecks = 500; // Check for up to 25 seconds (500 * 50ms)
+    
+    // Very fast polling to detect when toolOutput changes from null to data
+    function watchForToolOutputChange() {
+      if (rendered) return; // Already rendered, stop watching
+      
+      checkCount++;
+      
+      // Check if toolOutput has valid data now
+      if (hasValidToolOutput()) {
+        const success = renderAllPlans();
+        if (success) {
+          console.log('✅ Plans rendered successfully (toolOutput populated)');
+          rendered = true;
+          return;
+        }
+      }
+      
+      // Track value changes - if toolOutput changed from null to something, try rendering
+      const currentValue = window.openai?.toolOutput;
+      if (currentValue !== lastToolOutputValue) {
+        lastToolOutputValue = currentValue;
+        
+        // If it changed from null to non-null, try rendering
+        if (currentValue !== null && currentValue !== undefined) {
+          console.log('toolOutput changed from null to:', typeof currentValue);
+          const success = renderAllPlans();
+          if (success) {
+            console.log('✅ Plans rendered (value change detected)');
+            rendered = true;
+            return;
+          }
+        }
+      }
+      
+      // Continue watching if not rendered and haven't exceeded max checks
+      if (!rendered && checkCount < maxChecks) {
+        setTimeout(watchForToolOutputChange, 50); // Check every 50ms - very fast!
+      } else if (!rendered && checkCount >= maxChecks) {
+        // Max checks reached, show error
+    const container = document.getElementById('plans-container');
+        if (container) {
+          const debugInfo = window.openai ? 
+            `<p style="padding: 10px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; margin: 10px 0;">
+              <strong>Debug Info:</strong><br>
+              window.openai exists: ✅<br>
+              toolOutput exists: ${window.openai.toolOutput ? '✅' : '❌'}<br>
+              toolOutput is null: ${window.openai.toolOutput === null ? '✅' : '❌'}<br>
+              toolResponseMetadata exists: ${window.openai.toolResponseMetadata ? '✅' : '❌'}<br>
+              Available keys: ${Object.keys(window.openai).join(', ')}<br>
+              toolOutput value: ${JSON.stringify(window.openai.toolOutput || 'null', null, 2)}
+            </p>` : 
+            '<p style="padding: 10px; background: #f8d7da; border: 1px solid #dc3545; border-radius: 4px; margin: 10px 0;"><strong>Error:</strong> window.openai is not available</p>';
+          
+          container.innerHTML = debugInfo + '<p style="padding: 20px; text-align: center; color: #d32f2f;">⚠️ Unable to load plans. Please try again.</p>';
+          console.error('Failed to render plans after', maxChecks, 'checks (', maxChecks * 50, 'ms)');
+        }
+      }
+    }
+    
+    // Try to intercept toolOutput property changes using Proxy/defineProperty
+    function setupToolOutputWatcher() {
+      if (!window.openai) {
+        // Wait for window.openai to be available
+        setTimeout(setupToolOutputWatcher, 100);
+        return;
+      }
+      
+      try {
+        // Store original value
+        let currentValue = window.openai.toolOutput;
+        
+        // Try to redefine the property to watch for changes
+        Object.defineProperty(window.openai, 'toolOutput', {
+          get: function() {
+            return currentValue;
+          },
+          set: function(newValue) {
+            const oldValue = currentValue;
+            currentValue = newValue;
+            
+            // If value changed from null/undefined to actual data, render immediately
+            if ((oldValue === null || oldValue === undefined || oldValue === 'null') && 
+                newValue !== null && newValue !== undefined && newValue !== 'null' && 
+                typeof newValue === 'object') {
+              
+              console.log('✅ toolOutput changed from null to data!', newValue);
+              
+              // Try to render immediately
+              setTimeout(() => {
+                if (!rendered) {
+                  const success = renderAllPlans();
+                  if (success) {
+                    rendered = true;
+                    console.log('✅ Plans rendered (property setter detected)');
+                  }
+                }
+              }, 10);
+            }
+          },
+          configurable: true,
+          enumerable: true
+        });
+        
+        console.log('✅ Set up toolOutput property watcher');
+      } catch (e) {
+        console.warn('Could not set up property watcher (this is OK, using polling instead):', e.message);
+      }
+    }
+    
+    // Start the permanent solution immediately
+    // 1. Set up property watcher (if possible)
+    setupToolOutputWatcher();
+    
+    // 2. Start fast polling to detect changes
+    watchForToolOutputChange();
+    
+    // 3. Also listen for load event as fallback
+    window.addEventListener("load", () => {
+      console.log('Load event fired, attempting to render plans');
+      if (!rendered) {
+        const success = renderAllPlans();
+        if (success) {
+          rendered = true;
+        }
+      }
+    });
+    
+    // 4. Also try on DOMContentLoaded
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        console.log('DOMContentLoaded fired, attempting to render plans');
+        if (!rendered) {
+          const success = renderAllPlans();
+          if (success) {
+            rendered = true;
+          }
+        }
+      });
+    } else {
+      // DOM already loaded, try immediately
+      if (!rendered) {
+        const success = renderAllPlans();
+        if (success) {
+          rendered = true;
+        }
+      }
+    }
+  </script>
+</body>
+</html>

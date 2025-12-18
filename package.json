@@ -1,0 +1,24 @@
+{
+  "name": "reach-mobile-mcp-server",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "start:http": "MCP_TRANSPORT=http PORT=3000 node server.js",
+    "start:https": "MCP_TRANSPORT=https PORT=3000 node server.js",
+    "dev": "node --watch server.js",
+    "test": "node test-simple.js",
+    "test:full": "node test-client.js",
+    "test:https": "node test-https.js",
+    "generate-certs": "./generate-certs.sh"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.24.2",
+    "cors": "^2.8.5",
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "dotenv": "^16.3.1"
+  }
+}

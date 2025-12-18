@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coupons & Offers</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+      padding: 16px;
+      background: #f5f5f5;
+    }
+    
+    .offers-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    
+    .coupon-card {
+      border: 3px dashed #00C853;
+      border-radius: 12px;
+      padding: 24px;
+      background: linear-gradient(135deg, #ffffff 0%, #f1f8f4 100%);
+      box-shadow: 0 4px 12px rgba(0, 200, 83, 0.15);
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .coupon-card::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 8px;
+      background: #00C853;
+    }
+    
+    .coupon-card:hover {
+      box-shadow: 0 6px 20px rgba(0, 200, 83, 0.25);
+      transform: translateY(-2px);
+    }
+    
+    .coupon-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 16px;
+      border-bottom: 2px dashed #00C853;
+      padding-bottom: 12px;
+    }
+    
+    .coupon-name {
+      font-size: 22px;
+      font-weight: bold;
+      color: #023d1a;
+      flex: 1;
+    }
+    
+    .coupon-code {
+      background: #00C853;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 18px;
+      font-weight: bold;
+      font-family: 'Courier New', monospace;
+      letter-spacing: 2px;
+      box-shadow: 0 2px 6px rgba(0, 200, 83, 0.3);
+    }
+    
+    .coupon-discount {
+      margin: 16px 0;
+      text-align: center;
+    }
+    
+    .discount-amount {
+      font-size: 48px;
+      font-weight: bold;
+      color: #00C853;
+      line-height: 1;
+    }
+    
+    .discount-label {
+      font-size: 16px;
+      color: #666;
+      margin-top: 4px;
+    }
+    
+    .coupon-details {
+      margin: 16px 0;
+    }
+    
+    .detail-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      font-size: 14px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    
+    .detail-item:last-child {
+      border-bottom: none;
+    }
+    
+    .detail-label {
+      color: #666;
+    }
+    
+    .detail-value {
+      color: #333;
+      font-weight: 600;
+    }
+    
+    .validity-badge {
+      display: inline-block;
+      background: #fff3cd;
+      color: #856404;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-top: 12px;
+    }
+    
+    .expired-badge {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    
+    .apply-button {
+      width: 100%;
+      padding: 14px;
+      font-size: 16px;
+      font-weight: bold;
+      border: none;
+      background: #00C853;
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 16px;
+      transition: background 0.3s ease;
+      box-shadow: 0 2px 8px rgba(0, 200, 83, 0.3);
+    }
+    
+    .apply-button:hover {
+      background: #00B248;
+      box-shadow: 0 4px 12px rgba(0, 200, 83, 0.4);
+    }
+    
+    .apply-button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="offers-container" id="offers-container">
+    <div style="padding: 40px; text-align: center; color: #666; font-size: 18px; grid-column: 1 / -1;">
+      <div style="margin-bottom: 10px;">⏳</div>
+      <div>Loading coupons...</div>
+    </div>
+  </div>
+
+  <script>
+    // Function to format date
+    function formatDate(dateString) {
+      if (!dateString) return 'N/A';
+      try {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'short', 
+          day: 'numeric' 
+        });
+      } catch (e) {
+        return dateString;
+      }
+    }
+    
+    // Function to calculate discount display
+    function getDiscountDisplay(offer) {
+      if (offer.discountInDollar) {
+        return {
+          amount: `$${offer.discountInDollar}`,
+          label: 'Off'
+        };
+      } else if (offer.planDiscount) {
+        return {
+          amount: `${offer.planDiscount}%`,
+          label: 'Off'
+        };
+      } else if (offer.secondaryDiscount) {
+        return {
+          amount: `${offer.secondaryDiscount}%`,
+          label: 'Off'
+        };
+      }
+      return {
+        amount: 'Special',
+        label: 'Offer'
+      };
+    }
+    
+    // Function to render a single coupon
+    function renderCoupon(offer) {
+      const discount = getDiscountDisplay(offer);
+      const isExpired = offer.expired === true;
+      const isValid = !isExpired && offer.status === 0;
+      const startDate = formatDate(offer.startDate);
+      const endDate = formatDate(offer.endDate);
+      
+      return `
+        <div class="coupon-card">
+          <div class="coupon-header">
+            <div class="coupon-name">${offer.name || offer.coupon || 'Special Offer'}</div>
+            <div class="coupon-code">${offer.coupon || 'N/A'}</div>
+          </div>
+          
+          <div class="coupon-discount">
+            <div class="discount-amount">${discount.amount}</div>
+            <div class="discount-label">${discount.label}</div>
+          </div>
+          
+          <div class="coupon-details">
+            ${offer.type ? `
+              <div class="detail-item">
+                <span class="detail-label">Type:</span>
+                <span class="detail-value">${offer.type === 5 ? 'Discount' : 'Other'}</span>
+              </div>
+            ` : ''}
+            ${offer.subType ? `
+              <div class="detail-item">
+                <span class="detail-label">Sub Type:</span>
+                <span class="detail-value">${offer.subType === 1 ? 'Percentage' : offer.subType === 2 ? 'Fixed Amount' : 'Other'}</span>
+              </div>
+            ` : ''}
+            ${offer.maxCouponLimit ? `
+              <div class="detail-item">
+                <span class="detail-label">Max Uses:</span>
+                <span class="detail-value">${offer.maxCouponLimit}</span>
+              </div>
+            ` : ''}
+            ${offer.maxDiscountInDollar ? `
+              <div class="detail-item">
+                <span class="detail-label">Max Discount:</span>
+                <span class="detail-value">$${offer.maxDiscountInDollar}</span>
+              </div>
+            ` : ''}
+            ${offer.validityInMonths ? `
+              <div class="detail-item">
+                <span class="detail-label">Valid For:</span>
+                <span class="detail-value">${offer.validityInMonths} month(s)</span>
+              </div>
+            ` : ''}
+          </div>
+          
+          <div class="validity-badge ${isExpired ? 'expired-badge' : ''}">
+            ${isExpired ? '❌ Expired' : `✅ Valid until ${endDate}`}
+          </div>
+          
+          <button class="apply-button" onclick="applyCoupon('${offer.coupon || ''}')" ${!isValid ? 'disabled' : ''}>
+            ${isValid ? '🎟️ Apply Coupon' : '❌ Not Available'}
+          </button>
+        </div>
+      `;
+    }
+    
+    function applyCoupon(couponCode) {
+      if (window.openai?.callTool) {
+        // You can implement a tool call here if needed
+        alert(`✅ Coupon "${couponCode}" applied!`);
+        console.log('Coupon applied:', couponCode);
+      } else {
+        alert(`✅ Coupon "${couponCode}" copied!`);
+        // Copy to clipboard if possible
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(couponCode);
+        }
+      }
+    }
+    
+    // Make applyCoupon available globally
+    window.applyCoupon = applyCoupon;
+    
+    // Function to check if toolOutput has valid data
+    function hasValidToolOutput() {
+      if (!window.openai) return false;
+      
+      const toolOutput = window.openai.toolOutput;
+      if (toolOutput && toolOutput !== null && typeof toolOutput === 'object') {
+        // Check if it has offers array
+        if (toolOutput.offers && Array.isArray(toolOutput.offers)) {
+          return true;
+        }
+        // Or check structuredContent.offers
+        if (toolOutput.structuredContent && toolOutput.structuredContent.offers && 
+            Array.isArray(toolOutput.structuredContent.offers)) {
+          return true;
+        }
+      }
+      
+      // Also check toolResponseMetadata
+      const metadata = window.openai.toolResponseMetadata;
+      if (metadata && metadata !== null && typeof metadata === 'object') {
+        if (metadata.offers && Array.isArray(metadata.offers)) {
+          return true;
+        }
+      }
+      
+      return false;
+    }
+    
+    // Function to extract offers from toolOutput
+    function extractOffers() {
+      if (!window.openai) {
+        console.log('extractOffers: window.openai not available');
+        return [];
+      }
+      
+      let toolOutput = window.openai.toolOutput;
+      console.log('extractOffers: toolOutput =', toolOutput);
+      
+      if (toolOutput && toolOutput !== null && typeof toolOutput === 'object') {
+        // Try direct offers property
+        if (toolOutput.offers && Array.isArray(toolOutput.offers)) {
+          console.log('extractOffers: Found offers in toolOutput.offers, count:', toolOutput.offers.length);
+          return toolOutput.offers;
+        }
+        // Try structuredContent.offers
+        if (toolOutput.structuredContent && toolOutput.structuredContent.offers && 
+            Array.isArray(toolOutput.structuredContent.offers)) {
+          console.log('extractOffers: Found offers in structuredContent, count:', toolOutput.structuredContent.offers.length);
+          return toolOutput.structuredContent.offers;
+        }
+      }
+      
+      // Try toolResponseMetadata
+      const metadata = window.openai.toolResponseMetadata;
+      if (metadata && metadata !== null && typeof metadata === 'object') {
+        if (metadata.offers && Array.isArray(metadata.offers)) {
+          console.log('extractOffers: Found offers in toolResponseMetadata, count:', metadata.offers.length);
+          return metadata.offers;
+        }
+      }
+      
+      console.log('extractOffers: No offers found, returning empty array');
+      return [];
+    }
+    
+    // Function to render all offers
+    function renderAllOffers() {
+      const container = document.getElementById('offers-container');
+      if (!container) {
+        console.error('Offers container not found');
+        return false;
+      }
+      
+      const offers = extractOffers();
+      
+      console.log('=== DEBUG: Rendering offers ===');
+      console.log('Offers count:', offers.length);
+      console.log('Offers:', offers);
+      console.log('=============================');
+      
+      // Don't show empty immediately - return false so retry continues
+      if (offers.length === 0) {
+        // Keep showing "Loading coupons..." instead of empty
+        return false;
+      }
+      
+      container.innerHTML = offers.map(renderCoupon).join('');
+      return true;
+    }
+    
+    // Permanent solution: Watch for toolOutput changing from null to data
+    let rendered = false;
+    let lastToolOutputValue = null;
+    let checkCount = 0;
+    const maxChecks = 500; // Check for up to 25 seconds (500 * 50ms)
+    let toolOutputProxy = null;
+    
+    // Try to intercept toolOutput property changes using Proxy/defineProperty
+    function setupToolOutputWatcher() {
+      if (!window.openai || toolOutputProxy) return;
+
+      try {
+        const originalDescriptor = Object.getOwnPropertyDescriptor(window.openai, 'toolOutput');
+
+        if (originalDescriptor && originalDescriptor.configurable === false) {
+          console.warn('toolOutput property is not configurable, using polling only');
+          toolOutputProxy = true;
+          return;
+        }
+
+        let currentValue = window.openai.toolOutput;
+
+        Object.defineProperty(window.openai, 'toolOutput', {
+          get: function() {
+            return currentValue;
+          },
+          set: function(newValue) {
+            const oldValue = currentValue;
+            currentValue = newValue;
+
+            // If value changed from null/undefined to actual data, render
+            if ((oldValue === null || oldValue === undefined) &&
+                newValue !== null && newValue !== undefined &&
+                typeof newValue === 'object') {
+              if (newValue.offers || (newValue.structuredContent && newValue.structuredContent.offers)) {
+                console.log('✅ toolOutput changed from null to data!', newValue);
+                setTimeout(() => {
+                  if (!rendered) {
+                    const success = renderAllOffers();
+                    if (success) {
+                      rendered = true;
+                      console.log('✅ Offers rendered (property setter detected)');
+                    }
+                  }
+                }, 10);
+              }
+            }
+
+            if (originalDescriptor && originalDescriptor.set) {
+              originalDescriptor.set.call(this, newValue);
+            }
+          },
+          configurable: true,
+          enumerable: true
+        });
+
+        toolOutputProxy = true;
+        console.log('✅ Set up toolOutput property watcher for offers');
+      } catch (e) {
+        console.warn('Could not set up property watcher:', e);
+        toolOutputProxy = true;
+      }
+    }
+    
+    // Very fast polling to detect when toolOutput changes from null to data
+    const fastObserver = setInterval(() => {
+      if (rendered) {
+        clearInterval(fastObserver);
+        return;
+      }
+
+      checkCount++;
+
+      // Try to set up property watcher if window.openai is available
+      if (window.openai && !toolOutputProxy) {
+        setupToolOutputWatcher();
+      }
+
+      // Check if toolOutput is now populated with data
+      if (hasValidToolOutput()) {
+        const success = renderAllOffers();
+        if (success) {
+          console.log('✅ Offers rendered successfully (fast observer detected)');
+          rendered = true;
+          clearInterval(fastObserver);
+          return;
+        }
+      }
+
+      // Track value changes
+      const currentValue = window.openai?.toolOutput;
+      if (currentValue !== lastToolOutputValue) {
+        lastToolOutputValue = currentValue;
+        if (hasValidToolOutput()) {
+          const success = renderAllOffers();
+          if (success) {
+            console.log('✅ Offers rendered (value change detected)');
+            rendered = true;
+            clearInterval(fastObserver);
+            return;
+          }
+        }
+      }
+
+      // Log progress every 20 checks (1 second)
+      if (checkCount % 20 === 0 && window.openai?.toolOutput === null) {
+        console.log(`Waiting for toolOutput to be populated... (${checkCount * 50}ms)`, {
+          hasOpenAI: !!window.openai,
+          toolOutputIsNull: window.openai?.toolOutput === null,
+          toolOutputType: typeof window.openai?.toolOutput
+        });
+      }
+
+      if (checkCount >= maxChecks) {
+        console.log('Fast observer timeout after 25 seconds');
+        clearInterval(fastObserver);
+        if (!rendered) {
+          const container = document.getElementById('offers-container');
+          if (container) {
+            const debugInfo = window.openai ?
+              `<p style="padding: 10px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; margin: 10px 0;">
+                <strong>Debug Info:</strong><br>
+                window.openai exists: ✅<br>
+                toolOutput exists: ${window.openai.toolOutput ? '✅' : '❌'}<br>
+                toolResponseMetadata exists: ${window.openai.toolResponseMetadata ? '✅' : '❌'}<br>
+                Available keys: ${Object.keys(window.openai).join(', ')}<br>
+                toolOutput value: ${JSON.stringify(window.openai.toolOutput || 'null', null, 2)}
+              </p>` :
+              '<p style="padding: 10px; background: #f8d7da; border: 1px solid #dc3545; border-radius: 4px; margin: 10px 0;"><strong>Error:</strong> window.openai is not available</p>';
+
+            container.innerHTML = debugInfo + '<p style="padding: 20px; text-align: center; color: #d32f2f;">⚠️ Unable to load coupons. Please try again.</p>';
+          }
+        }
+      }
+    }, 50); // Check every 50ms - very fast!
+    
+    // Start the permanent solution immediately
+    setupToolOutputWatcher();
+    
+    // Also listen for load event as fallback
+    window.addEventListener("load", () => {
+      console.log('Load event fired, attempting to render offers');
+      if (!rendered) {
+        const success = renderAllOffers();
+        if (success) {
+          rendered = true;
+        }
+      }
+    });
+    
+    // Also try on DOMContentLoaded
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        console.log('DOMContentLoaded fired, attempting to render offers');
+        if (!rendered) {
+          const success = renderAllOffers();
+          if (success) {
+            rendered = true;
+          }
+        }
+      });
+    } else {
+      setTimeout(() => {
+        console.log('DOM already loaded, attempting to render offers');
+        if (!rendered) {
+          const success = renderAllOffers();
+          if (success) {
+            rendered = true;
+          }
+        }
+      }, 500);
+    }
+    
+    // Also try periodically as a last resort
+    const intervalId = setInterval(() => {
+      if (rendered) {
+        clearInterval(intervalId);
+        return;
+      }
+
+      if (hasValidToolOutput()) {
+        const success = renderAllOffers();
+        if (success) {
+          console.log('✅ Offers rendered successfully (interval check)');
+          rendered = true;
+          clearInterval(intervalId);
+        }
+      }
+    }, 150);
+
+    setTimeout(() => {
+      clearInterval(intervalId);
+    }, 20000);
+  </script>
+</body>
+</html>
+
