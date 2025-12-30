@@ -1,0 +1,16 @@
+{
+  "session_1767073274737_big0n88": {
+    "items": [
+      {
+        "type": "plan",
+        "id": "M0028122398SHKE98BC3295A88",
+        "name": "Unlimited",
+        "price": 30
+      }
+    ],
+    "total": 30,
+    "sessionId": "session_1767073274737_big0n88",
+    "expiresAt": 1767080474737,
+    "createdAt": 1767073274737
+  }
+}

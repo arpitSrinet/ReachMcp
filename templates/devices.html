@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Devices</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+      padding: 16px;
+      background: #f5f5f5;
+    }
+
+    .devices-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 24px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .device-card {
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+      padding: 20px;
+      background: white;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      transition: all 0.3s ease;
+    }
+
+    .device-card:hover {
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+      transform: translateY(-2px);
+    }
+
+    .device-brand {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+
+    .device-name {
+      font-size: 20px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 16px;
+    }
+
+    .device-image-container {
+      width: 100%;
+      height: 200px;
+      background: #f5f5f5;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .device-image {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
+    }
+
+    .device-image-placeholder {
+      width: 120px;
+      height: 120px;
+      background: #e0e0e0;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 48px;
+      color: #999;
+    }
+
+    .device-pricing {
+      margin-bottom: 12px;
+    }
+
+    .price-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .original-price {
+      font-size: 16px;
+      color: #999;
+      text-decoration: line-through;
+    }
+
+    .current-price {
+      font-size: 24px;
+      font-weight: 700;
+      color: #000;
+    }
+
+    .discount-badge {
+      display: inline-block;
+      background: #00C853;
+      color: white;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+
+    .financing-option {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+
+    .financing-logo {
+      display: inline-block;
+      vertical-align: middle;
+      margin-left: 4px;
+      width: 16px;
+      height: 16px;
+      background: #1976d2;
+      border-radius: 2px;
+    }
+
+    .add-to-cart-btn {
+      width: 100%;
+      background: #000;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 14px 24px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .add-to-cart-btn:hover {
+      background: #333;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .add-to-cart-btn:active {
+      transform: translateY(0);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="devices-container" id="devices-container">
+    <p style="padding: 20px; text-align: center; color: #666;">Loading devices...</p>
+  </div>
+
+  <script>
+    // Immediate diagnostic check
+    console.log('🔍 Devices widget initializing...', {
+      hasOpenAI: typeof window.openai !== 'undefined',
+      toolOutput: window.openai?.toolOutput,
+      toolOutputType: typeof window.openai?.toolOutput,
+      allKeys: window.openai ? Object.keys(window.openai) : []
+    });
+
+    // Function to render a single device card
+    function renderDevice(device) {
+      const deviceId = device.id || device.productNumber || device.ean || 'unknown';
+
+      // Get brand from API
+      let brand = device.manufacturer?.name || device.brand || device.translated?.manufacturer?.name || '';
+
+      // Get device name
+      let name = device.name || device.translated?.name || 'Unknown Device';
+
+      // Extract brand from device name if it starts with brand name
+      // Example: "Google Pixel 9 Pro XL" -> brand: "Google", name: "Pixel 9 Pro XL"
+      if (brand && name.toLowerCase().startsWith(brand.toLowerCase())) {
+        // Remove brand from the beginning of name
+        name = name.substring(brand.length).trim();
+      } else if (!brand && name) {
+        // If no brand from API, try to extract from name (first word)
+        const nameParts = name.split(' ');
+        if (nameParts.length > 1) {
+          brand = nameParts[0];
+          name = nameParts.slice(1).join(' ');
+        }
+      }
+
+      // Fallback if brand is still empty
+      if (!brand) {
+        brand = 'Unknown Brand';
+      }
+
+      const storage = device.properties?.find(p => p.group?.name === 'Storage')?.name || '';
+      const fullName = storage ? `${name} (${storage})` : name;
+
+      // Pricing
+      const calculatedPrice = device.calculatedPrice;
+      const currentPrice = calculatedPrice?.unitPrice || calculatedPrice?.totalPrice || device.price?.[0]?.gross || 0;
+      const originalPrice = device.price?.[0]?.listPrice || device.listPrice || null;
+
+      // Calculate discount
+      let discountPctg = 0;
+      if (originalPrice && originalPrice > currentPrice) {
+        discountPctg = Math.round(((originalPrice - currentPrice) / originalPrice) * 100);
+      }
+
+      // Format prices
+      const formattedCurrentPrice = currentPrice.toLocaleString('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+      const formattedOriginalPrice = originalPrice ? originalPrice.toLocaleString('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+      }) : null;
+
+      // Image
+      const coverImage = device.cover?.media?.url || device.media?.[0]?.media?.url || device.image || null;
+
+      // Financing (default value from design)
+      const monthlyPayment = 15.00;
+      const formattedMonthly = monthlyPayment.toLocaleString('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+
+      return `
+        <div class="device-card">
+          <div class="device-brand">${brand}</div>
+          <div class="device-name">${fullName}</div>
+          
+          <div class="device-image-container">
+            ${coverImage ?
+          `<img src="${coverImage}" alt="${name}" class="device-image" onerror="this.parentElement.innerHTML='<div class=\\'device-image-placeholder\\'>📱</div>'">` :
+          `<div class="device-image-placeholder">📱</div>`
+        }
+          </div>
+          
+          <div class="device-pricing">
+            <div class="price-row">
+              ${formattedOriginalPrice ? `<span class="original-price">${formattedOriginalPrice}</span>` : ''}
+              <span class="current-price">${formattedCurrentPrice}</span>
+            </div>
+            ${discountPctg > 0 ? `<div class="discount-badge">${discountPctg}% Off</div>` : ''}
+          </div>
+          
+          <div class="financing-option">
+            or as low as ${formattedMonthly}/mo with <span class="financing-logo"></span> TERRACE FINANCE
+          </div>
+          
+          <button class="add-to-cart-btn" onclick="addDeviceToCart('${deviceId}', '${name.replace(/'/g, "\\'")}', ${currentPrice})">
+            Add to Cart
+          </button>
+        </div>
+      `;
+    }
+
+    // Function to add device to cart
+    function addDeviceToCart(deviceId, deviceName, price) {
+      if (window.openai?.callTool) {
+        window.openai.callTool('add_to_cart', {
+          itemType: 'device',
+          itemId: deviceId
+        }).then(() => {
+          console.log('✅ Device added to cart:', deviceName);
+        }).catch(error => {
+          console.error('❌ Error adding device to cart:', error);
+          alert('Unable to add device to cart. Please try again.');
+        });
+      } else {
+        console.error('window.openai.callTool not available');
+        alert('Unable to add device to cart. Please try again.');
+      }
+    }
+
+    // Function to check if toolOutput has valid data
+    function hasValidToolOutput() {
+      if (!window.openai) return false;
+
+      const toolOutput = window.openai.toolOutput;
+      if (toolOutput && toolOutput !== null && typeof toolOutput === 'object') {
+        if (toolOutput.devices && Array.isArray(toolOutput.devices) && toolOutput.devices.length > 0) {
+          return true;
+        }
+        if (toolOutput.structuredContent && toolOutput.structuredContent.devices &&
+          Array.isArray(toolOutput.structuredContent.devices) && toolOutput.structuredContent.devices.length > 0) {
+          return true;
+        }
+      }
+
+      const metadata = window.openai.toolResponseMetadata;
+      if (metadata && metadata !== null && typeof metadata === 'object') {
+        if (metadata.devices && Array.isArray(metadata.devices) && metadata.devices.length > 0) {
+          return true;
+        }
+      }
+
+      return false;
+    }
+
+    // Function to extract devices from toolOutput
+    function extractDevices() {
+      if (!window.openai) {
+        console.log('❌ window.openai not available');
+        return [];
+      }
+
+      let toolOutput = window.openai.toolOutput;
+      console.log('🔍 Checking toolOutput:', {
+        exists: !!toolOutput,
+        isNull: toolOutput === null,
+        type: typeof toolOutput,
+        keys: toolOutput ? Object.keys(toolOutput) : []
+      });
+
+      if (toolOutput && toolOutput !== null && typeof toolOutput === 'object') {
+        if (toolOutput.devices && Array.isArray(toolOutput.devices)) {
+          console.log('✅ Found devices in toolOutput.devices:', toolOutput.devices.length);
+          return toolOutput.devices;
+        }
+        if (toolOutput.structuredContent && toolOutput.structuredContent.devices && Array.isArray(toolOutput.structuredContent.devices)) {
+          console.log('✅ Found devices in toolOutput.structuredContent.devices:', toolOutput.structuredContent.devices.length);
+          return toolOutput.structuredContent.devices;
+        }
+      }
+
+      const metadata = window.openai.toolResponseMetadata;
+      if (metadata && metadata !== null && typeof metadata === 'object') {
+        console.log('🔍 Checking toolResponseMetadata:', Object.keys(metadata));
+        if (metadata.devices && Array.isArray(metadata.devices)) {
+          console.log('✅ Found devices in toolResponseMetadata.devices:', metadata.devices.length);
+          return metadata.devices;
+        }
+      }
+
+      console.log('❌ No devices found in any location');
+      return [];
+    }
+
+    // Function to render all devices
+    function renderAllDevices() {
+      const container = document.getElementById('devices-container');
+      if (!container) {
+        console.error('Devices container not found');
+        return false;
+      }
+
+      const devices = extractDevices();
+
+      if (devices.length === 0) {
+        return false;
+      } else {
+        container.innerHTML = devices.map(renderDevice).join('');
+        return true;
+      }
+    }
+
+    // Permanent solution: Watch for toolOutput changing from null to data
+    let rendered = false;
+    let lastToolOutputValue = null;
+    let checkCount = 0;
+    const maxChecks = 500; // Check for up to 25 seconds (500 * 50ms)
+
+    // Very fast polling to detect when toolOutput changes from null to data
+    function watchForToolOutputChange() {
+      if (rendered) return;
+
+      checkCount++;
+
+      if (hasValidToolOutput()) {
+        const success = renderAllDevices();
+        if (success) {
+          console.log('✅ Devices rendered successfully (toolOutput populated)');
+          rendered = true;
+          return;
+        }
+      }
+
+      const currentValue = window.openai?.toolOutput;
+      if (currentValue !== lastToolOutputValue) {
+        lastToolOutputValue = currentValue;
+
+        if (currentValue !== null && currentValue !== undefined) {
+          console.log('toolOutput changed from null to:', typeof currentValue);
+          const success = renderAllDevices();
+          if (success) {
+            console.log('✅ Devices rendered (value change detected)');
+            rendered = true;
+            return;
+          }
+        }
+      }
+
+      if (!rendered && checkCount < maxChecks) {
+        setTimeout(watchForToolOutputChange, 50);
+      } else if (!rendered && checkCount >= maxChecks) {
+        const debugInfo = window.openai ?
+          `<p style="padding: 10px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; margin: 10px 0;">
+            <strong>Debug Info:</strong><br>
+            window.openai exists: ✅<br>
+            toolOutput exists: ${window.openai.toolOutput ? '✅' : '❌'}<br>
+            toolResponseMetadata exists: ${window.openai.toolResponseMetadata ? '✅' : '❌'}<br>
+            Available keys: ${Object.keys(window.openai).join(', ')}<br>
+            toolOutput value: ${JSON.stringify(window.openai.toolOutput || 'null', null, 2)}
+          </p>` :
+          '<p style="padding: 10px; background: #f8d7da; border: 1px solid #dc3545; border-radius: 4px; margin: 10px 0;"><strong>Error:</strong> window.openai is not available</p>';
+
+        container.innerHTML = debugInfo + '<p style="padding: 20px; text-align: center; color: #d32f2f;">⚠️ Unable to load devices. Please try again.</p>';
+      }
+    }
+
+    // Try to intercept toolOutput property changes using Proxy/defineProperty
+    function setupToolOutputWatcher() {
+      if (!window.openai) {
+        setTimeout(setupToolOutputWatcher, 100);
+        return;
+      }
+
+      try {
+        let currentValue = window.openai.toolOutput;
+
+        Object.defineProperty(window.openai, 'toolOutput', {
+          get: function () {
+            return currentValue;
+          },
+          set: function (newValue) {
+            currentValue = newValue;
+
+            if (newValue !== null && newValue !== undefined &&
+              typeof newValue === 'object') {
+
+              console.log('✅ toolOutput changed from null to data!', newValue);
+
+              setTimeout(() => {
+                if (!rendered) {
+                  const success = renderAllDevices();
+                  if (success) {
+                    rendered = true;
+                    console.log('✅ Devices rendered (property setter detected)');
+                  }
+                }
+              }, 10);
+            }
+          },
+          configurable: true,
+          enumerable: true
+        });
+
+        console.log('✅ Set up toolOutput property watcher');
+      } catch (e) {
+        console.warn('Could not set up property watcher (this is OK, using polling instead):', e.message);
+      }
+    }
+
+    // Start the permanent solution immediately
+    setupToolOutputWatcher();
+    watchForToolOutputChange();
+
+    // Also listen for load event as fallback
+    window.addEventListener("load", () => {
+      console.log('📥 Load event fired, attempting to render devices');
+      if (!rendered) {
+        const success = renderAllDevices();
+        if (success) {
+          rendered = true;
+          console.log('✅ Devices rendered on load event');
+        }
+      }
+    });
+
+    // Also try on DOMContentLoaded
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        console.log('📥 DOMContentLoaded fired, attempting to render devices');
+        if (!rendered) {
+          const success = renderAllDevices();
+          if (success) {
+            rendered = true;
+            console.log('✅ Devices rendered on DOMContentLoaded');
+          }
+        }
+      });
+    } else {
+      console.log('📥 DOM already loaded, attempting immediate render');
+      if (!rendered) {
+        const success = renderAllDevices();
+        if (success) {
+          rendered = true;
+          console.log('✅ Devices rendered (DOM already loaded)');
+        }
+      }
+    }
+  </script>
+</body>
+
+</html>

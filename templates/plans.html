@@ -153,6 +153,14 @@
   </div>
 
   <script>
+    // Immediate diagnostic check
+    console.log('🔍 Plans widget initializing...', {
+      hasOpenAI: typeof window.openai !== 'undefined',
+      toolOutput: window.openai?.toolOutput,
+      toolOutputType: typeof window.openai?.toolOutput,
+      allKeys: window.openai ? Object.keys(window.openai) : []
+    });
+
     // Function to render a single plan card
     function renderPlan(plan) {
       const planId = plan.id || plan.uniqueIdentifier;
@@ -279,17 +287,29 @@
     
     // Function to extract plans from toolOutput
     function extractPlans() {
-      if (!window.openai) return [];
+      if (!window.openai) {
+        console.log('❌ window.openai not available');
+        return [];
+      }
       
-      // Try toolOutput first
+      // Try toolOutput first - ChatGPT injects structuredContent directly as toolOutput
       let toolOutput = window.openai.toolOutput;
+      console.log('🔍 Checking toolOutput:', {
+        exists: !!toolOutput,
+        isNull: toolOutput === null,
+        type: typeof toolOutput,
+        keys: toolOutput ? Object.keys(toolOutput) : []
+      });
+      
       if (toolOutput && toolOutput !== null && typeof toolOutput === 'object') {
-        // Try direct plans property
+        // Try direct plans property (most common case)
         if (toolOutput.plans && Array.isArray(toolOutput.plans)) {
+          console.log('✅ Found plans in toolOutput.plans:', toolOutput.plans.length);
           return toolOutput.plans;
         }
-        // Try structuredContent.plans
+        // Try structuredContent.plans (nested case)
         if (toolOutput.structuredContent && toolOutput.structuredContent.plans && Array.isArray(toolOutput.structuredContent.plans)) {
+          console.log('✅ Found plans in toolOutput.structuredContent.plans:', toolOutput.structuredContent.plans.length);
           return toolOutput.structuredContent.plans;
         }
       }
@@ -297,11 +317,14 @@
       // Try toolResponseMetadata
       const metadata = window.openai.toolResponseMetadata;
       if (metadata && metadata !== null && typeof metadata === 'object') {
+        console.log('🔍 Checking toolResponseMetadata:', Object.keys(metadata));
         if (metadata.plans && Array.isArray(metadata.plans)) {
+          console.log('✅ Found plans in toolResponseMetadata.plans:', metadata.plans.length);
           return metadata.plans;
         }
       }
       
+      console.log('❌ No plans found in any location');
       return [];
     }
     
@@ -440,6 +463,16 @@
       }
     }
     
+    // Try immediate render first (data might already be available)
+    console.log('🚀 Attempting immediate render...');
+    if (hasValidToolOutput()) {
+      const success = renderAllPlans();
+      if (success) {
+        rendered = true;
+        console.log('✅ Plans rendered immediately!');
+      }
+    }
+    
     // Start the permanent solution immediately
     // 1. Set up property watcher (if possible)
     setupToolOutputWatcher();
@@ -449,11 +482,12 @@
     
     // 3. Also listen for load event as fallback
     window.addEventListener("load", () => {
-      console.log('Load event fired, attempting to render plans');
+      console.log('📥 Load event fired, attempting to render plans');
       if (!rendered) {
         const success = renderAllPlans();
         if (success) {
           rendered = true;
+          console.log('✅ Plans rendered on load event');
         }
       }
     });
@@ -461,20 +495,23 @@
     // 4. Also try on DOMContentLoaded
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', () => {
-        console.log('DOMContentLoaded fired, attempting to render plans');
+        console.log('📥 DOMContentLoaded fired, attempting to render plans');
         if (!rendered) {
           const success = renderAllPlans();
           if (success) {
             rendered = true;
+            console.log('✅ Plans rendered on DOMContentLoaded');
           }
         }
       });
     } else {
       // DOM already loaded, try immediately
+      console.log('📥 DOM already loaded, attempting immediate render');
       if (!rendered) {
         const success = renderAllPlans();
         if (success) {
           rendered = true;
+          console.log('✅ Plans rendered (DOM already loaded)');
         }
       }
     }

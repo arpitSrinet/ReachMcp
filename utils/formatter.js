@@ -246,6 +246,133 @@ export function formatCoverageAsCard(coverage) {
   return markdown;
 }
 
+export function formatDevicesAsCards(devices) {
+  try {
+    if (!devices || devices.length === 0) {
+      return "## 📱 Available Devices\n\nNo devices available.";
+    }
+
+    let markdown = `## 📱 Available Devices\n\n`;
+    
+    devices.forEach((device, index) => {
+      const name = device.name || device.translated?.name || "Unnamed Device";
+      const productNumber = device.productNumber || "N/A";
+      const price = device.calculatedPrice?.unitPrice || device.price?.[0]?.gross || 0;
+      const stock = device.availableStock || device.stock || 0;
+      const description = device.description || device.translated?.description || "";
+      
+      markdown += `### ${index + 1}. ${name}\n\n`;
+      markdown += `**Product Number:** ${productNumber}\n`;
+      markdown += `**Price:** $${price}\n`;
+      markdown += `**Stock:** ${stock > 0 ? `✅ In Stock (${stock})` : "❌ Out of Stock"}\n`;
+      
+      if (description) {
+        const shortDesc = description.substring(0, 150);
+        markdown += `**Description:** ${shortDesc}${description.length > 150 ? "..." : ""}\n`;
+      }
+      
+      // Add categories if available
+      if (device.categories && device.categories.length > 0) {
+        const categories = device.categories.map(cat => cat.name || cat.translated?.name).filter(Boolean);
+        if (categories.length > 0) {
+          markdown += `**Categories:** ${categories.join(", ")}\n`;
+        }
+      }
+      
+      markdown += `\n---\n\n`;
+    });
+
+    return markdown;
+  } catch (error) {
+    return `## 📱 Available Devices\n\nError formatting devices: ${error.message}`;
+  }
+}
+
+export function formatProtectionPlansAsCards(protectionPlans) {
+  try {
+    if (!protectionPlans || (Array.isArray(protectionPlans) && protectionPlans.length === 0)) {
+      return "## 🛡️ Protection Plans\n\nNo protection plans available.";
+    }
+
+    let markdown = `## 🛡️ Eligible States for Device Protection\n\n`;
+    markdown += `*Note: This endpoint returns eligible states only. Detailed plan information (pricing, coverage, plan IDs) is not available from this API.*\n\n`;
+    
+    // Handle array of states/plans
+    if (Array.isArray(protectionPlans)) {
+      protectionPlans.forEach((item, index) => {
+        // Try to extract meaningful information
+        const state = item.state || item.name || item.code || item.abbreviation || item;
+        const eligible = item.eligible !== undefined ? item.eligible : true;
+        const status = eligible ? "✅ Eligible" : "❌ Not Eligible";
+        
+        // If item is just a string (state name/code)
+        if (typeof item === 'string') {
+          markdown += `**${index + 1}. ${item}** - ✅ Eligible\n`;
+        } else {
+          // If item is an object
+          markdown += `**${index + 1}. ${state}**\n`;
+          markdown += `Status: ${status}\n`;
+          
+          // Only show fields that actually exist
+          if (item.id) {
+            markdown += `ID: ${item.id}\n`;
+          }
+          if (item.code && item.code !== state) {
+            markdown += `Code: ${item.code}\n`;
+          }
+          if (item.description) {
+            markdown += `Description: ${item.description}\n`;
+          }
+          if (item.price !== undefined && item.price !== null) {
+            markdown += `Price: $${item.price}\n`;
+          }
+          if (item.coverage) {
+            markdown += `Coverage: ${item.coverage}\n`;
+          }
+          
+          markdown += `\n`;
+        }
+      });
+    } else if (typeof protectionPlans === 'object') {
+      // If it's a single object
+      markdown += `### Protection Plan Information\n\n`;
+      
+      if (protectionPlans.states && Array.isArray(protectionPlans.states)) {
+        protectionPlans.states.forEach((state, index) => {
+          if (typeof state === 'string') {
+            markdown += `**${index + 1}. ${state}** - ✅ Eligible\n`;
+          } else {
+            markdown += `**${index + 1}. ${state.name || state.code || state}**\n`;
+          }
+        });
+      } else {
+        // Display all object properties for debugging
+        Object.keys(protectionPlans).forEach(key => {
+          const value = protectionPlans[key];
+          if (value !== null && value !== undefined) {
+            if (Array.isArray(value)) {
+              markdown += `**${key}:** ${value.length} items\n`;
+            } else if (typeof value === 'object') {
+              markdown += `**${key}:** ${JSON.stringify(value)}\n`;
+            } else {
+              markdown += `**${key}:** ${value}\n`;
+            }
+          }
+        });
+      }
+      
+      markdown += `\n`;
+    }
+
+    markdown += `\n---\n\n`;
+    markdown += `*To get detailed protection plan information (pricing, coverage, plan IDs), a different API endpoint may be required.*\n`;
+
+    return markdown;
+  } catch (error) {
+    return `## 🛡️ Protection Plans\n\nError formatting protection plans: ${error.message}`;
+  }
+}
+
 export function formatDeviceAsCard(device) {
   const isValid = device.isValid;
   const status = isValid ? "✅ Compatible" : "❌ Not Compatible";

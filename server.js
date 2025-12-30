@@ -21,7 +21,7 @@ import { getPlans } from "./services/plansService.js";
 import { addToCart, getCart, getCartWithSession } from "./services/cartService.js";
 import { checkCoverage } from "./services/coverageService.js";
 import { fetchOffers, fetchServices } from "./services/productService.js";
-import { validateDevice } from "./services/deviceService.js";
+import { validateDevice, fetchDevices, fetchProtectionPlans } from "./services/deviceService.js";
 import { getAuthToken } from "./services/authService.js";
 import { logger } from "./utils/logger.js";
 import {
@@ -30,6 +30,8 @@ import {
   formatServicesAsCards,
   formatCoverageAsCard,
   formatDeviceAsCard,
+  formatDevicesAsCards,
+  formatProtectionPlansAsCards,
   formatCartAsCard,
 } from "./utils/formatter.js";
 // Apps SDK Widget Renderers
@@ -59,19 +61,19 @@ const server = new Server(
 // Handle Initialize Request (required by MCP protocol)
 server.setRequestHandler(InitializeRequestSchema, async (request) => {
   const requestedVersion = request.params?.protocolVersion || "2024-11-05";
-  
-  logger.info("Initialize request received", { 
+
+  logger.info("Initialize request received", {
     protocolVersion: requestedVersion,
-    clientInfo: request.params?.clientInfo 
+    clientInfo: request.params?.clientInfo
   });
-  
+
   // Support multiple protocol versions that ChatGPT might request
   // Return the version ChatGPT requested, or default to latest supported
   const supportedVersions = ["2024-11-05", "2025-03-26", "2025-06-18"];
-  const protocolVersion = supportedVersions.includes(requestedVersion) 
-    ? requestedVersion 
+  const protocolVersion = supportedVersions.includes(requestedVersion)
+    ? requestedVersion
     : "2024-11-05";
-  
+
   return {
     protocolVersion: protocolVersion,
     capabilities: {
@@ -153,6 +155,32 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         },
       },
       {
+        name: "get_devices",
+        description: "Get available devices from the store. Optionally filter by limit.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            limit: {
+              type: "number",
+              description: "Maximum number of devices to return (optional, default: 8)",
+            },
+          },
+        },
+        _meta: {
+          "openai/outputTemplate": "ui://widget/devices.html",
+          "openai/resultCanProduceWidget": true,
+          "openai/widgetAccessible": true
+        },
+      },
+      {
+        name: "get_protection_plan",
+        description: "Get eligible states for device protection plans. Note: This endpoint returns eligible states only - detailed plan information (pricing, coverage, plan IDs) is not available from this API.",
+        inputSchema: {
+          type: "object",
+          properties: {},
+        },
+      },
+      {
         name: "check_coverage",
         description: "Check network coverage and device compatibility by ZIP code",
         inputSchema: {
@@ -186,7 +214,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: {
           type: "object",
           properties: {
-            sessionId: { 
+            sessionId: {
               type: "string",
               description: "Session ID (optional - will be auto-generated if not provided)"
             },
@@ -202,7 +230,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: {
           type: "object",
           properties: {
-            sessionId: { 
+            sessionId: {
               type: "string",
               description: "Session ID (optional - will use default session if not provided)"
             },
@@ -265,6 +293,12 @@ server.setRequestHandler(ListResourcesRequestSchema, async () => {
         description: "Widget for displaying coupons and offers",
         mimeType: "text/html+skybridge",
       },
+      {
+        uri: "ui://widget/devices.html",
+        name: "Devices Widget",
+        description: "Widget for displaying devices with pricing and Add to Cart",
+        mimeType: "text/html+skybridge",
+      },
     ],
   };
 });
@@ -273,12 +307,12 @@ server.setRequestHandler(ListResourcesRequestSchema, async () => {
 server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
   try {
     const { uri } = request.params;
-    
-    logger.info("🔍 Resource read requested", { 
+
+    logger.info("🔍 Resource read requested", {
       uri,
       fullRequest: JSON.stringify(request, null, 2)
     });
-    
+
     // Handle ui:// URIs for Apps SDK widgets
     if (uri.startsWith("ui://widget/")) {
       // Handle minimal hello widget test (inline)
@@ -342,15 +376,13 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
                 </html>
               `.trim(),
               _meta: {
-                "openai/widgetPrefersBorder": true,
-                "openai/widgetCSP": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:;",
-                "openai/widgetDomain": "reachmobile.com"
+                "openai/widgetPrefersBorder": true
               }
             },
           ],
         };
       }
-      
+
       // Extract template name from ui:// URI for file-based widgets
       // Format: ui://widget/plans.html
       const match = uri.match(/ui:\/\/widget\/([^\/]+)$/);
@@ -358,24 +390,24 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
         throw new Error(`Invalid widget URI: ${uri}`);
       }
       const templateName = match[1].replace('.html', '');
-      
+
       const __filename = fileURLToPath(import.meta.url);
       const __dirname = path.dirname(__filename);
       const templatesPath = path.join(__dirname, "templates");
       const templatePath = path.join(templatesPath, `${templateName}.html`);
-      
+
       logger.info("📁 Template lookup", {
         templateName,
         templatePath,
         exists: fs.existsSync(templatePath)
       });
-      
+
       if (!fs.existsSync(templatePath)) {
         throw new Error(`Template not found: ${templateName} at ${templatePath}`);
       }
-      
+
       const templateContent = fs.readFileSync(templatePath, "utf-8");
-      
+
       const response = {
         contents: [
           {
@@ -383,14 +415,12 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
             mimeType: "text/html+skybridge",
             text: templateContent,
             _meta: {
-              "openai/widgetPrefersBorder": true,
-              "openai/widgetCSP": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:;",
-              "openai/widgetDomain": "reachmobile.com"
+              "openai/widgetPrefersBorder": true
             }
           },
         ],
       };
-      
+
       logger.info("📤 Resource read response", {
         uri,
         mimeType: response.contents[0].mimeType,
@@ -399,7 +429,7 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
         hasMeta: !!response.contents[0]._meta,
         responsePreview: JSON.stringify(response, null, 2).substring(0, 500)
       });
-      
+
       return response;
     } else if (uri.includes('/templates/')) {
       // Fallback for HTTP URLs (backward compatibility)
@@ -408,18 +438,18 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
         throw new Error(`Invalid template URI: ${uri}`);
       }
       const templateName = templateMatch[1];
-      
+
       const __filename = fileURLToPath(import.meta.url);
       const __dirname = path.dirname(__filename);
       const templatesPath = path.join(__dirname, "templates");
       const templatePath = path.join(templatesPath, `${templateName}.html`);
-      
+
       if (!fs.existsSync(templatePath)) {
         throw new Error(`Template not found: ${templateName} at ${templatePath}`);
       }
-      
+
       const templateContent = fs.readFileSync(templatePath, "utf-8");
-      
+
       return {
         contents: [
           {
@@ -427,9 +457,7 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
             mimeType: "text/html+skybridge",
             text: templateContent,
             _meta: {
-              "openai/widgetPrefersBorder": true,
-              "openai/widgetCSP": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:;",
-              "openai/widgetDomain": "reachmobile.com"
+              "openai/widgetPrefersBorder": true
             }
           },
         ],
@@ -452,7 +480,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
 
   try {
-    logger.info(`🔧 Tool called: ${name}`, { 
+    logger.info(`🔧 Tool called: ${name}`, {
       args,
       fullRequest: JSON.stringify(request.params, null, 2)
     });
@@ -478,7 +506,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         `- 🚚 Explore shipping and service options\n` +
         `- 🛒 Manage your shopping cart\n\n` +
         `**Ready to get started?** Ask me to show you plans, check coverage, or help you with anything else!`;
-      
+
       return {
         content: [
           {
@@ -501,7 +529,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           ],
         };
       }
-      
+
       // Return structuredContent for Apps SDK widget
       // The widget will read this via window.openai.toolOutput
       const structuredData = {
@@ -524,7 +552,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           planCharging: plan.planCharging,
         }))
       };
-      
+
       const response = {
         structuredContent: structuredData,
         content: [
@@ -538,19 +566,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           widgetType: "planCard"
         }
       };
-      
+
       logger.info("📤 get_plans response", {
         hasStructuredContent: !!response.structuredContent,
         plansCount: structuredData.plans.length,
         responsePreview: JSON.stringify(response, null, 2).substring(0, 500)
       });
-      
+
       return response;
     }
 
     if (name === "get_offers") {
       const offers = await fetchOffers(args.serviceCode, tenant);
-      
+
       // Transform offers for structuredContent
       const structuredData = {
         offers: offers.map(offer => ({
@@ -574,7 +602,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           modifiedOn: offer.modifiedOn,
         }))
       };
-      
+
       const response = {
         structuredContent: structuredData,
         content: [
@@ -587,13 +615,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           widgetType: "offers"
         }
       };
-      
+
       logger.info("📤 get_offers response", {
         hasStructuredContent: !!response.structuredContent,
         offersCount: structuredData.offers.length,
         responsePreview: JSON.stringify(response, null, 2).substring(0, 500)
       });
-      
+
       return response;
     }
 
@@ -651,6 +679,79 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       };
     }
 
+    if (name === "get_devices") {
+      const limit = args.limit || 8;
+      const devices = await fetchDevices(limit, tenant);
+
+      if (!devices || devices.length === 0) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: "## 📱 Available Devices\n\nNo devices found.",
+            },
+          ],
+        };
+      }
+
+      // Return structuredContent for Apps SDK widget
+      const structuredData = {
+        devices: devices.map(device => ({
+          id: device.id || device.productNumber || device.ean,
+          name: device.name || device.translated?.name,
+          brand: device.manufacturer?.name || device.brand || device.translated?.manufacturer?.name,
+          productNumber: device.productNumber,
+          price: device.calculatedPrice?.unitPrice || device.calculatedPrice?.totalPrice || device.price?.[0]?.gross || 0,
+          originalPrice: device.price?.[0]?.listPrice || device.listPrice || null,
+          image: device.cover?.media?.url || device.media?.[0]?.media?.url || null,
+          properties: device.properties || [],
+          calculatedPrice: device.calculatedPrice,
+          availableStock: device.availableStock || device.stock || 0,
+        }))
+      };
+
+      const response = {
+        structuredContent: structuredData,
+        content: [
+          {
+            type: "text",
+            text: "**Here are top compatible devices 👉**",
+          }
+        ],
+        _meta: {
+          widgetType: "deviceCard"
+        }
+      };
+
+      logger.info("📤 get_devices response", {
+        hasStructuredContent: !!response.structuredContent,
+        devicesCount: structuredData.devices.length,
+        responsePreview: JSON.stringify(response, null, 2).substring(0, 500)
+      });
+
+      return response;
+    }
+
+    if (name === "get_protection_plan") {
+      const protectionPlans = await fetchProtectionPlans(tenant);
+
+      if (isAppsSDK) {
+        return {
+          content: [{ type: "text", text: JSON.stringify({ success: true, protectionPlans }) }],
+        };
+      }
+
+      const cardMarkdown = formatProtectionPlansAsCards(protectionPlans);
+      return {
+        content: [
+          {
+            type: "text",
+            text: cardMarkdown,
+          },
+        ],
+      };
+    }
+
     if (name === "add_to_cart") {
       const plan = (await getPlans(null, tenant)).find((p) => p.id === args.itemId);
       if (!plan) throw new Error(`Item ${args.itemId} not found`);
@@ -669,14 +770,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           {
             type: "text",
             text: `✅ ${plan.name} plan has been added to your cart!\n\n` +
-                  `🛒 Current Cart\n\n` +
-                  `Item: ${plan.name} (Plan)\n` +
-                  `Price: $${plan.price}/month\n` +
-                  `Quantity: 1\n` +
-                  `Cart Total: $${cart.total}\n\n` +
-                  `🧾 System message: Item added to cart\n` +
-                  `🆔 Session ID: ${sessionId}\n\n` +
-                  `**Important:** Use this Session ID (${sessionId}) when calling get_cart to view your full cart.`,
+              `🛒 Current Cart\n\n` +
+              `Item: ${plan.name} (Plan)\n` +
+              `Price: $${plan.price}/month\n` +
+              `Quantity: 1\n` +
+              `Cart Total: $${cart.total}\n\n` +
+              `🧾 System message: Item added to cart\n` +
+              `🆔 Session ID: ${sessionId}\n\n` +
+              `**Important:** Use this Session ID (${sessionId}) when calling get_cart to view your full cart.`,
           },
         ],
       };
@@ -685,10 +786,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     if (name === "get_cart") {
       // Use provided sessionId or get most recent
       const sessionId = args.sessionId || null;
-      
+
       // Use getCartWithSession to get cart with the actual sessionId used
       const cartResult = getCartWithSession(sessionId);
-      
+
       const structuredData = {
         cart: {
           items: cartResult.items || [],
@@ -696,7 +797,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         },
         sessionId: cartResult.sessionId || "default"
       };
-      
+
       const response = {
         structuredContent: structuredData,
         content: [
@@ -710,7 +811,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           widgetType: "cart"
         }
       };
-      
+
       logger.info("📤 get_cart response", {
         hasStructuredContent: !!response.structuredContent,
         itemsCount: structuredData.cart.items.length,
@@ -718,7 +819,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         providedSessionId: sessionId,
         responsePreview: JSON.stringify(response, null, 2).substring(0, 500)
       });
-      
+
       return response;
     }
 
@@ -762,18 +863,18 @@ async function main() {
     // HTTP/HTTPS (Streamable HTTP) mode - for ChatGPT / remote MCP clients
     const app = express();
     app.use(express.json());
-    
+
     // Create ONE transport instance and connect server to it ONCE
     // The transport is designed to handle multiple requests
     const transport = new StreamableHTTPServerTransport({
       enableJsonResponse: false  // Force SSE mode for ChatGPT
     });
-    
+
     // Connect server to transport ONCE at startup
     // This sets up the onmessage handler that routes requests to server handlers
     // Note: server.connect() will call transport.start() internally
     await server.connect(transport);
-    
+
     // Log registered handlers for debugging
     const registeredMethods = Array.from(server._requestHandlers?.keys() || []);
     logger.info("Server connected to StreamableHTTPServerTransport", {
@@ -782,14 +883,14 @@ async function main() {
       transportOnMessage: typeof transport.onmessage,
       registeredMethods: registeredMethods
     });
-    
+
     // Set request timeout for all requests (25 seconds)
     app.use((req, res, next) => {
       req.setTimeout(25000);
       res.setTimeout(25000);
       next();
     });
-    
+
     // Enhanced CORS configuration for ChatGPT
     app.use(cors({
       origin: '*',
@@ -805,7 +906,7 @@ async function main() {
       res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization');
       res.sendStatus(200);
     });
-    
+
     app.options('/templates/:name', (req, res) => {
       res.header('Access-Control-Allow-Origin', '*');
       res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -817,11 +918,11 @@ async function main() {
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = path.dirname(__filename);
     const templatesPath = path.join(__dirname, "templates");
-    
+
     app.get("/templates/:name", (req, res) => {
       const templateName = req.params.name;
       const templatePath = path.join(templatesPath, `${templateName}.html`);
-      
+
       if (fs.existsSync(templatePath)) {
         res.setHeader("Content-Type", "text/html+skybridge");
         res.sendFile(templatePath);
@@ -864,18 +965,15 @@ async function main() {
 
     app.post("/mcp", async (req, res) => {
       try {
-        // Force SSE mode by ensuring Accept header prioritizes text/event-stream
+        // Fix Accept header for StreamableHTTPServerTransport
         // ChatGPT connector expects text/event-stream (SSE) responses
         const acceptHeader = req.headers.accept || '';
-        // CRITICAL: Set Accept to ONLY text/event-stream (or prioritize it first)
-        // The transport checks Accept header to decide between JSON and SSE mode
-        // Even with enableJsonResponse: false, it may still check Accept header
-        req.headers.accept = 'text/event-stream';
-        
+        // Always set Accept to include text/event-stream for SSE mode
+        req.headers.accept = 'text/event-stream, application/json';
         if (acceptHeader !== req.headers.accept) {
-          logger.info("Accept header forced to SSE-only", { 
+          logger.info("Accept header set for SSE", {
             original: acceptHeader || '(missing)',
-            updated: req.headers.accept 
+            updated: req.headers.accept
           });
         }
 
@@ -891,7 +989,7 @@ async function main() {
         // This log is just for debugging - the actual handler will process it
 
         // Log incoming request for debugging
-        logger.info("📥 MCP request received", { 
+        logger.info("📥 MCP request received", {
           method: req.body?.method,
           id: req.body?.id,
           hasParams: !!req.body?.params,
@@ -909,8 +1007,8 @@ async function main() {
         // Set request timeout (25 seconds - less than ngrok's 60s)
         const timeout = setTimeout(() => {
           if (!res.headersSent) {
-            logger.error("Request timeout", { 
-              method: req.body?.method, 
+            logger.error("Request timeout", {
+              method: req.body?.method,
               id: req.body?.id,
               elapsed: "25s"
             });
@@ -954,7 +1052,7 @@ async function main() {
               setTimeout(() => reject(new Error("Transport timeout")), 20000);
             })
           ]);
-          
+
           clearTimeout(timeout);
         } catch (transportError) {
           clearTimeout(timeout);
@@ -981,13 +1079,13 @@ async function main() {
           throw transportError;
         }
       } catch (error) {
-        logger.error("MCP request error", { 
+        logger.error("MCP request error", {
           error: error.message,
           stack: error.stack,
           method: req.body?.method,
           id: req.body?.id
         });
-        
+
         // Return proper JSON-RPC error response in SSE format (only if not already sent)
         if (!res.headersSent) {
           res.writeHead(200, {
@@ -1013,16 +1111,13 @@ async function main() {
     // Duplicate the exact same handler code (can't modify req.path - it's read-only)
     app.post("/", async (req, res) => {
       try {
-        // Force SSE mode by ensuring Accept header prioritizes text/event-stream
+        // Fix Accept header for StreamableHTTPServerTransport
         const acceptHeader = req.headers.accept || '';
-        // CRITICAL: Set Accept to ONLY text/event-stream (or prioritize it first)
-        // The transport checks Accept header to decide between JSON and SSE mode
-        req.headers.accept = 'text/event-stream';
-        
+        req.headers.accept = 'text/event-stream, application/json';
         if (acceptHeader !== req.headers.accept) {
-          logger.info("Accept header forced to SSE-only (root /)", { 
+          logger.info("Accept header set for SSE (root /)", {
             original: acceptHeader || '(missing)',
-            updated: req.headers.accept 
+            updated: req.headers.accept
           });
         }
 
@@ -1032,7 +1127,7 @@ async function main() {
         // Note: resources/read is handled by the server handler, not here
         // This log is just for debugging - the actual handler will process it
 
-        logger.info("📥 MCP request received at root /", { 
+        logger.info("📥 MCP request received at root /", {
           method: req.body?.method,
           id: req.body?.id,
           hasParams: !!req.body?.params,
@@ -1042,8 +1137,8 @@ async function main() {
 
         const timeout = setTimeout(() => {
           if (!res.headersSent) {
-            logger.error("Request timeout at /", { 
-              method: req.body?.method, 
+            logger.error("Request timeout at /", {
+              method: req.body?.method,
               id: req.body?.id,
               elapsed: "25s"
             });
@@ -1108,13 +1203,13 @@ async function main() {
           throw transportError;
         }
       } catch (error) {
-        logger.error("MCP request error at /", { 
+        logger.error("MCP request error at /", {
           error: error.message,
           stack: error.stack,
           method: req.body?.method,
           id: req.body?.id
         });
-        
+
         if (!res.headersSent) {
           res.writeHead(200, {
             'Content-Type': 'text/event-stream',
@@ -1141,7 +1236,7 @@ async function main() {
       // HTTPS Configuration
       const __filename = fileURLToPath(import.meta.url);
       const __dirname = path.dirname(__filename);
-      
+
       const keyPath = process.env.SSL_KEY_PATH || path.join(__dirname, "certs", "key.pem");
       const certPath = process.env.SSL_CERT_PATH || path.join(__dirname, "certs", "cert.pem");
 
@@ -1151,10 +1246,10 @@ async function main() {
         cert = fs.readFileSync(certPath);
         logger.info("SSL certificates loaded successfully");
       } catch (e) {
-        logger.error("SSL certificates not found", { 
-          keyPath, 
-          certPath, 
-          error: e.message 
+        logger.error("SSL certificates not found", {
+          keyPath,
+          certPath,
+          error: e.message
         });
         logger.error("Please generate SSL certificates. Run: ./generate-certs.sh");
         process.exit(1);

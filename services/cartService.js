@@ -1,10 +1,19 @@
-// In production: Use DynamoDB/Redis
-const carts = new Map();
+import { save, load } from '../utils/storage.js';
+
+// Initialize from storage or default
+const initialCarts = load('carts') || {};
+const carts = new Map(Object.entries(initialCarts));
 const DEFAULT_SESSION_ID = "default_session";
 const SESSION_TTL = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
 
 // Track the most recent session ID (for when get_cart is called without sessionId)
-let mostRecentSessionId = null;
+let mostRecentSessionId = load('state')?.mostRecentSessionId || null;
+
+// Helper to persist state
+function persist() {
+  save('carts', Object.fromEntries(carts));
+  save('state', { mostRecentSessionId });
+}
 
 // Generate a unique session ID
 export function generateSessionId() {
@@ -14,6 +23,7 @@ export function generateSessionId() {
 // Clean up expired sessions
 function cleanupExpiredSessions() {
   const now = Date.now();
+  let changed = false;
   for (const [sessionId, cartData] of carts.entries()) {
     if (cartData.expiresAt && now > cartData.expiresAt) {
       carts.delete(sessionId);
@@ -22,8 +32,10 @@ function cleanupExpiredSessions() {
         mostRecentSessionId = null;
       }
       console.log(`Cleaned up expired session: ${sessionId}`);
+      changed = true;
     }
   }
+  if (changed) persist();
 }
 
 // Run cleanup every 30 minutes
@@ -32,7 +44,7 @@ setInterval(cleanupExpiredSessions, 30 * 60 * 1000);
 // Get the most recent active session
 function getMostRecentSession() {
   if (!mostRecentSessionId) return null;
-  
+
   const cartData = carts.get(mostRecentSessionId);
   if (cartData) {
     // Check if expired
@@ -43,11 +55,11 @@ function getMostRecentSession() {
     }
     return mostRecentSessionId;
   }
-  
+
   // If most recent session doesn't exist, find the latest one
   let latestSession = null;
   let latestTime = 0;
-  
+
   for (const [sessionId, cartData] of carts.entries()) {
     if (cartData.expiresAt && Date.now() > cartData.expiresAt) continue; // Skip expired
     const createdAt = cartData.createdAt || 0;
@@ -56,7 +68,7 @@ function getMostRecentSession() {
       latestSession = sessionId;
     }
   }
-  
+
   mostRecentSessionId = latestSession;
   return latestSession;
 }
@@ -68,9 +80,9 @@ export function getCart(sessionId = null) {
     const recentSession = getMostRecentSession();
     id = recentSession || DEFAULT_SESSION_ID;
   }
-  
+
   const cartData = carts.get(id);
-  
+
   // Check if cart exists and is not expired
   if (cartData) {
     if (cartData.expiresAt && Date.now() > cartData.expiresAt) {
@@ -83,7 +95,7 @@ export function getCart(sessionId = null) {
     }
     return { items: cartData.items || [], total: cartData.total || 0, sessionId: id };
   }
-  
+
   return { items: [], total: 0, sessionId: id };
 }
 
@@ -95,9 +107,9 @@ export function getCartWithSession(sessionId = null) {
     const recentSession = getMostRecentSession();
     id = recentSession || DEFAULT_SESSION_ID;
   }
-  
+
   const cartData = carts.get(id);
-  
+
   // Check if cart exists and is not expired
   if (cartData) {
     if (cartData.expiresAt && Date.now() > cartData.expiresAt) {
@@ -110,7 +122,7 @@ export function getCartWithSession(sessionId = null) {
     }
     return { items: cartData.items || [], total: cartData.total || 0, sessionId: id };
   }
-  
+
   return { items: [], total: 0, sessionId: id };
 }
 
@@ -118,11 +130,11 @@ export function addToCart(sessionId = null, item) {
   // Auto-generate sessionId if not provided
   const id = sessionId || generateSessionId();
   const cart = getCart(id);
-  
+
   // Add item to cart
   cart.items.push(item);
   cart.total = cart.items.reduce((sum, item) => sum + item.price, 0);
-  
+
   // Store cart with expiration time (2 hours from now)
   const expiresAt = Date.now() + SESSION_TTL;
   const createdAt = carts.get(id)?.createdAt || Date.now();
@@ -131,14 +143,21 @@ export function addToCart(sessionId = null, item) {
     expiresAt: expiresAt,
     createdAt: createdAt
   });
-  
+
   // Update most recent session
   mostRecentSessionId = id;
-  
+
+  // Persist to storage
+  persist();
+
   return { cart, sessionId: id };
 }
 
 export function clearCart(sessionId) {
   carts.delete(sessionId);
+  if (sessionId === mostRecentSessionId) {
+    mostRecentSessionId = null;
+  }
+  persist();
 }
 

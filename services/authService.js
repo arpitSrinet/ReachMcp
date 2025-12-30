@@ -4,12 +4,6 @@ import { logger } from "../utils/logger.js";
 // Store auth tokens per tenant
 const authTokens = new Map();
 
-// Function to clear expired/invalid token
-export function clearAuthToken(tenant = "reach") {
-  authTokens.delete(tenant);
-  logger.info("Auth token cleared", { tenant });
-}
-
 export async function getAuthToken(tenant = "reach") {
   // Check if we have a valid cached token
   const cached = authTokens.get(tenant);
@@ -54,7 +48,7 @@ export async function getAuthToken(tenant = "reach") {
     // Cache the token
     authTokens.set(tenant, { token, expiresAt });
 
-    logger.info("Authentication successful", { tenant, expiresAt: new Date(expiresAt).toISOString() });
+    logger.info("Authentication successful", { tenant });
     return token;
   } catch (error) {
     logger.error("Authentication failed", { error: error.message, tenant });
