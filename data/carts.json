@@ -1,16 +1,60 @@
 {
-  "session_1767073274737_big0n88": {
-    "items": [
+  "session_1767942180014_7g7a0oi": {
+    "lines": [
       {
-        "type": "plan",
-        "id": "M0028122398SHKE98BC3295A88",
-        "name": "Unlimited",
-        "price": 30
+        "lineNumber": 1,
+        "plan": {
+          "type": "plan",
+          "id": "M0028122398SHKAEF34A7711A1",
+          "uniqueIdentifier": "M0028122398SHKAEF34A7711A1",
+          "name": "By the Gig",
+          "price": 15,
+          "data": 1,
+          "dataUnit": "GB"
+        },
+        "device": {
+          "type": "device",
+          "id": "4673ec53003f4900a2160a771ee6e64c",
+          "name": "Google Pixel 9 Pro",
+          "price": 1002.99
+        },
+        "protection": null,
+        "sim": {
+          "type": "sim",
+          "simType": null,
+          "iccId": null,
+          "price": 0
+        }
+      },
+      {
+        "lineNumber": 2,
+        "plan": {
+          "type": "plan",
+          "id": "M0028122398SHK012B1CCEB302",
+          "uniqueIdentifier": "M0028122398SHK012B1CCEB302",
+          "name": "Essentials",
+          "price": 25,
+          "data": 5,
+          "dataUnit": "GB"
+        },
+        "device": {
+          "type": "device",
+          "id": "ab586a73c7914ea09a7991975577178c",
+          "name": "Google Pixel 9 Pro XL",
+          "price": 699
+        },
+        "protection": null,
+        "sim": {
+          "type": "sim",
+          "simType": null,
+          "iccId": null,
+          "price": 0
+        }
       }
     ],
-    "total": 30,
-    "sessionId": "session_1767073274737_big0n88",
-    "expiresAt": 1767080474737,
-    "createdAt": 1767073274737
+    "total": 1741.99,
+    "sessionId": "session_1767942180014_7g7a0oi",
+    "expiresAt": 1767961743582,
+    "createdAt": 1767942775556
   }
 }

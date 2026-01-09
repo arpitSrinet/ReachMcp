@@ -11,6 +11,13 @@
       box-sizing: border-box;
     }
     
+    :root {
+      --primary-green: #00C853;
+      --primary-green-hover: #063418;
+      --button-radius: 8px;
+      --button-padding: 14px 22px;
+    }
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
       padding: 16px;
@@ -61,6 +68,24 @@
       margin-bottom: 16px;
     }
     
+    .plan-meta {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px 16px;
+      font-size: 13px;
+      color: #455a64;
+      margin-bottom: 12px;
+      padding: 10px 12px;
+      background: #f5fdf8;
+      border-radius: 8px;
+      border: 1px dashed #a5d6a7;
+    }
+    
+    .plan-meta-label {
+      font-weight: 600;
+      color: #2e7d32;
+    }
+    
     .current-price {
       font-size: 32px;
       font-weight: bold;
@@ -109,19 +134,19 @@
     
     .select-button {
       width: 100%;
-      background: #00C853;
+      background: var(--primary-green);
       color: white;
       border: none;
-      padding: 12px 24px;
-      border-radius: 8px;
-      font-size: 16px;
+      padding: var(--button-padding);
+      border-radius: var(--button-radius);
+      font-size: 18px;
       font-weight: bold;
       cursor: pointer;
       transition: background 0.3s ease;
     }
     
     .select-button:hover {
-      background: #063418;
+      background: var(--primary-green-hover);
     }
     
     .broadband-facts {
@@ -149,7 +174,10 @@
 </head>
 <body>
   <div class="plans-container" id="plans-container">
-    <p style="padding: 20px; text-align: center; color: #666;">Loading plans...</p>
+    <div style="padding: 40px; text-align: center; color: #666;">
+      <div style="font-size: 18px; margin-bottom: 8px;">📱 Loading plans...</div>
+      <div style="font-size: 14px; color: #999;">Please wait while we fetch the latest plans</div>
+    </div>
   </div>
 
   <script>
@@ -211,6 +239,37 @@
             ${discountAmount > 0 ? `<div class="discount-badge">$${discountAmount} off applied</div>` : ''}
           </div>
           
+          <div class="plan-meta">
+            <div>
+              <div class="plan-meta-label">Country</div>
+              <div>${plan.countryCode || 'USA'}</div>
+            </div>
+            <div>
+              <div class="plan-meta-label">Currency</div>
+              <div>${plan.currency || 'USD'}</div>
+            </div>
+            <div>
+              <div class="plan-meta-label">Max Lines</div>
+              <div>${plan.maxLines || 1}</div>
+            </div>
+            <div>
+              <div class="plan-meta-label">Status</div>
+              <div>${plan.planStatus === 0 ? 'Active' : 'Inactive'}</div>
+            </div>
+            <div>
+              <div class="plan-meta-label">Limited Offer</div>
+              <div>${plan.isLimitedOffer ? 'Yes' : 'No'}</div>
+            </div>
+            <div>
+              <div class="plan-meta-label">Overage</div>
+              <div>
+                ${plan.overageAllowedData && plan.overageAllowedData > 0
+                  ? `${plan.overageAllowedData}${plan.overageAllowedDataUnit || 'MB'}`
+                  : 'None'}
+              </div>
+            </div>
+          </div>
+          
           <div class="plan-features">
             ${features.map(f => `
               <div class="feature">
@@ -220,40 +279,87 @@
             `).join('')}
           </div>
           
-          <button class="select-button" onclick="selectPlan('${planId}')">
-            🔘 Select Plan
+          <button class="select-button" onclick="selectPlan('${planId}', '${name.replace(/'/g, "\\'")}')">
+            🔘 Add to Cart
           </button>
           
           <details class="broadband-facts">
-            <summary>📋 Broadband Facts</summary>
+            <summary>📋 Broadband Facts & Technicals</summary>
             <div class="facts-content">
               <p>Plan ID: <code>${planId}</code></p>
               ${plan.planType ? `<p>Type: ${plan.planType}</p>` : ''}
               ${plan.serviceCode ? `<p>Service: ${plan.serviceCode}</p>` : ''}
               ${plan.planCharging ? `<p>Charging: ${plan.planCharging}</p>` : ''}
+              ${plan.createdDate ? `<p>Created: ${plan.createdDate}</p>` : ''}
+              <p>Talktime: ${plan.talktime}</p>
+              <p>Text: ${plan.text}</p>
+              <p>Throttle: ${plan.addThrottle ? 'Enabled' : 'Disabled'}${plan.throttleSpeed ? ` @ ${plan.throttleSpeed}${plan.throttleSpeedUnit || 'Kbps'}` : ''}</p>
+              <p>Data Cut Off: ${plan.addDataCutOff ? 'Enabled' : 'Disabled'}</p>
+              ${Array.isArray(plan.upGradableTo) && plan.upGradableTo.length
+                ? `<p>Upgradable To: ${plan.upGradableTo.join(', ')}</p>` : ''}
+              ${Array.isArray(plan.downGradableTo) && plan.downGradableTo.length
+                ? `<p>Downgradable To: ${plan.downGradableTo.join(', ')}</p>` : ''}
             </div>
           </details>
         </div>
       `;
     }
     
-    function selectPlan(planId) {
-      // Call MCP tool via OpenAI SDK
-      if (window.openai?.callTool) {
-        window.openai.callTool('add_to_cart', {
-          itemType: 'plan',
-          itemId: planId
-        }).then(result => {
-          alert(`✅ Plan added to cart!`);
-          console.log('Cart updated:', result);
-        }).catch(error => {
-          alert(`Error: ${error.message}`);
-          console.error('Error adding to cart:', error);
-        });
-      } else {
-        console.error('window.openai.callTool not available');
-        alert('Unable to add to cart. Please try again.');
+    // Shared helper function to populate chat input with prompt
+    function sendPrompt(message) {
+      if (!message) {
+        console.error('sendPrompt called without message');
+        return;
       }
+      
+      console.log('sendPrompt called with:', message);
+      
+      // Try openPromptInput first (populates input field)
+      if (window.openai?.openPromptInput) {
+        try {
+          window.openai.openPromptInput(message);
+          console.log('✅ Prompt added to chat input:', message);
+          return;
+        } catch (e) {
+          console.error('Error with openPromptInput:', e);
+        }
+      } 
+      
+      // Fallback to sendFollowUpMessage (sends immediately)
+      if (window.openai?.sendFollowUpMessage) {
+        try {
+          // Ensure message is a string
+          const promptText = String(message);
+          // Try calling with object format first
+          if (typeof window.openai.sendFollowUpMessage === 'function') {
+            // Check if it expects an object with 'prompt' property
+            const result = window.openai.sendFollowUpMessage({ prompt: promptText });
+            console.log('✅ Prompt sent via sendFollowUpMessage (object):', promptText);
+            return;
+          }
+        } catch (e) {
+          // If object format fails, try string format
+          try {
+            window.openai.sendFollowUpMessage(promptText);
+            console.log('✅ Prompt sent via sendFollowUpMessage (string):', promptText);
+            return;
+          } catch (e2) {
+            console.error('Error with sendFollowUpMessage (both formats):', e, e2);
+          }
+        }
+      } 
+      
+      // Last resort: show alert
+      console.error('No prompt API available. Available keys:', window.openai ? Object.keys(window.openai) : 'window.openai not found');
+      alert(`Action: ${message}\n\nPlease type this in the chat and press Enter.`);
+    }
+    
+    // Make sendPrompt available globally
+    window.sendPrompt = sendPrompt;
+    
+    function selectPlan(planId, planName) {
+      // Send prompt that will trigger add_to_cart tool
+      sendPrompt(`Add ${planName} plan to my cart`);
     }
     
     // Function to check if toolOutput has valid data
@@ -339,27 +445,37 @@
       // Extract plans using the robust extraction function
       const plans = extractPlans();
     
-    // Render all plans
+      // Render all plans
       if (plans.length === 0) {
-        // Don't show error yet - just return false so retry continues
+        // Don't show error yet - keep showing loading state and return false so retry continues
+        // Only update if we're still showing the initial loading message
+        if (container.innerHTML.includes('Loading plans')) {
+          // Keep the loading message, don't change anything
+        }
         return false;
       } else {
-        container.innerHTML = plans.map(renderPlan).join('');
+        const plansHtml = plans.map(renderPlan).join('');
+        container.innerHTML = plansHtml;
         return true;
       }
     }
+    
     
     // Permanent solution: Watch for toolOutput changing from null to data
     let rendered = false;
     let lastToolOutputValue = null;
     let checkCount = 0;
-    const maxChecks = 500; // Check for up to 25 seconds (500 * 50ms)
+    const startTime = Date.now();
+    const maxChecks = 1000; // Check for up to 25 seconds (1000 * 25ms)
+    const minChecksBeforeError = 800; // Don't show error until at least 20 seconds (800 * 25ms = 20s)
+    const minTimeBeforeError = 20000; // Don't show error until at least 20 seconds have passed (in milliseconds)
     
     // Very fast polling to detect when toolOutput changes from null to data
     function watchForToolOutputChange() {
       if (rendered) return; // Already rendered, stop watching
       
       checkCount++;
+      const elapsedTime = Date.now() - startTime;
       
       // Check if toolOutput has valid data now
       if (hasValidToolOutput()) {
@@ -390,25 +506,30 @@
       
       // Continue watching if not rendered and haven't exceeded max checks
       if (!rendered && checkCount < maxChecks) {
-        setTimeout(watchForToolOutputChange, 50); // Check every 50ms - very fast!
+        setTimeout(watchForToolOutputChange, 25); // Check every 25ms - even faster!
       } else if (!rendered && checkCount >= maxChecks) {
-        // Max checks reached, show error
-    const container = document.getElementById('plans-container');
-        if (container) {
-          const debugInfo = window.openai ? 
-            `<p style="padding: 10px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; margin: 10px 0;">
-              <strong>Debug Info:</strong><br>
-              window.openai exists: ✅<br>
-              toolOutput exists: ${window.openai.toolOutput ? '✅' : '❌'}<br>
-              toolOutput is null: ${window.openai.toolOutput === null ? '✅' : '❌'}<br>
-              toolResponseMetadata exists: ${window.openai.toolResponseMetadata ? '✅' : '❌'}<br>
-              Available keys: ${Object.keys(window.openai).join(', ')}<br>
-              toolOutput value: ${JSON.stringify(window.openai.toolOutput || 'null', null, 2)}
-            </p>` : 
-            '<p style="padding: 10px; background: #f8d7da; border: 1px solid #dc3545; border-radius: 4px; margin: 10px 0;"><strong>Error:</strong> window.openai is not available</p>';
-          
-          container.innerHTML = debugInfo + '<p style="padding: 20px; text-align: center; color: #d32f2f;">⚠️ Unable to load plans. Please try again.</p>';
-          console.error('Failed to render plans after', maxChecks, 'checks (', maxChecks * 50, 'ms)');
+        // Only show error if we've waited at least the minimum time AND minimum checks
+        // This prevents showing error too early (double safeguard)
+        if (checkCount >= minChecksBeforeError && elapsedTime >= minTimeBeforeError) {
+          const container = document.getElementById('plans-container');
+          if (container) {
+            // Only show error, not debug info (debug info should be in console only)
+            container.innerHTML = '<p style="padding: 20px; text-align: center; color: #d32f2f;">⚠️ Unable to load plans. Please try again.</p>';
+            console.error('Failed to render plans after', maxChecks, 'checks (', elapsedTime, 'ms)');
+            // Log debug info to console only, not in UI
+            if (window.openai) {
+              console.error('Debug Info:', {
+                toolOutputExists: !!window.openai.toolOutput,
+                toolOutputIsNull: window.openai.toolOutput === null,
+                toolResponseMetadataExists: !!window.openai.toolResponseMetadata,
+                availableKeys: Object.keys(window.openai),
+                toolOutputValue: window.openai.toolOutput
+              });
+            }
+          }
+        } else {
+          // Still within minimum wait time, keep polling (extend maxChecks)
+          setTimeout(watchForToolOutputChange, 25);
         }
       }
     }
@@ -477,8 +598,41 @@
     // 1. Set up property watcher (if possible)
     setupToolOutputWatcher();
     
-    // 2. Start fast polling to detect changes
+    // 2. Start fast polling to detect changes (immediately, don't wait)
     watchForToolOutputChange();
+    
+    // 3. Also try rendering after a very short delay (in case data arrives just after page load)
+    setTimeout(() => {
+      if (!rendered && hasValidToolOutput()) {
+        const success = renderAllPlans();
+        if (success) {
+          rendered = true;
+          console.log('✅ Plans rendered after short delay');
+        }
+      }
+    }, 100);
+    
+    // 4. Try again after 500ms (common delay for data injection)
+    setTimeout(() => {
+      if (!rendered && hasValidToolOutput()) {
+        const success = renderAllPlans();
+        if (success) {
+          rendered = true;
+          console.log('✅ Plans rendered after 500ms delay');
+        }
+      }
+    }, 500);
+    
+    // 5. Try again after 1 second
+    setTimeout(() => {
+      if (!rendered && hasValidToolOutput()) {
+        const success = renderAllPlans();
+        if (success) {
+          rendered = true;
+          console.log('✅ Plans rendered after 1s delay');
+        }
+      }
+    }, 1000);
     
     // 3. Also listen for load event as fallback
     window.addEventListener("load", () => {

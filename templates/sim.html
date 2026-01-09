@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIM Types</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    :root {
+      --primary-green: #00C853;
+      --primary-green-hover: #063418;
+      --button-radius: 8px;
+      --button-padding: 14px 22px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+      padding: 16px;
+      background: #f5f5f5;
+    }
+
+    .sim-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 20px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .sim-card {
+      border: 2px solid #e0e0e0;
+      border-radius: 12px;
+      padding: 24px;
+      background: white;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      transition: all 0.3s ease;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .sim-card:hover {
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+      transform: translateY(-2px);
+      border-color: var(--primary-green);
+    }
+
+    .sim-header {
+      margin-bottom: 16px;
+      border-bottom: 1px solid #e0e0e0;
+      padding-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .sim-icon {
+      font-size: 48px;
+      line-height: 1;
+    }
+
+    .sim-name {
+      font-size: 24px;
+      font-weight: bold;
+      color: #023d1a;
+      margin-bottom: 4px;
+    }
+
+    .sim-subtitle {
+      font-size: 14px;
+      color: #666;
+    }
+
+    .sim-features {
+      margin-bottom: 16px;
+      flex-grow: 1;
+    }
+
+    .feature {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+      font-size: 14px;
+      color: #455a64;
+    }
+
+    .feature-icon {
+      margin-right: 8px;
+      font-size: 18px;
+    }
+
+    .sim-pricing {
+      margin-bottom: 16px;
+      padding: 12px;
+      background: #f5fdf8;
+      border-radius: 8px;
+      border: 1px dashed #a5d6a7;
+    }
+
+    .sim-price {
+      font-size: 32px;
+      font-weight: bold;
+      color: var(--primary-green);
+      display: block;
+    }
+
+    .sim-price-note {
+      font-size: 12px;
+      color: #666;
+      margin-top: 4px;
+    }
+
+    .select-button {
+      width: 100%;
+      background: var(--primary-green);
+      color: white;
+      border: none;
+      padding: var(--button-padding);
+      border-radius: var(--button-radius);
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .select-button:hover {
+      background: var(--primary-green-hover);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .select-button:active {
+      transform: translateY(0);
+    }
+  </style>
+</head>
+<body>
+  <div class="sim-container" id="sim-container">
+    <div style="padding: 40px; text-align: center; color: #666;">
+      <div style="font-size: 18px; margin-bottom: 8px;">📲 Loading SIM types...</div>
+      <div style="font-size: 14px; color: #999;">Please wait while we fetch the available options</div>
+    </div>
+  </div>
+
+  <script>
+    // Immediate diagnostic check
+    console.log('🔍 SIM widget initializing...', {
+      hasOpenAI: typeof window.openai !== 'undefined',
+      toolOutput: window.openai?.toolOutput,
+      toolOutputType: typeof window.openai?.toolOutput,
+      allKeys: window.openai ? Object.keys(window.openai) : []
+    });
+
+    // Function to render a single SIM card
+    function renderSim(simType, lineNumber = null) {
+      const isESIM = simType === 'ESIM' || simType === 'esim';
+      const icon = isESIM ? '📱' : '📲';
+      const name = isESIM ? 'eSIM' : 'Physical SIM';
+      const subtitle = isESIM ? 'Digital SIM Card' : 'Traditional SIM Card';
+      
+      const features = isESIM ? [
+        { icon: '⚡', text: 'Instant activation' },
+        { icon: '📱', text: 'No physical card needed' },
+        { icon: '🔄', text: 'Easy to switch devices' },
+        { icon: '🌍', text: 'Works internationally' },
+        { icon: '✅', text: 'Compatible with modern phones' }
+      ] : [
+        { icon: '📦', text: 'Physical card delivery' },
+        { icon: '🔧', text: 'Works with all devices' },
+        { icon: '📞', text: 'Traditional compatibility' },
+        { icon: '🔄', text: 'Easy to swap' },
+        { icon: '✅', text: 'Universal support' }
+      ];
+
+      const buttonText = lineNumber 
+        ? `Select for Line ${lineNumber}`
+        : 'Add to Cart';
+
+      return `
+        <div class="sim-card">
+          <div class="sim-header">
+            <div class="sim-icon">${icon}</div>
+            <div>
+              <div class="sim-name">${name}</div>
+              <div class="sim-subtitle">${subtitle}</div>
+            </div>
+          </div>
+          
+          <div class="sim-features">
+            ${features.map(f => `
+              <div class="feature">
+                <span class="feature-icon">${f.icon}</span>
+                <span>${f.text}</span>
+              </div>
+            `).join('')}
+          </div>
+          
+          <div class="sim-pricing">
+            <span class="sim-price">Free</span>
+            <div class="sim-price-note">No additional cost</div>
+          </div>
+          
+          <button class="select-button" onclick="selectSim('${simType.toUpperCase()}', ${lineNumber || 'null'})">
+            ${buttonText}
+          </button>
+        </div>
+      `;
+    }
+    
+    // Shared helper function to populate chat input with prompt
+    function sendPrompt(message) {
+      if (!message) {
+        console.error('sendPrompt called without message');
+        return;
+      }
+      
+      console.log('sendPrompt called with:', message);
+      
+      // Try openPromptInput first (populates input field)
+      if (window.openai?.openPromptInput) {
+        try {
+          window.openai.openPromptInput(message);
+          console.log('✅ Prompt added to chat input:', message);
+          return;
+        } catch (e) {
+          console.error('Error with openPromptInput:', e);
+        }
+      } 
+      
+      // Fallback to sendFollowUpMessage (sends immediately)
+      if (window.openai?.sendFollowUpMessage) {
+        try {
+          const promptText = String(message);
+          if (typeof window.openai.sendFollowUpMessage === 'function') {
+            const result = window.openai.sendFollowUpMessage({ prompt: promptText });
+            console.log('✅ Prompt sent via sendFollowUpMessage (object):', promptText);
+            return;
+          }
+        } catch (e) {
+          try {
+            window.openai.sendFollowUpMessage(promptText);
+            console.log('✅ Prompt sent via sendFollowUpMessage (string):', promptText);
+            return;
+          } catch (e2) {
+            console.error('Error with sendFollowUpMessage (both formats):', e, e2);
+          }
+        }
+      } 
+      
+      console.error('No prompt API available. Available keys:', window.openai ? Object.keys(window.openai) : 'window.openai not found');
+      alert(`Action: ${message}\n\nPlease type this in the chat and press Enter.`);
+    }
+    
+    window.sendPrompt = sendPrompt;
+    
+    function selectSim(simType, lineNumber) {
+      if (lineNumber) {
+        sendPrompt(`Select ${simType} for line ${lineNumber}`);
+      } else {
+        sendPrompt(`Select ${simType} SIM type`);
+      }
+    }
+    
+    // Function to check if toolOutput has valid data
+    function hasValidToolOutput() {
+      if (!window.openai) return false;
+      
+      const toolOutput = window.openai.toolOutput;
+      if (toolOutput && toolOutput !== null && typeof toolOutput === 'object') {
+        if (toolOutput.simTypes && Array.isArray(toolOutput.simTypes) && toolOutput.simTypes.length > 0) {
+          return true;
+        }
+        if (toolOutput.structuredContent && toolOutput.structuredContent.simTypes && 
+            Array.isArray(toolOutput.structuredContent.simTypes) && toolOutput.structuredContent.simTypes.length > 0) {
+          return true;
+        }
+      }
+      
+      const metadata = window.openai.toolResponseMetadata;
+      if (metadata && metadata !== null && typeof metadata === 'object') {
+        if (metadata.simTypes && Array.isArray(metadata.simTypes) && metadata.simTypes.length > 0) {
+          return true;
+        }
+      }
+      
+      return false;
+    }
+    
+    // Function to extract SIM types from toolOutput
+    function extractSimTypes() {
+      if (!window.openai) {
+        console.log('❌ window.openai not available');
+        return [];
+      }
+      
+      let toolOutput = window.openai.toolOutput;
+      console.log('🔍 Checking toolOutput:', {
+        exists: !!toolOutput,
+        isNull: toolOutput === null,
+        type: typeof toolOutput,
+        keys: toolOutput ? Object.keys(toolOutput) : []
+      });
+      
+      if (toolOutput && toolOutput !== null && typeof toolOutput === 'object') {
+        if (toolOutput.simTypes && Array.isArray(toolOutput.simTypes)) {
+          console.log('✅ Found simTypes in toolOutput.simTypes:', toolOutput.simTypes.length);
+          return toolOutput.simTypes;
+        }
+        if (toolOutput.structuredContent && toolOutput.structuredContent.simTypes && 
+            Array.isArray(toolOutput.structuredContent.simTypes)) {
+          console.log('✅ Found simTypes in toolOutput.structuredContent.simTypes:', toolOutput.structuredContent.simTypes.length);
+          return toolOutput.structuredContent.simTypes;
+        }
+      }
+      
+      const metadata = window.openai.toolResponseMetadata;
+      if (metadata && metadata !== null && typeof metadata === 'object') {
+        console.log('🔍 Checking toolResponseMetadata:', Object.keys(metadata));
+        if (metadata.simTypes && Array.isArray(metadata.simTypes)) {
+          console.log('✅ Found simTypes in toolResponseMetadata.simTypes:', metadata.simTypes.length);
+          return metadata.simTypes;
+        }
+      }
+      
+      console.log('❌ No simTypes found in any location');
+      return [];
+    }
+    
+    // Function to render all SIM types
+    function renderAllSims() {
+      const container = document.getElementById('sim-container');
+      if (!container) {
+        console.error('SIM container not found');
+        return false;
+      }
+      
+      const simTypes = extractSimTypes();
+      
+      if (simTypes.length === 0) {
+        return false;
+      } else {
+        const simsHtml = simTypes.map(sim => {
+          const simType = sim.type || sim.simType || sim;
+          const lineNumber = sim.lineNumber || null;
+          return renderSim(simType, lineNumber);
+        }).join('');
+        container.innerHTML = simsHtml;
+        return true;
+      }
+    }
+    
+    // Watch for toolOutput changes
+    let rendered = false;
+    let lastToolOutputValue = null;
+    let checkCount = 0;
+    const startTime = Date.now();
+    const maxChecks = 1000;
+    const minChecksBeforeError = 800;
+    const minTimeBeforeError = 20000;
+    
+    function watchForToolOutputChange() {
+      if (rendered) return;
+      
+      checkCount++;
+      const elapsedTime = Date.now() - startTime;
+      
+      if (hasValidToolOutput()) {
+        const success = renderAllSims();
+        if (success) {
+          console.log('✅ SIM types rendered successfully (toolOutput populated)');
+          rendered = true;
+          return;
+        }
+      }
+      
+      const currentValue = window.openai?.toolOutput;
+      if (currentValue !== lastToolOutputValue) {
+        lastToolOutputValue = currentValue;
+        
+        if (currentValue !== null && currentValue !== undefined) {
+          console.log('toolOutput changed from null to:', typeof currentValue);
+          const success = renderAllSims();
+          if (success) {
+            console.log('✅ SIM types rendered (value change detected)');
+            rendered = true;
+            return;
+          }
+        }
+      }
+      
+      if (!rendered && checkCount < maxChecks) {
+        setTimeout(watchForToolOutputChange, 25);
+      } else if (!rendered && checkCount >= maxChecks) {
+        if (checkCount >= minChecksBeforeError && elapsedTime >= minTimeBeforeError) {
+          const container = document.getElementById('sim-container');
+          if (container) {
+            container.innerHTML = '<p style="padding: 20px; text-align: center; color: #d32f2f;">⚠️ Unable to load SIM types. Please try again.</p>';
+            console.error('Failed to render SIM types after', maxChecks, 'checks (', elapsedTime, 'ms)');
+          }
+        } else {
+          setTimeout(watchForToolOutputChange, 25);
+        }
+      }
+    }
+    
+    // Try immediate render first
+    console.log('🚀 Attempting immediate render...');
+    if (hasValidToolOutput()) {
+      const success = renderAllSims();
+      if (success) {
+        rendered = true;
+        console.log('✅ SIM types rendered immediately!');
+      }
+    }
+    
+    // Start watching
+    watchForToolOutputChange();
+    
+    // Also try after delays
+    setTimeout(() => {
+      if (!rendered && hasValidToolOutput()) {
+        const success = renderAllSims();
+        if (success) {
+          rendered = true;
+          console.log('✅ SIM types rendered after short delay');
+        }
+      }
+    }, 100);
+    
+    setTimeout(() => {
+      if (!rendered && hasValidToolOutput()) {
+        const success = renderAllSims();
+        if (success) {
+          rendered = true;
+          console.log('✅ SIM types rendered after 500ms delay');
+        }
+      }
+    }, 500);
+    
+    window.addEventListener("load", () => {
+      console.log('📥 Load event fired, attempting to render SIM types');
+      if (!rendered) {
+        const success = renderAllSims();
+        if (success) {
+          rendered = true;
+          console.log('✅ SIM types rendered on load event');
+        }
+      }
+    });
+  </script>
+</body>
+</html>
+

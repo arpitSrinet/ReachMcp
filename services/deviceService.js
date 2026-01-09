@@ -13,17 +13,11 @@ export async function validateDevice(imei, tenant = "reach") {
   return response.data;
 }
 
-export async function fetchDevices(limit = 8, tenant = "reach") {
+export async function fetchDevices(limit = 8, brand = null, tenant = "reach") {
   const shopwareApiUrl = "https://shopware-api-nctc-qa.reachmobileplatform.com/store-api/product";
   
-  const requestBody = {
-    limit: limit,
-    order: "topseller",
-    filter: [
-      {
-        type: "multi",
-        operator: "and",
-        queries: [
+  // Build filter queries
+  const filterQueries = [
           {
             type: "range",
             field: "stock",
@@ -48,7 +42,37 @@ export async function fetchDevices(limit = 8, tenant = "reach") {
               }
             ]
           }
-        ]
+  ];
+
+  // Add brand filter if provided
+  if (brand) {
+    const brandLower = brand.toLowerCase();
+    // Normalize common brand names
+    let normalizedBrand = brandLower;
+    if (brandLower.includes('iphone') || brandLower.includes('apple')) {
+      normalizedBrand = 'apple';
+    } else if (brandLower.includes('samsung') || brandLower.includes('galaxy')) {
+      normalizedBrand = 'samsung';
+    } else if (brandLower.includes('pixel') || brandLower.includes('google')) {
+      normalizedBrand = 'google';
+    }
+
+    // Add brand filter - search in product name (contains)
+    filterQueries.push({
+      type: "contains",
+      field: "name",
+      value: normalizedBrand === 'apple' ? 'iPhone' : (normalizedBrand === 'samsung' ? 'Samsung' : (normalizedBrand === 'google' ? 'Pixel' : brand))
+    });
+  }
+  
+  const requestBody = {
+    limit: limit,
+    order: "topseller",
+    filter: [
+      {
+        type: "multi",
+        operator: "and",
+        queries: filterQueries
       }
     ],
     sort: [
@@ -69,6 +93,11 @@ export async function fetchDevices(limit = 8, tenant = "reach") {
     }
   };
 
+  // Add timeout handling
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+  try {
   const response = await fetch(shopwareApiUrl, {
     method: "POST",
     headers: {
@@ -82,16 +111,60 @@ export async function fetchDevices(limit = 8, tenant = "reach") {
       "sw-include-seo-urls": "true",
       "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
     },
-    body: JSON.stringify(requestBody)
+      body: JSON.stringify(requestBody),
+      signal: controller.signal
   });
+
+    clearTimeout(timeoutId);
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Shopware API Error: ${response.status} ${response.statusText} - ${errorText}`);
+      logger.error("Shopware API Error", {
+        status: response.status,
+        statusText: response.statusText,
+        errorText: errorText.substring(0, 500)
+      });
+      throw new Error(`Shopware API Error: ${response.status} ${response.statusText} - ${errorText.substring(0, 200)}`);
   }
 
   const data = await response.json();
-  return data.data || data.elements || [];
+    const devices = data.data || data.elements || [];
+    
+    logger.info("Devices fetched successfully", {
+      count: devices.length,
+      limit: limit,
+      brand: brand || 'all',
+      hasData: !!data.data,
+      hasElements: !!data.elements,
+      responseKeys: Object.keys(data)
+    });
+    
+    // If no devices found, log warning with more context
+    if (devices.length === 0) {
+      logger.warn("No devices returned from Shopware API", {
+        limit: limit,
+        brand: brand || 'all',
+        responseStructure: {
+          hasData: !!data.data,
+          hasElements: !!data.elements,
+          total: data.total,
+          keys: Object.keys(data)
+        }
+      });
+    }
+    
+    return devices;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    
+    if (error.name === 'AbortError') {
+      logger.error("Devices API timeout", { timeout: 30000 });
+      throw new Error("Devices API request timed out after 30 seconds. Please try again.");
+    }
+    
+    logger.error("Devices API error", { error: error.message });
+    throw error;
+  }
 }
 
 export async function fetchProtectionPlans(tenant = "reach") {

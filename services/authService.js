@@ -1,58 +1,272 @@
 import { getTenantConfig } from "../config/tenantConfig.js";
 import { logger } from "../utils/logger.js";
+import { TimeoutError, NetworkError, APIError } from "./apiClient.js";
 
 // Store auth tokens per tenant
 const authTokens = new Map();
 
-export async function getAuthToken(tenant = "reach") {
-  // Check if we have a valid cached token
+/**
+ * Get the auth tokens map (for cron service to check expiration)
+ */
+export function getAuthTokensMap() {
+  return authTokens;
+}
+
+// Auth-specific retry configuration
+// Keep this tight so auth failures fail fast and don't hang the tools.
+const AUTH_CONFIG = {
+  timeout: 10000, // 10 seconds for auth
+  retries: 2,     // At most 2 additional attempts on network/5xx errors
+  retryDelay: 1000,
+  retryBackoff: 2,
+};
+
+/**
+ * Create a timeout promise that rejects after specified milliseconds
+ */
+function createTimeoutPromise(timeoutMs) {
+  return new Promise((_, reject) => {
+    setTimeout(() => {
+      reject(new TimeoutError(`Auth request timed out after ${timeoutMs}ms`, timeoutMs));
+    }, timeoutMs);
+  });
+}
+
+/**
+ * Make a single auth request with timeout
+ */
+async function makeAuthRequest(url, options, timeoutMs) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  
+  try {
+    const response = await Promise.race([
+      fetch(url, {
+        ...options,
+        signal: controller.signal,
+      }),
+      createTimeoutPromise(timeoutMs),
+    ]);
+    
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    
+    // Handle abort (timeout)
+    if (error.name === 'AbortError' || error instanceof TimeoutError) {
+      throw new TimeoutError(`Auth request timed out after ${timeoutMs}ms`, timeoutMs);
+    }
+    
+    // Handle network errors
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new NetworkError(`Network error during auth: ${error.message}`, error);
+    }
+    
+    // Re-throw if it's already a custom error
+    if (error instanceof TimeoutError || error instanceof NetworkError) {
+      throw error;
+    }
+    
+    // Wrap other errors as network errors
+    throw new NetworkError(`Auth request failed: ${error.message}`, error);
+  }
+}
+
+/**
+ * Calculate delay for exponential backoff
+ */
+function calculateRetryDelay(attempt, baseDelay, backoffMultiplier) {
+  return baseDelay * Math.pow(backoffMultiplier, attempt);
+}
+
+export async function getAuthToken(tenant = "reach", forceRefresh = false) {
+  // Get cached token for logging purposes
   const cached = authTokens.get(tenant);
-  if (cached && cached.expiresAt > Date.now()) {
+  
+  // If forceRefresh is false, check if we have a valid cached token
+  // If forceRefresh is true, always generate a new token
+  if (!forceRefresh) {
+    const bufferTime = 15 * 60 * 1000; // 15 minutes in milliseconds - aggressive refresh to prevent expiration
+    if (cached && cached.expiresAt > (Date.now() + bufferTime)) {
+      logger.debug("Using cached auth token", {
+        tenant,
+        expiresAt: new Date(cached.expiresAt).toISOString(),
+        minutesUntilExpiration: Math.floor((cached.expiresAt - Date.now()) / (60 * 1000))
+      });
     return cached.token;
+    }
+  } else {
+    logger.info("Force refreshing auth token", { tenant });
   }
 
   // Get new token
   const config = getTenantConfig(tenant);
   const url = `${config.apiBaseUrl}/apisvc/v0/account/generateauth`;
 
-  try {
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "accept": "*/*",
-        "content-type": "application/json",
-        "x-api-key": config.xapiKey,
-        "origin": "https://api.reachplatform.com",
-        "referer": "https://api.reachplatform.com/",
-        "user-agent": "Mozilla/5.0 (iPad; CPU OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1",
-      },
-      body: JSON.stringify({
-        accountAccessKeyId: config.accountAccessKeyId,
-        accountAccessSecreteKey: config.accountAccessSecreteKey,
-      }),
-    });
+  // Log why we're refreshing (expired, expiring soon, or new)
+  const reason = forceRefresh ? "Force refresh requested" :
+                 !cached ? "No token exists" : 
+                 (cached.expiresAt <= Date.now()) ? "Token expired" :
+                 "Token expiring soon (proactive refresh)";
+  
+  logger.info("Requesting new auth token", {
+    tenant,
+    reason,
+    apiBaseUrl: config.apiBaseUrl,
+    hasAccessKey: !!config.accountAccessKeyId,
+    hasSecretKey: !!config.accountAccessSecreteKey,
+    hasXApiKey: !!config.xapiKey,
+    currentTokenExpiresAt: cached ? new Date(cached.expiresAt).toISOString() : "N/A",
+  });
 
-    if (!response.ok) {
-      throw new Error(`Auth failed: ${response.status} ${response.statusText}`);
+  const requestOptions = {
+    method: "POST",
+    headers: {
+      "accept": "*/*",
+      "content-type": "application/json",
+      "x-api-key": config.xapiKey,
+      "origin": "https://api.reachplatform.com",
+      "referer": "https://api.reachplatform.com/",
+      "user-agent": "Mozilla/5.0 (iPad; CPU OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1",
+    },
+    body: JSON.stringify({
+      accountAccessKeyId: config.accountAccessKeyId,
+      accountAccessSecreteKey: config.accountAccessSecreteKey,
+    }),
+  };
+
+  let lastError;
+  
+  // Retry loop
+  for (let attempt = 0; attempt <= AUTH_CONFIG.retries; attempt++) {
+    try {
+      const response = await makeAuthRequest(url, requestOptions, AUTH_CONFIG.timeout);
+
+      // Read response body
+      let responseBody;
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        try {
+          responseBody = await response.json();
+        } catch (e) {
+          responseBody = await response.text();
+        }
+      } else {
+        responseBody = await response.text();
+      }
+
+      if (!response.ok) {
+        const errorMessage = typeof responseBody === 'object' 
+          ? (responseBody.message || responseBody.error || JSON.stringify(responseBody))
+          : responseBody;
+        
+        // Log full auth failure details once per response
+        logger.error("Auth HTTP error from generateauth", {
+          tenant,
+          url,
+          statusCode: response.status,
+          statusText: response.statusText,
+          responseBody,
+        });
+
+        const isAuthStatus = response.status === 401 || response.status === 403;
+        const error = new APIError(
+          isAuthStatus
+            ? `Auth failed (${response.status}). Please verify accountAccessKeyId, accountAccessSecreteKey, x-api-key, and apiBaseUrl match your working Postman/cURL request. Upstream message: ${errorMessage}`
+            : `Auth failed: ${response.status} ${response.statusText} - ${errorMessage}`,
+          response.status,
+          response.statusText,
+          responseBody,
+          response.status === 401 ? 'AUTHENTICATION_ERROR' : (isAuthStatus ? 'AUTHORIZATION_ERROR' : 'API_ERROR')
+        );
+        
+        // Retry on server errors or rate limits
+        if (attempt < AUTH_CONFIG.retries && (response.status >= 500 || response.status === 429)) {
+          const delay = calculateRetryDelay(attempt, AUTH_CONFIG.retryDelay, AUTH_CONFIG.retryBackoff);
+          logger.warn("Auth request failed, retrying...", {
+            tenant,
+            attempt: attempt + 1,
+            maxRetries: AUTH_CONFIG.retries,
+            delay,
+            statusCode: response.status,
+          });
+          
+          await new Promise(resolve => setTimeout(resolve, delay));
+          lastError = error;
+          continue;
+        }
+        
+        // Don't retry on client errors (4xx except 429)
+        throw error;
+      }
+
+      // Parse response
+      const data = typeof responseBody === 'string' ? JSON.parse(responseBody) : responseBody;
+      
+      if (data.status !== "SUCCESS") {
+        logger.error("Auth logical error from generateauth", {
+          tenant,
+          url,
+          statusCode: response.status,
+          statusText: response.statusText,
+          responseBody: data,
+        });
+
+        const error = new APIError(
+          `Auth failed: ${data.message || "Unknown error from generateauth"}`,
+          response.status,
+          response.statusText,
+          data,
+          'AUTHENTICATION_ERROR'
+        );
+        
+        // Don't retry on authentication failures
+        throw error;
+      }
+
+      const token = data.data.authorizationToken;
+      const expiresAt = new Date(data.data.exipiresAt).getTime();
+
+      // Cache the token
+      authTokens.set(tenant, { token, expiresAt });
+
+      logger.info("Authentication successful", { tenant });
+      return token;
+      
+    } catch (error) {
+      lastError = error;
+      
+      // Retry on network/timeout errors
+      if (attempt < AUTH_CONFIG.retries && 
+          (error instanceof NetworkError || error instanceof TimeoutError)) {
+        const delay = calculateRetryDelay(attempt, AUTH_CONFIG.retryDelay, AUTH_CONFIG.retryBackoff);
+        logger.warn("Auth request failed, retrying...", {
+          tenant,
+          attempt: attempt + 1,
+          maxRetries: AUTH_CONFIG.retries,
+          delay,
+          errorType: error.errorType || error.name,
+          errorMessage: error.message,
+        });
+        
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      
+      // Out of retries or not retryable
+      logger.error("Authentication failed", {
+        error: error.message,
+        tenant,
+        attempts: attempt + 1,
+        errorType: error.errorType || error.name,
+      });
+      
+      throw error;
     }
-
-    const data = await response.json();
-    
-    if (data.status !== "SUCCESS") {
-      throw new Error(`Auth failed: ${data.message || "Unknown error"}`);
-    }
-
-    const token = data.data.authorizationToken;
-    const expiresAt = new Date(data.data.exipiresAt).getTime();
-
-    // Cache the token
-    authTokens.set(tenant, { token, expiresAt });
-
-    logger.info("Authentication successful", { tenant });
-    return token;
-  } catch (error) {
-    logger.error("Authentication failed", { error: error.message, tenant });
-    throw error;
   }
+  
+  // This should never be reached
+  throw lastError || new Error('Unknown authentication error');
 }
 

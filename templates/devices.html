@@ -6,6 +6,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Devices</title>
   <style>
+    :root {
+      --primary-green: #00C853;
+      --primary-green-hover: #063418;
+      --button-radius: 8px;
+      --button-padding: 14px 22px;
+    }
+
     * {
       margin: 0;
       padding: 0;
@@ -27,7 +34,7 @@
     }
 
     .device-card {
-      border: 1px solid #e0e0e0;
+      border: 2px solid #e0e0e0;
       border-radius: 12px;
       padding: 20px;
       background: white;
@@ -38,6 +45,7 @@
     .device-card:hover {
       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
       transform: translateY(-2px);
+      border-color: var(--primary-green);
     }
 
     .device-brand {
@@ -106,12 +114,12 @@
     .current-price {
       font-size: 24px;
       font-weight: 700;
-      color: #000;
+      color: var(--primary-green);
     }
 
     .discount-badge {
       display: inline-block;
-      background: #00C853;
+      background: var(--primary-green);
       color: white;
       padding: 4px 10px;
       border-radius: 4px;
@@ -139,11 +147,11 @@
 
     .add-to-cart-btn {
       width: 100%;
-      background: #000;
+      background: var(--primary-green);
       color: white;
       border: none;
-      border-radius: 8px;
-      padding: 14px 24px;
+      border-radius: var(--button-radius);
+      padding: var(--button-padding);
       font-size: 16px;
       font-weight: 600;
       cursor: pointer;
@@ -151,7 +159,7 @@
     }
 
     .add-to-cart-btn:hover {
-      background: #333;
+      background: var(--primary-green-hover);
       transform: translateY(-1px);
       box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     }
@@ -159,10 +167,234 @@
     .add-to-cart-btn:active {
       transform: translateY(0);
     }
+    
+    .device-specs {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid #e0e0e0;
+      font-size: 13px;
+      color: #666;
+    }
+
+    .specs-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px 16px;
+      margin-top: 8px;
+    }
+
+    .spec-item {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .spec-label {
+      font-weight: 600;
+      color: #2e7d32;
+      font-size: 12px;
+      margin-bottom: 2px;
+    }
+
+    .spec-value {
+      color: #455a64;
+      font-size: 13px;
+    }
+
+    .device-meta {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #f0f0f0;
+      font-size: 11px;
+      color: #999;
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .stock-info {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    
+    .stock-available {
+      color: #00C853;
+    }
+
+    .stock-low {
+      color: #ff9800;
+    }
+    
+    .stock-out {
+      color: #d32f2f;
+    }
+
+    /* Filter Styles */
+    .filters-container {
+      max-width: 1400px;
+      margin: 0 auto 24px;
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .filters-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 16px;
+    }
+
+    .filters-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      align-items: end;
+    }
+
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .filter-label {
+      font-size: 14px;
+      font-weight: 500;
+      color: #666;
+    }
+
+    .filter-input,
+    .filter-select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+      transition: border-color 0.2s;
+    }
+
+    .filter-input:focus,
+    .filter-select:focus {
+      outline: none;
+      border-color: var(--primary-green);
+    }
+
+    .filter-checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .filter-checkbox-group:hover {
+      border-color: var(--primary-green);
+      background: #f5f5f5;
+    }
+
+    .filter-checkbox-group input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+      accent-color: var(--primary-green);
+    }
+
+    .filter-checkbox-group label {
+      cursor: pointer;
+      font-size: 14px;
+      color: #333;
+      user-select: none;
+    }
+
+    .filter-results {
+      font-size: 14px;
+      color: #666;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #e0e0e0;
+    }
+
+    .no-results {
+      text-align: center;
+      padding: 40px 20px;
+      color: #666;
+    }
+
+    .no-results-title {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #333;
+    }
+
+    .no-results-text {
+      font-size: 14px;
+      margin-bottom: 16px;
+    }
+
+    .clear-filters-btn {
+      background: #f5f5f5;
+      color: #666;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .clear-filters-btn:hover {
+      background: #e0e0e0;
+      border-color: #ccc;
+    }
+
+    @media (max-width: 768px) {
+      .filters-grid {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 
 <body>
+  <!-- Filters Container -->
+  <div class="filters-container" id="filters-container" style="display: none;">
+    <div class="filters-title">🔍 Filter Devices</div>
+    <div class="filters-grid">
+      <div class="filter-group">
+        <label class="filter-label">Search</label>
+        <input type="text" class="filter-input" id="filter-search" placeholder="Search by name or brand...">
+      </div>
+      <div class="filter-group">
+        <label class="filter-label">Brand</label>
+        <select class="filter-select" id="filter-brand">
+          <option value="">All Brands</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label class="filter-label">Max Price ($)</label>
+        <input type="number" class="filter-input" id="filter-price" placeholder="No limit" min="0" step="100">
+      </div>
+      <div class="filter-group">
+        <div class="filter-checkbox-group" onclick="toggleEsimFilter()">
+          <input type="checkbox" id="filter-esim">
+          <label for="filter-esim">eSIM Capable Only</label>
+        </div>
+      </div>
+    </div>
+    <div class="filter-results" id="filter-results"></div>
+  </div>
+
   <div class="devices-container" id="devices-container">
     <p style="padding: 20px; text-align: center; color: #666;">Loading devices...</p>
   </div>
@@ -205,18 +437,24 @@
         brand = 'Unknown Brand';
       }
 
-      const storage = device.properties?.find(p => p.group?.name === 'Storage')?.name || '';
+      // Extract properties (Storage, Color, etc.)
+      const properties = device.properties || [];
+      const storage = properties.find(p => p.group?.name === 'Storage')?.name || '';
+      const color = properties.find(p => p.group?.name === 'Color')?.name || '';
       const fullName = storage ? `${name} (${storage})` : name;
 
       // Pricing
-      const calculatedPrice = device.calculatedPrice;
+      const calculatedPrice = device.calculatedPrice || device.calculatedCheapestPrice;
       const currentPrice = calculatedPrice?.unitPrice || calculatedPrice?.totalPrice || device.price?.[0]?.gross || 0;
-      const originalPrice = device.price?.[0]?.listPrice || device.listPrice || null;
+      const listPrice = calculatedPrice?.listPrice?.price || device.price?.[0]?.listPrice || device.listPrice || null;
+      const originalPrice = listPrice;
 
       // Calculate discount
       let discountPctg = 0;
       if (originalPrice && originalPrice > currentPrice) {
         discountPctg = Math.round(((originalPrice - currentPrice) / originalPrice) * 100);
+      } else if (calculatedPrice?.listPrice?.percentage) {
+        discountPctg = Math.round(calculatedPrice.listPrice.percentage);
       }
 
       // Format prices
@@ -245,6 +483,47 @@
         maximumFractionDigits: 2
       });
 
+      // Device Specs
+      const weight = device.weight;
+      const width = device.width;
+      const height = device.height;
+      const length = device.length;
+      const dimensions = width && height && length 
+        ? `${width} × ${height} × ${length} mm`
+        : null;
+
+      // Stock information
+      const stock = device.stock;
+      const availableStock = device.availableStock;
+      const isAvailable = device.available !== false;
+      let stockStatus = '';
+      let stockClass = '';
+      if (stock !== undefined) {
+        if (stock > 5) {
+          stockStatus = `In Stock (${stock} available)`;
+          stockClass = 'stock-available';
+        } else if (stock > 0) {
+          stockStatus = `Low Stock (${stock} left)`;
+          stockClass = 'stock-low';
+        } else {
+          stockStatus = 'Out of Stock';
+          stockClass = 'stock-out';
+        }
+      } else if (isAvailable) {
+        stockStatus = 'Available';
+        stockClass = 'stock-available';
+      }
+
+      // Release date
+      const releaseDate = device.releaseDate;
+      const formattedReleaseDate = releaseDate 
+        ? new Date(releaseDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+        : null;
+
+      // Product numbers
+      const productNumber = device.productNumber || '';
+      const manufacturerNumber = device.manufacturerNumber || '';
+
       return `
         <div class="device-card">
           <div class="device-brand">${brand}</div>
@@ -269,29 +548,114 @@
             or as low as ${formattedMonthly}/mo with <span class="financing-logo"></span> TERRACE FINANCE
           </div>
           
-          <button class="add-to-cart-btn" onclick="addDeviceToCart('${deviceId}', '${name.replace(/'/g, "\\'")}', ${currentPrice})">
-            Add to Cart
+          ${(dimensions || weight || color || stockStatus || releaseDate) ? `
+          <div class="device-specs">
+            <div class="specs-grid">
+              ${dimensions ? `
+              <div class="spec-item">
+                <div class="spec-label">Dimensions</div>
+                <div class="spec-value">${dimensions}</div>
+              </div>
+              ` : ''}
+              ${weight ? `
+              <div class="spec-item">
+                <div class="spec-label">Weight</div>
+                <div class="spec-value">${weight} g</div>
+              </div>
+              ` : ''}
+              ${color ? `
+              <div class="spec-item">
+                <div class="spec-label">Color</div>
+                <div class="spec-value">${color}</div>
+              </div>
+              ` : ''}
+              ${releaseDate ? `
+              <div class="spec-item">
+                <div class="spec-label">Release Date</div>
+                <div class="spec-value">${formattedReleaseDate}</div>
+              </div>
+              ` : ''}
+            </div>
+            ${stockStatus ? `
+            <div class="stock-info ${stockClass}" style="margin-top: 8px;">
+              ${stockClass === 'stock-available' ? '✅' : stockClass === 'stock-low' ? '⚠️' : '❌'} ${stockStatus}
+            </div>
+            ` : ''}
+          </div>
+          ` : ''}
+
+          ${(productNumber || manufacturerNumber) ? `
+          <div class="device-meta">
+            ${productNumber ? `<span>SKU: ${productNumber}</span>` : ''}
+            ${manufacturerNumber ? `<span>Model: ${manufacturerNumber}</span>` : ''}
+          </div>
+          ` : ''}
+          
+          <button class="add-to-cart-btn" onclick="addDeviceToCart('${deviceId}', '${name.replace(/'/g, "\\'")}', ${currentPrice})" ${!isAvailable || (stock !== undefined && stock === 0) ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>
+            ${!isAvailable || (stock !== undefined && stock === 0) ? 'Out of Stock' : 'Add to Cart'}
           </button>
         </div>
       `;
     }
 
+    // Shared helper function to populate chat input with prompt
+    function sendPrompt(message) {
+      if (!message) {
+        console.error('sendPrompt called without message');
+        return;
+      }
+      
+      console.log('sendPrompt called with:', message);
+      
+      // Try openPromptInput first (populates input field)
+      if (window.openai?.openPromptInput) {
+        try {
+          window.openai.openPromptInput(message);
+          console.log('✅ Prompt added to chat input:', message);
+          return;
+        } catch (e) {
+          console.error('Error with openPromptInput:', e);
+        }
+      } 
+      
+      // Fallback to sendFollowUpMessage (sends immediately)
+      if (window.openai?.sendFollowUpMessage) {
+        try {
+          // Ensure message is a string
+          const promptText = String(message);
+          // Try calling with object format first
+          if (typeof window.openai.sendFollowUpMessage === 'function') {
+            // Check if it expects an object with 'prompt' property
+            const result = window.openai.sendFollowUpMessage({ prompt: promptText });
+            console.log('✅ Prompt sent via sendFollowUpMessage (object):', promptText);
+            return;
+          }
+        } catch (e) {
+          // If object format fails, try string format
+          try {
+            window.openai.sendFollowUpMessage(promptText);
+            console.log('✅ Prompt sent via sendFollowUpMessage (string):', promptText);
+            return;
+          } catch (e2) {
+            console.error('Error with sendFollowUpMessage (both formats):', e, e2);
+          }
+        }
+      } 
+      
+      // Last resort: show alert
+      console.error('No prompt API available. Available keys:', window.openai ? Object.keys(window.openai) : 'window.openai not found');
+      alert(`Action: ${message}\n\nPlease type this in the chat and press Enter.`);
+    }
+    
+    // Make functions available globally
+    window.sendPrompt = sendPrompt;
+    window.clearFilters = clearFilters;
+    window.toggleEsimFilter = toggleEsimFilter;
+    
     // Function to add device to cart
     function addDeviceToCart(deviceId, deviceName, price) {
-      if (window.openai?.callTool) {
-        window.openai.callTool('add_to_cart', {
-          itemType: 'device',
-          itemId: deviceId
-        }).then(() => {
-          console.log('✅ Device added to cart:', deviceName);
-        }).catch(error => {
-          console.error('❌ Error adding device to cart:', error);
-          alert('Unable to add device to cart. Please try again.');
-        });
-      } else {
-        console.error('window.openai.callTool not available');
-        alert('Unable to add device to cart. Please try again.');
-      }
+      // Send prompt that will trigger add_to_cart tool
+      sendPrompt(`Add ${deviceName} device to my cart`);
     }
 
     // Function to check if toolOutput has valid data
@@ -358,6 +722,200 @@
       return [];
     }
 
+    // Store all devices for filtering
+    let allDevices = [];
+
+    // Filter functions
+    function getDevicePrice(device) {
+      // Try multiple price fields in order of preference
+      if (device?.calculatedPrice?.unitPrice) return device.calculatedPrice.unitPrice;
+      if (device?.calculatedPrice?.totalPrice) return device.calculatedPrice.totalPrice;
+      if (device?.calculatedCheapestPrice?.unitPrice) return device.calculatedCheapestPrice.unitPrice;
+      if (device?.calculatedCheapestPrice?.totalPrice) return device.calculatedCheapestPrice.totalPrice;
+      if (device?.price?.[0]?.gross) return device.price[0].gross;
+      if (typeof device?.price === 'number') return device.price;
+      return 0;
+    }
+
+    function isEsimCapable(device) {
+      if (!device) return false;
+
+      // Check boolean/flag fields
+      const flagCandidates = [
+        device.esimAvailable,
+        device.eSimAvailable,
+        device.esimCapable,
+        device.supportsEsim,
+        device.esim_capable,
+        device.eSIMCapable
+      ];
+
+      if (flagCandidates.some(v => v === true || v === "true" || v === "Y" || v === "YES")) {
+        return true;
+      }
+
+      // Check properties array
+      const props = device.properties || [];
+      const propsText = JSON.stringify(props).toLowerCase();
+      if (propsText.includes("esim") || propsText.includes("e-sim")) {
+        return true;
+      }
+
+      // Check full device object
+      const fullText = JSON.stringify(device).toLowerCase();
+      return fullText.includes("esim") || fullText.includes("e-sim");
+    }
+
+    function filterDevices() {
+      const searchQuery = document.getElementById('filter-search')?.value.toLowerCase().trim() || '';
+      const brandFilter = document.getElementById('filter-brand')?.value || '';
+      const maxPrice = parseFloat(document.getElementById('filter-price')?.value) || null;
+      const esimOnly = document.getElementById('filter-esim')?.checked || false;
+
+      let filtered = [...allDevices];
+
+      // Text search filter
+      if (searchQuery) {
+        filtered = filtered.filter(device => {
+          const name = (device.name || device.translated?.name || '').toLowerCase();
+          const brand = (device.manufacturer?.name || device.brand || device.translated?.manufacturer?.name || '').toLowerCase();
+          const full = `${name} ${brand}`;
+          return full.includes(searchQuery);
+        });
+      }
+
+      // Brand filter
+      if (brandFilter) {
+        const brandLower = brandFilter.toLowerCase();
+        const normalizedBrand = brandLower.includes('iphone') || brandLower.includes('apple') ? 'apple' :
+                               brandLower.includes('samsung') || brandLower.includes('galaxy') ? 'samsung' :
+                               brandLower.includes('pixel') || brandLower.includes('google') ? 'google' : brandLower;
+
+        filtered = filtered.filter(device => {
+          const deviceName = (device.name || device.translated?.name || '').toLowerCase();
+          const deviceBrand = (device.manufacturer?.name || device.brand || device.translated?.manufacturer?.name || '').toLowerCase();
+
+          if (normalizedBrand === 'apple') {
+            return deviceName.includes('iphone') || deviceBrand.includes('apple');
+          } else if (normalizedBrand === 'samsung') {
+            return deviceName.includes('samsung') || deviceName.includes('galaxy') || deviceBrand.includes('samsung');
+          } else if (normalizedBrand === 'google') {
+            return deviceName.includes('pixel') || deviceBrand.includes('google');
+          } else {
+            return deviceName.includes(normalizedBrand) || deviceBrand.includes(normalizedBrand);
+          }
+        });
+      }
+
+      // Price filter
+      if (maxPrice !== null && maxPrice > 0) {
+        filtered = filtered.filter(device => {
+          const price = getDevicePrice(device);
+          return typeof price === 'number' && price <= maxPrice;
+        });
+      }
+
+      // eSIM filter
+      if (esimOnly) {
+        filtered = filtered.filter(device => isEsimCapable(device));
+      }
+
+      return filtered;
+    }
+
+    function updateFilterUI() {
+      const devices = extractDevices();
+      if (devices.length === 0) return;
+
+      allDevices = devices;
+      const filtersContainer = document.getElementById('filters-container');
+      const brandSelect = document.getElementById('filter-brand');
+
+      // Extract unique brands
+      const brandSet = new Set();
+      devices.forEach(device => {
+        const brandName = device.manufacturer?.name || device.brand || device.translated?.manufacturer?.name || null;
+        if (brandName) {
+          brandSet.add(brandName);
+        }
+      });
+
+      // Populate brand dropdown
+      const brands = Array.from(brandSet).sort();
+      brandSelect.innerHTML = '<option value="">All Brands</option>';
+      brands.forEach(brand => {
+        const option = document.createElement('option');
+        option.value = brand;
+        option.textContent = brand;
+        brandSelect.appendChild(option);
+      });
+
+      // Show filters container
+      if (filtersContainer) {
+        filtersContainer.style.display = 'block';
+      }
+
+      // Set up filter event listeners
+      document.getElementById('filter-search')?.addEventListener('input', applyFilters);
+      document.getElementById('filter-brand')?.addEventListener('change', applyFilters);
+      document.getElementById('filter-price')?.addEventListener('input', applyFilters);
+      document.getElementById('filter-esim')?.addEventListener('change', applyFilters);
+    }
+
+    function toggleEsimFilter() {
+      const checkbox = document.getElementById('filter-esim');
+      if (checkbox) {
+        checkbox.checked = !checkbox.checked;
+        applyFilters();
+      }
+    }
+
+    function applyFilters() {
+      const container = document.getElementById('devices-container');
+      const resultsDiv = document.getElementById('filter-results');
+      
+      if (!container) return;
+
+      const filtered = filterDevices();
+
+      // Update results count
+      if (resultsDiv) {
+        const activeFilters = [];
+        if (document.getElementById('filter-search')?.value.trim()) activeFilters.push('search');
+        if (document.getElementById('filter-brand')?.value) activeFilters.push('brand');
+        if (document.getElementById('filter-price')?.value) activeFilters.push('price');
+        if (document.getElementById('filter-esim')?.checked) activeFilters.push('eSIM');
+
+        if (activeFilters.length > 0) {
+          resultsDiv.innerHTML = `Showing <strong>${filtered.length}</strong> of <strong>${allDevices.length}</strong> devices`;
+        } else {
+          resultsDiv.innerHTML = `Showing <strong>${allDevices.length}</strong> devices`;
+        }
+      }
+
+      // Render filtered devices
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="no-results">
+            <div class="no-results-title">No devices found</div>
+            <div class="no-results-text">Try adjusting your filters to see more results.</div>
+            <button class="clear-filters-btn" onclick="clearFilters()">Clear All Filters</button>
+          </div>
+        `;
+      } else {
+        const devicesHtml = filtered.map(renderDevice).join('');
+        container.innerHTML = devicesHtml;
+      }
+    }
+
+    function clearFilters() {
+      document.getElementById('filter-search').value = '';
+      document.getElementById('filter-brand').value = '';
+      document.getElementById('filter-price').value = '';
+      document.getElementById('filter-esim').checked = false;
+      applyFilters();
+    }
+
     // Function to render all devices
     function renderAllDevices() {
       const container = document.getElementById('devices-container');
@@ -371,7 +929,20 @@
       if (devices.length === 0) {
         return false;
       } else {
-        container.innerHTML = devices.map(renderDevice).join('');
+        // Store devices and set up filters
+        allDevices = devices;
+        updateFilterUI();
+        
+        // Render all devices initially
+        const devicesHtml = devices.map(renderDevice).join('');
+        container.innerHTML = devicesHtml;
+        
+        // Update results count
+        const resultsDiv = document.getElementById('filter-results');
+        if (resultsDiv) {
+          resultsDiv.innerHTML = `Showing <strong>${devices.length}</strong> devices`;
+        }
+        
         return true;
       }
     }
