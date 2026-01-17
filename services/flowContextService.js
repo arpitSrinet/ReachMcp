@@ -1,14 +1,40 @@
-import { save, load } from '../utils/storage.js';
+import { save, load, loadAsync } from '../utils/storage.js';
 import { logger } from '../utils/logger.js';
 
 // Load all flow contexts from storage
 const flowContexts = new Map();
-const initialContexts = load('flowContext') || {};
+let initialized = false;
 
-// Initialize in-memory map from storage
-Object.entries(initialContexts).forEach(([sessionId, context]) => {
-  flowContexts.set(sessionId, context);
-});
+/**
+ * Initialize flow context service from MongoDB or JSON storage
+ * Call this after MongoDB connection is established
+ */
+export async function initializeFlowContextService() {
+  if (initialized) return;
+  
+  try {
+    const loadedContexts = await loadAsync('flowContext');
+    if (loadedContexts) {
+      flowContexts.clear();
+      Object.entries(loadedContexts).forEach(([sessionId, context]) => {
+        flowContexts.set(sessionId, context);
+      });
+    }
+    
+    initialized = true;
+    logger.info('Flow context service initialized', { 
+      contextCount: flowContexts.size 
+    });
+  } catch (error) {
+    logger.warn('Error initializing flow context service, using defaults:', error.message);
+    // Fallback to synchronous load if async fails
+    const fallbackContexts = load('flowContext') || {};
+    Object.entries(fallbackContexts).forEach(([sessionId, context]) => {
+      flowContexts.set(sessionId, context);
+    });
+    initialized = true;
+  }
+}
 
 // Helper to persist all contexts
 function persist() {
@@ -38,6 +64,7 @@ export function getFlowContext(sessionId) {
       lastIntent: null, // Last detected intent (entryIntent/returnTo/lastHandledIntent)
       lastAction: null, // Last action taken
       conversationHistory: [], // Track recent actions (last 10)
+      currentQuestion: null, // Current question being asked { type, text, expectedEntities, askedAt }
       lastUpdated: Date.now(),
       
       // Market/coverage data (market section)

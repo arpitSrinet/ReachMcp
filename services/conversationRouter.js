@@ -298,7 +298,7 @@ function routeLineCountFlow(entities, context) {
   if (!lineCount || lineCount < 1) {
     return {
       route: 'line_count',
-      action: 'start_purchase_flow',
+      action: 'start_session',
       prerequisites: { allowed: true },
       guidance: "How many lines do you need? (e.g., '2 lines' or 'family plan for 4')",
       requiresLineCount: true
@@ -307,7 +307,7 @@ function routeLineCountFlow(entities, context) {
 
   return {
     route: 'line_count',
-    action: 'start_purchase_flow',
+    action: 'start_session',
     prerequisites: { allowed: true },
     guidance: `Setting up ${lineCount} line${lineCount > 1 ? 's' : ''}. Next: Select plans.`,
     lineCount
@@ -361,7 +361,7 @@ export function getNextStep(context, currentIntent) {
   if (!context) {
     return {
       step: 'line_count',
-      action: 'start_purchase_flow',
+      action: 'start_session',
       guidance: "Let's get started! How many lines would you like to set up?"
     };
   }
@@ -383,7 +383,7 @@ export function getNextStep(context, currentIntent) {
  */
 function getActionForStep(step) {
   const stepActionMap = {
-    'line_count': 'start_purchase_flow',
+    'line_count': 'start_session',
     'plan_selection': 'get_plans',
     'device_selection': 'get_devices',
     'protection_selection': 'get_protection_plan',

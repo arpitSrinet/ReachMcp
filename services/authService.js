@@ -13,13 +13,18 @@ export function getAuthTokensMap() {
 }
 
 // Auth-specific retry configuration
-// Keep this tight so auth failures fail fast and don't hang the tools.
 const AUTH_CONFIG = {
-  timeout: 10000, // 10 seconds for auth
-  retries: 2,     // At most 2 additional attempts on network/5xx errors
+  timeout: 15000, // 15 seconds for auth (increased for reliability)
+  retries: 3,     // 3 additional attempts (increased for reliability)
   retryDelay: 1000,
   retryBackoff: 2,
 };
+
+// Buffer time before expiration to refresh token (20 minutes for safety)
+const TOKEN_REFRESH_BUFFER = 20 * 60 * 1000; // 20 minutes
+
+// Track ongoing token refresh to prevent race conditions
+const refreshPromises = new Map();
 
 /**
  * Create a timeout promise that rejects after specified milliseconds
@@ -80,44 +85,95 @@ function calculateRetryDelay(attempt, baseDelay, backoffMultiplier) {
   return baseDelay * Math.pow(backoffMultiplier, attempt);
 }
 
+/**
+ * Get auth token with intelligent caching and automatic refresh
+ * @param {string} tenant - Tenant name
+ * @param {boolean} forceRefresh - Force refresh even if token is valid
+ * @returns {Promise<string>} Auth token
+ */
 export async function getAuthToken(tenant = "reach", forceRefresh = false) {
-  // Get cached token for logging purposes
-  const cached = authTokens.get(tenant);
-  
-  // If forceRefresh is false, check if we have a valid cached token
-  // If forceRefresh is true, always generate a new token
-  if (!forceRefresh) {
-    const bufferTime = 15 * 60 * 1000; // 15 minutes in milliseconds - aggressive refresh to prevent expiration
-    if (cached && cached.expiresAt > (Date.now() + bufferTime)) {
-      logger.debug("Using cached auth token", {
-        tenant,
-        expiresAt: new Date(cached.expiresAt).toISOString(),
-        minutesUntilExpiration: Math.floor((cached.expiresAt - Date.now()) / (60 * 1000))
-      });
-    return cached.token;
+  // Check for existing refresh in progress to prevent race conditions
+  const refreshKey = `refresh_${tenant}`;
+  if (refreshPromises.has(refreshKey)) {
+    logger.info("Token refresh already in progress, waiting for existing refresh", { tenant });
+    try {
+      return await refreshPromises.get(refreshKey);
+    } catch (error) {
+      // If existing refresh failed, continue to create new one
+      logger.warn("Existing token refresh failed, creating new refresh", { tenant, error: error.message });
     }
-  } else {
-    logger.info("Force refreshing auth token", { tenant });
   }
 
-  // Get new token
+  // Check cached token if not forcing refresh
+  if (!forceRefresh) {
+    const cached = authTokens.get(tenant);
+    const now = Date.now();
+    
+    if (cached) {
+      const timeUntilExpiration = cached.expiresAt - now;
+      const bufferTime = TOKEN_REFRESH_BUFFER;
+      
+      // Token is still valid with buffer time - return cached token
+      if (timeUntilExpiration > bufferTime) {
+        const minutesUntilExpiration = Math.floor(timeUntilExpiration / (60 * 1000));
+        logger.debug("Using cached auth token", {
+          tenant,
+          expiresAt: new Date(cached.expiresAt).toISOString(),
+          minutesUntilExpiration,
+        });
+        return cached.token;
+      }
+      
+      // Token is expiring soon but still valid - refresh in background
+      if (timeUntilExpiration > 0) {
+        logger.info("Token expiring soon, refreshing in background", {
+          tenant,
+          minutesUntilExpiration: Math.floor(timeUntilExpiration / (60 * 1000)),
+        });
+        // Refresh in background but return current token immediately
+        refreshTokenInBackground(tenant).catch(err => {
+          logger.error("Background token refresh failed", { tenant, error: err.message });
+        });
+        return cached.token;
+      }
+      
+      // Token expired
+      logger.info("Cached token expired, fetching new token", {
+        tenant,
+        expiredAt: new Date(cached.expiresAt).toISOString(),
+      });
+    } else {
+      logger.info("No cached token found, fetching new token", { tenant });
+    }
+  } else {
+    logger.info("Force refresh requested, fetching new token", { tenant });
+  }
+
+  // Create refresh promise to prevent concurrent refreshes
+  const refreshPromise = fetchNewToken(tenant);
+  refreshPromises.set(refreshKey, refreshPromise);
+  
+  try {
+    const token = await refreshPromise;
+    return token;
+  } finally {
+    refreshPromises.delete(refreshKey);
+  }
+}
+
+/**
+ * Fetch a new token from the API
+ */
+async function fetchNewToken(tenant) {
   const config = getTenantConfig(tenant);
   const url = `${config.apiBaseUrl}/apisvc/v0/account/generateauth`;
 
-  // Log why we're refreshing (expired, expiring soon, or new)
-  const reason = forceRefresh ? "Force refresh requested" :
-                 !cached ? "No token exists" : 
-                 (cached.expiresAt <= Date.now()) ? "Token expired" :
-                 "Token expiring soon (proactive refresh)";
-  
   logger.info("Requesting new auth token", {
     tenant,
-    reason,
     apiBaseUrl: config.apiBaseUrl,
     hasAccessKey: !!config.accountAccessKeyId,
     hasSecretKey: !!config.accountAccessSecreteKey,
     hasXApiKey: !!config.xapiKey,
-    currentTokenExpiresAt: cached ? new Date(cached.expiresAt).toISOString() : "N/A",
   });
 
   const requestOptions = {
@@ -225,13 +281,51 @@ export async function getAuthToken(tenant = "reach", forceRefresh = false) {
         throw error;
       }
 
+      // Fix typo: exipiresAt -> expiresAt (try both for backward compatibility)
+      const expiresAtStr = data.data.expiresAt || data.data.exipiresAt;
+      if (!expiresAtStr) {
+        throw new APIError(
+          "Auth response missing expiration time",
+          response.status,
+          response.statusText,
+          data,
+          'AUTHENTICATION_ERROR'
+        );
+      }
+
       const token = data.data.authorizationToken;
-      const expiresAt = new Date(data.data.exipiresAt).getTime();
+      const expiresAt = new Date(expiresAtStr).getTime();
+
+      // Validate token and expiration
+      if (!token) {
+        throw new APIError(
+          "Auth response missing token",
+          response.status,
+          response.statusText,
+          data,
+          'AUTHENTICATION_ERROR'
+        );
+      }
+
+      if (isNaN(expiresAt) || expiresAt <= Date.now()) {
+        throw new APIError(
+          "Auth response has invalid or expired expiration time",
+          response.status,
+          response.statusText,
+          data,
+          'AUTHENTICATION_ERROR'
+        );
+      }
 
       // Cache the token
       authTokens.set(tenant, { token, expiresAt });
 
-      logger.info("Authentication successful", { tenant });
+      logger.info("Authentication successful", { 
+        tenant,
+        expiresAt: new Date(expiresAt).toISOString(),
+        minutesUntilExpiration: Math.floor((expiresAt - Date.now()) / (60 * 1000))
+      });
+      
       return token;
       
     } catch (error) {
@@ -266,7 +360,19 @@ export async function getAuthToken(tenant = "reach", forceRefresh = false) {
     }
   }
   
-  // This should never be reached
   throw lastError || new Error('Unknown authentication error');
+}
+
+/**
+ * Refresh token in background (non-blocking)
+ */
+async function refreshTokenInBackground(tenant) {
+  try {
+    await fetchNewToken(tenant);
+    logger.info("Background token refresh completed", { tenant });
+  } catch (error) {
+    logger.error("Background token refresh failed", { tenant, error: error.message });
+    // Don't throw - this is background refresh
+  }
 }
 

@@ -216,9 +216,22 @@ export function formatServicesAsCards(services) {
 }
 
 export function formatCoverageAsCard(coverage) {
-  const isValid = coverage.isValid || coverage.brandCoverage;
-  const status = isValid ? "✅ Available" : "❌ Not Available";
-  const statusColor = isValid ? "🟢" : "🔴";
+  // Handle null/undefined for isValid - null means unknown, not false
+  const isValid = coverage.isValid === true 
+    ? true 
+    : (coverage.isValid === false ? false : (coverage.brandCoverage === true ? true : null));
+  
+  let status, statusColor;
+  if (isValid === true) {
+    status = "✅ Available";
+    statusColor = "🟢";
+  } else if (isValid === false) {
+    status = "❌ Not Available";
+    statusColor = "🔴";
+  } else {
+    status = "⚠️ Coverage information unavailable";
+    statusColor = "🟡";
+  }
   
   let markdown = `## 📶 Network Coverage Details\n\n`;
   
@@ -399,7 +412,7 @@ export function formatCoverageAsCard(coverage) {
   
   // Summary and Action
   markdown += `### 📊 Summary\n\n`;
-  if (isValid) {
+  if (isValid === true) {
     markdown += `✅ **Coverage is available** in ZIP code ${coverage.zipCode}\n\n`;
     markdown += `**Next Steps:**\n`;
     markdown += `• You can proceed to select a mobile plan\n`;
@@ -410,11 +423,21 @@ export function formatCoverageAsCard(coverage) {
     if (coverage.compatibility5G || coverage.compatibility5g) {
       markdown += `• 5G network is available for high-speed data\n`;
     }
-  } else {
+  } else if (isValid === false) {
     markdown += `❌ **Coverage may be limited** in ZIP code ${coverage.zipCode}\n\n`;
     markdown += `**Recommendation:**\n`;
     markdown += `• Contact support to verify coverage in your area\n`;
     markdown += `• Consider checking a nearby ZIP code\n`;
+  } else {
+    // isValid is null (unknown)
+    markdown += `⚠️ **Coverage information is not available** for ZIP code ${coverage.zipCode}\n\n`;
+    markdown += `**This could mean:**\n`;
+    markdown += `• Coverage data for this area is not in our database\n`;
+    markdown += `• The API did not return coverage information\n\n`;
+    markdown += `**What you can do:**\n`;
+    markdown += `• Try a nearby ZIP code to check coverage\n`;
+    markdown += `• Contact support for coverage verification\n`;
+    markdown += `• Proceed with plan selection - coverage may still be available\n`;
   }
   
   return markdown;

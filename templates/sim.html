@@ -12,8 +12,8 @@
     }
     
     :root {
-      --primary-green: #00C853;
-      --primary-green-hover: #063418;
+      --primary-green: #30ba95;
+      --primary-green-hover: #269678;
       --button-radius: 8px;
       --button-padding: 14px 22px;
     }
@@ -136,6 +136,193 @@
     .select-button:active {
       transform: translateY(0);
     }
+    
+    .select-button--selected {
+      background: var(--primary-green);
+    }
+    
+    .select-button--selected:hover {
+      background: var(--primary-green-hover);
+    }
+    
+    .line-selection-section {
+      margin-top: 16px;
+      padding: 16px;
+      background: #f9fafb;
+      border-radius: 12px;
+      display: none;
+      position: relative;
+      z-index: 10;
+    }
+    
+    .line-selection-section.show {
+      display: block;
+    }
+    
+    .line-selection-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #111827;
+      margin-bottom: 12px;
+    }
+    
+    .line-checkboxes {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    
+    .line-checkbox-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      padding: 8px;
+      border-radius: 8px;
+      transition: background 0.2s ease;
+    }
+    
+    .line-checkbox-item:hover {
+      background: #f3f4f6;
+    }
+    
+    .line-checkbox-item.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    .line-checkbox-item.disabled:hover {
+      background: transparent;
+    }
+    
+    .line-checkbox {
+      position: relative;
+      width: 24px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+    
+    .line-checkbox input[type="checkbox"] {
+      position: absolute;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+    }
+    
+    .line-checkbox-custom {
+      width: 24px;
+      height: 24px;
+      border: 2px solid #d1d5db;
+      border-radius: 50%;
+      background: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+    }
+    
+    .line-checkbox input[type="checkbox"]:checked + .line-checkbox-custom {
+      background: var(--primary-green);
+      border-color: var(--primary-green);
+    }
+    
+    .line-checkbox input[type="checkbox"]:checked + .line-checkbox-custom::after {
+      content: '✓';
+      color: white;
+      font-size: 14px;
+      font-weight: bold;
+    }
+    
+    .line-checkbox input[type="checkbox"]:disabled + .line-checkbox-custom {
+      background: #e5e7eb;
+      border-color: #d1d5db;
+      cursor: not-allowed;
+    }
+    
+    .line-label {
+      font-size: 14px;
+      color: #111827;
+      font-weight: 500;
+    }
+    
+    .global-confirm-section {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: white;
+      border-top: 1px solid #e0e0e0;
+      padding: 20px 24px;
+      box-shadow: 0 -4px 20px rgba(15, 23, 42, 0.1);
+      z-index: 100;
+      display: none;
+      transition: transform 0.3s ease;
+    }
+    
+    .global-confirm-section.show {
+      display: block;
+    }
+    
+    .global-confirm-content {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+    
+    .global-confirm-summary {
+      flex: 1;
+      font-size: 14px;
+      color: #111827;
+    }
+    
+    .global-confirm-summary-title {
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    
+    .global-confirm-summary-details {
+      color: #6b7280;
+      font-size: 13px;
+    }
+    
+    .global-confirm-button {
+      background: var(--primary-green);
+      color: white;
+      border: none;
+      padding: 14px 32px;
+      border-radius: var(--button-radius);
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+    
+    .global-confirm-button:hover:enabled {
+      background: var(--primary-green-hover);
+      transform: translateY(-1px);
+      box-shadow: 0 10px 20px rgba(48, 186, 149, 0.35);
+    }
+    
+    .global-confirm-button:disabled {
+      background: #d1d5db;
+      color: #9ca3af;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+    
+    body {
+      padding-bottom: 120px;
+    }
+    
+    .sim-container {
+      margin-bottom: 120px;
+    }
   </style>
 </head>
 <body>
@@ -143,6 +330,18 @@
     <div style="padding: 40px; text-align: center; color: #666;">
       <div style="font-size: 18px; margin-bottom: 8px;">📲 Loading SIM types...</div>
       <div style="font-size: 14px; color: #999;">Please wait while we fetch the available options</div>
+    </div>
+  </div>
+  
+  <div class="global-confirm-section" id="global-confirm-section">
+    <div class="global-confirm-content">
+      <div class="global-confirm-summary">
+        <div class="global-confirm-summary-title" id="global-confirm-title">Ready to confirm</div>
+        <div class="global-confirm-summary-details" id="global-confirm-details">Select SIM types for all lines to continue</div>
+      </div>
+      <button class="global-confirm-button" id="global-confirm-button" onclick="confirmAllSelections()" disabled>
+        Confirm All Selections
+      </button>
     </div>
   </div>
 
@@ -155,12 +354,155 @@
       allKeys: window.openai ? Object.keys(window.openai) : []
     });
 
+    // Track selected SIM types
+    const selectedSims = new Set();
+    
+    // Track line-to-SIM assignments: { lineId: simType }
+    const lineSimAssignments = {};
+    
+    // Track SIM names: { simType: simName }
+    const simNames = {
+      'ESIM': 'eSIM',
+      'PSIM': 'Physical SIM',
+      'esim': 'eSIM',
+      'psim': 'Physical SIM',
+      'PHYSICAL_SIM': 'Physical SIM',
+      'PHYSICAL': 'Physical SIM'
+    };
+    
+    // Track which SIM types have been selected (for showing checkboxes)
+    const simsWithSelection = new Set();
+    
+    // Initialize currentLines - will be populated from toolOutput
+    let currentLines = [];
+    
+    // Function to extract lines from toolOutput
+    function extractLines() {
+      if (!window.openai) {
+        console.log('❌ window.openai not available for lines');
+        return [];
+      }
+      
+      let toolOutput = window.openai.toolOutput;
+      console.log('🔍 Checking toolOutput for lines:', {
+        exists: !!toolOutput,
+        isNull: toolOutput === null,
+        type: typeof toolOutput,
+        keys: toolOutput ? Object.keys(toolOutput) : []
+      });
+      
+      if (toolOutput && toolOutput !== null && typeof toolOutput === 'object') {
+        // Check structuredContent first (this is where server.js puts the data)
+        if (toolOutput.structuredContent) {
+          if (toolOutput.structuredContent.lines && Array.isArray(toolOutput.structuredContent.lines) && toolOutput.structuredContent.lines.length > 0) {
+            console.log('✅ Found lines in toolOutput.structuredContent.lines:', toolOutput.structuredContent.lines.length);
+            return toolOutput.structuredContent.lines.map((line, index) => ({
+              id: line.lineNumber || (index + 1),
+              lineNumber: line.lineNumber || (index + 1),
+              name: `Line ${line.lineNumber || (index + 1)}`,
+              phoneNumber: line.phoneNumber || null,
+              simType: line.simType || null
+            }));
+          }
+          
+          if (toolOutput.structuredContent.lineCount && toolOutput.structuredContent.lineCount > 0) {
+            console.log('✅ Found lineCount in structuredContent, creating lines:', toolOutput.structuredContent.lineCount);
+            const lines = [];
+            for (let i = 1; i <= toolOutput.structuredContent.lineCount; i++) {
+              lines.push({
+                id: i,
+                lineNumber: i,
+                name: `Line ${i}`,
+                phoneNumber: null,
+                simType: null
+              });
+            }
+            return lines;
+          }
+        }
+        
+        // Check for lines directly
+        if (toolOutput.lines && Array.isArray(toolOutput.lines) && toolOutput.lines.length > 0) {
+          console.log('✅ Found lines in toolOutput.lines:', toolOutput.lines.length);
+          return toolOutput.lines.map((line, index) => ({
+            id: line.lineNumber || (index + 1),
+            lineNumber: line.lineNumber || (index + 1),
+            name: `Line ${line.lineNumber || (index + 1)}`,
+            phoneNumber: line.phoneNumber || null,
+            simType: line.simType || null
+          }));
+        }
+        
+        // Check for flowContext with lines
+        if (toolOutput.flowContext && toolOutput.flowContext.lines && Array.isArray(toolOutput.flowContext.lines)) {
+          console.log('✅ Found lines in toolOutput.flowContext.lines:', toolOutput.flowContext.lines.length);
+          return toolOutput.flowContext.lines.map((line, index) => ({
+            id: line.lineNumber || (index + 1),
+            lineNumber: line.lineNumber || (index + 1),
+            name: `Line ${line.lineNumber || (index + 1)}`,
+            phoneNumber: line.phoneNumber || null,
+            simType: line.simType || null
+          }));
+        }
+        
+        // Check for lineCount and create lines from it
+        if (toolOutput.lineCount && toolOutput.lineCount > 0) {
+          console.log('✅ Found lineCount in toolOutput, creating lines:', toolOutput.lineCount);
+          const lines = [];
+          for (let i = 1; i <= toolOutput.lineCount; i++) {
+            lines.push({
+              id: i,
+              lineNumber: i,
+              name: `Line ${i}`,
+              phoneNumber: null,
+              simType: null
+            });
+          }
+          return lines;
+        }
+      }
+      
+      const metadata = window.openai.toolResponseMetadata;
+      if (metadata && metadata !== null && typeof metadata === 'object') {
+        if (metadata.lines && Array.isArray(metadata.lines)) {
+          console.log('✅ Found lines in toolResponseMetadata.lines:', metadata.lines.length);
+          return metadata.lines.map((line, index) => ({
+            id: line.lineNumber || (index + 1),
+            lineNumber: line.lineNumber || (index + 1),
+            name: `Line ${line.lineNumber || (index + 1)}`,
+            phoneNumber: line.phoneNumber || null,
+            simType: line.simType || null
+          }));
+        }
+        
+        if (metadata.lineCount && metadata.lineCount > 0) {
+          console.log('✅ Found lineCount in metadata, creating lines:', metadata.lineCount);
+          const lines = [];
+          for (let i = 1; i <= metadata.lineCount; i++) {
+            lines.push({
+              id: i,
+              lineNumber: i,
+              name: `Line ${i}`,
+              phoneNumber: null,
+              simType: null
+            });
+          }
+          return lines;
+        }
+      }
+      
+      console.log('❌ No lines found in any location');
+      return [];
+    }
+
     // Function to render a single SIM card
     function renderSim(simType, lineNumber = null) {
       const isESIM = simType === 'ESIM' || simType === 'esim';
       const icon = isESIM ? '📱' : '📲';
       const name = isESIM ? 'eSIM' : 'Physical SIM';
       const subtitle = isESIM ? 'Digital SIM Card' : 'Traditional SIM Card';
+      const simTypeUpper = simType.toUpperCase();
+      const isSelected = selectedSims.has(simTypeUpper);
       
       const features = isESIM ? [
         { icon: '⚡', text: 'Instant activation' },
@@ -175,10 +517,6 @@
         { icon: '🔄', text: 'Easy to swap' },
         { icon: '✅', text: 'Universal support' }
       ];
-
-      const buttonText = lineNumber 
-        ? `Select for Line ${lineNumber}`
-        : 'Add to Cart';
 
       return `
         <div class="sim-card">
@@ -204,9 +542,34 @@
             <div class="sim-price-note">No additional cost</div>
           </div>
           
-          <button class="select-button" onclick="selectSim('${simType.toUpperCase()}', ${lineNumber || 'null'})">
-            ${buttonText}
+          <button class="select-button ${isSelected ? 'select-button--selected' : ''}" 
+                  onclick="selectSim('${simType.toUpperCase()}', '${name.replace(/'/g, "\\'")}', this)">
+            ${isSelected ? '✓ Selected' : 'Select SIM Type'}
           </button>
+          
+          <div class="line-selection-section ${simsWithSelection.has(simTypeUpper) ? 'show' : ''}" id="line-selection-${simTypeUpper}">
+            <div class="line-selection-title">Select lines for this SIM type:</div>
+            <div class="line-checkboxes">
+              ${currentLines.map(line => {
+                const lineIdStr = String(line.id);
+                const isLineAssigned = lineSimAssignments[lineIdStr] && lineSimAssignments[lineIdStr] !== simTypeUpper;
+                const isChecked = lineSimAssignments[lineIdStr] === simTypeUpper;
+                return `
+                  <label class="line-checkbox-item ${isLineAssigned ? 'disabled' : ''}" ${isLineAssigned ? 'onclick="return false;"' : ''}>
+                    <div class="line-checkbox">
+                      <input type="checkbox" 
+                             id="line-${line.id}-sim-${simTypeUpper}"
+                             ${isChecked ? 'checked' : ''}
+                             ${isLineAssigned ? 'disabled' : ''}
+                             onchange="toggleSimLineAssignment(${line.id}, '${simTypeUpper}', '${name.replace(/'/g, "\\'")}')">
+                      <span class="line-checkbox-custom"></span>
+                    </div>
+                    <span class="line-label">${line.name} ${line.phoneNumber ? `(${line.phoneNumber})` : ''}</span>
+                  </label>
+                `;
+              }).join('')}
+            </div>
+          </div>
         </div>
       `;
     }
@@ -256,13 +619,241 @@
     }
     
     window.sendPrompt = sendPrompt;
+    window.selectSim = selectSim;
+    window.toggleSimLineAssignment = toggleSimLineAssignment;
+    window.confirmAllSelections = confirmAllSelections;
     
-    function selectSim(simType, lineNumber) {
-      if (lineNumber) {
-        sendPrompt(`Select ${simType} for line ${lineNumber}`);
+    function selectSim(simType, simName, buttonEl) {
+      const simTypeUpper = simType.toUpperCase();
+      const isSelected = selectedSims.has(simTypeUpper);
+      
+      if (isSelected) {
+        // Deselect
+        selectedSims.delete(simTypeUpper);
+        simsWithSelection.delete(simTypeUpper);
+        
+        // Remove SIM name
+        delete simNames[simTypeUpper];
+        
+        // Remove all line assignments for this SIM type
+        Object.keys(lineSimAssignments).forEach(lineId => {
+          if (lineSimAssignments[lineId] === simTypeUpper) {
+            delete lineSimAssignments[lineId];
+            // Also uncheck the checkbox if it exists
+            const checkbox = document.getElementById(`line-${lineId}-sim-${simTypeUpper}`);
+            if (checkbox) {
+              checkbox.checked = false;
+            }
+          }
+        });
+        
+        if (buttonEl) {
+          buttonEl.classList.remove('select-button--selected');
+          buttonEl.textContent = 'Select SIM Type';
+        }
+        
+        // Hide line selection section
+        const lineSection = document.getElementById(`line-selection-${simTypeUpper}`);
+        if (lineSection) {
+          lineSection.classList.remove('show');
+        }
+        
+        // Re-render all SIMs to update disabled states
+        renderAllSims();
       } else {
-        sendPrompt(`Select ${simType} SIM type`);
+        // Select
+        selectedSims.add(simTypeUpper);
+        simsWithSelection.add(simTypeUpper);
+        
+        // Store SIM name for later use
+        simNames[simTypeUpper] = simName || simNames[simTypeUpper] || simTypeUpper;
+        
+        if (buttonEl) {
+          buttonEl.classList.add('select-button--selected');
+          buttonEl.textContent = '✓ Selected';
+        }
+        
+        // Show line selection section
+        const lineSection = document.getElementById(`line-selection-${simTypeUpper}`);
+        if (lineSection) {
+          lineSection.classList.add('show');
+        }
+        
+        // Re-render all SIMs to update disabled states
+        renderAllSims();
       }
+      
+      updateConfirmButtons();
+    }
+    
+    function toggleSimLineAssignment(lineId, simType, simName) {
+      // Ensure lineId is a string for consistent key usage
+      const lineIdStr = String(lineId);
+      const checkbox = document.getElementById(`line-${lineId}-sim-${simType}`);
+      if (!checkbox) return;
+      
+      const isChecked = checkbox.checked;
+      
+      console.log('🔄 toggleSimLineAssignment:', { lineId, lineIdStr, simType, isChecked, currentAssignments: Object.assign({}, lineSimAssignments) });
+      
+      if (isChecked) {
+        // If this line already has a SIM assigned, remove it first
+        if (lineSimAssignments[lineIdStr] && lineSimAssignments[lineIdStr] !== simType) {
+          const oldSimType = lineSimAssignments[lineIdStr];
+          // Uncheck the old SIM's checkbox for this line
+          const oldCheckbox = document.getElementById(`line-${lineId}-sim-${oldSimType}`);
+          if (oldCheckbox) {
+            oldCheckbox.checked = false;
+          }
+        }
+        
+        // Assign this SIM to this line
+        lineSimAssignments[lineIdStr] = simType;
+      } else {
+        // Remove assignment
+        if (lineSimAssignments[lineIdStr] === simType) {
+          delete lineSimAssignments[lineIdStr];
+        }
+      }
+      
+      console.log('✅ toggleSimLineAssignment complete:', { lineSimAssignments: Object.assign({}, lineSimAssignments) });
+      
+      // Re-render all SIMs to update disabled states
+      renderAllSims();
+      updateConfirmButtons();
+    }
+    
+    function updateConfirmButtons() {
+      // Update current lines from toolOutput
+      const extractedLines = extractLines();
+      if (extractedLines.length > 0) {
+        currentLines = extractedLines;
+        console.log('✅ updateConfirmButtons: Lines updated:', currentLines.length, currentLines);
+      }
+      
+      // Check if all lines have SIM types assigned (convert line.id to string for consistent comparison)
+      const allLinesAssigned = currentLines.length > 0 && currentLines.every(line => {
+        const lineIdStr = String(line.id);
+        const hasAssignment = !!lineSimAssignments[lineIdStr];
+        if (!hasAssignment) {
+          console.log('❌ Line missing assignment:', { lineId: line.id, lineIdStr, lineName: line.name });
+        }
+        return hasAssignment;
+      });
+      
+      // Get all SIM-to-line assignments
+      const assignments = [];
+      currentLines.forEach(line => {
+        const lineIdStr = String(line.id);
+        if (lineSimAssignments[lineIdStr]) {
+          assignments.push({
+            lineId: line.id,
+            lineName: line.name,
+            simType: lineSimAssignments[lineIdStr]
+          });
+        }
+      });
+      
+      console.log('✅ updateConfirmButtons: State check', {
+        totalLines: currentLines.length,
+        assignedLines: assignments.length,
+        allLinesAssigned: allLinesAssigned,
+        lineSimAssignments: Object.assign({}, lineSimAssignments),
+        currentLinesIds: currentLines.map(l => String(l.id))
+      });
+      
+      // Update global confirm section
+      const globalConfirmSection = document.getElementById('global-confirm-section');
+      const globalConfirmButton = document.getElementById('global-confirm-button');
+      const globalConfirmTitle = document.getElementById('global-confirm-title');
+      const globalConfirmDetails = document.getElementById('global-confirm-details');
+      
+      if (globalConfirmSection && globalConfirmButton && globalConfirmTitle && globalConfirmDetails) {
+        // Show section if there are any assignments
+        if (assignments.length > 0) {
+          globalConfirmSection.classList.add('show');
+          
+          // Update summary
+          const assignedLinesCount = assignments.length;
+          const totalLinesCount = currentLines.length;
+          
+          if (allLinesAssigned && totalLinesCount > 0) {
+            globalConfirmTitle.textContent = `All ${totalLinesCount} lines have SIM types selected`;
+            globalConfirmDetails.textContent = `Ready to add all SIM types to cart`;
+            globalConfirmButton.disabled = false;
+          } else {
+            globalConfirmTitle.textContent = `${assignedLinesCount} of ${totalLinesCount} lines have SIM types`;
+            globalConfirmDetails.textContent = `Select SIM types for all lines to continue`;
+            globalConfirmButton.disabled = true;
+          }
+        } else {
+          globalConfirmSection.classList.remove('show');
+          globalConfirmButton.disabled = true;
+        }
+        
+        // Adjust container padding based on confirm section visibility
+        const container = document.getElementById('sim-container');
+        if (container) {
+          if (globalConfirmSection.classList.contains('show')) {
+            container.style.paddingBottom = '140px';
+          } else {
+            container.style.paddingBottom = '0';
+          }
+        }
+      }
+    }
+    
+    function confirmAllSelections() {
+      // Update current lines from toolOutput
+      currentLines = extractLines();
+      
+      // Get all SIM-to-line assignments from all cards
+      const allAssignments = [];
+      
+      currentLines.forEach(line => {
+        const lineIdStr = String(line.id);
+        if (lineSimAssignments[lineIdStr]) {
+          const simType = lineSimAssignments[lineIdStr];
+          const simName = simNames[simType] || simType;
+          
+          allAssignments.push({
+            lineId: line.id,
+            lineNumber: line.lineNumber || line.id,
+            lineName: line.name,
+            simType: simType,
+            simName: simName
+          });
+        }
+      });
+      
+      if (allAssignments.length === 0) {
+        alert('Please select at least one SIM type for a line.');
+        return;
+      }
+      
+      // Check if all lines have SIM types
+      const allLinesAssigned = currentLines.length > 0 && currentLines.every(line => {
+        const lineIdStr = String(line.id);
+        return !!lineSimAssignments[lineIdStr];
+      });
+      if (!allLinesAssigned) {
+        alert('Please select SIM types for all lines before confirming.');
+        return;
+      }
+      
+      // Build individual add_to_cart commands for each SIM-line combination
+      const commands = allAssignments.map(a => {
+        return `Select ${a.simName} SIM type for line ${a.lineNumber}`;
+      });
+      
+      // Send all commands as a single message
+      const message = `Please select the following SIM types for my lines:\n\n${commands.join('\n')}\n\nUse the add_to_cart tool with itemType="sim", itemId for each SIM type, and the corresponding lineNumber for each line.`;
+      sendPrompt(message);
+      
+      console.log('✅ Confirmed selections, sending to cart:', {
+        assignments: allAssignments,
+        commands: commands
+      });
     }
     
     // Function to check if toolOutput has valid data
@@ -340,15 +931,28 @@
       
       const simTypes = extractSimTypes();
       
+      // Update current lines from toolOutput
+      const extractedLines = extractLines();
+      if (extractedLines.length > 0) {
+        currentLines = extractedLines;
+        console.log('✅ Lines updated:', currentLines.length, 'lines');
+      }
+      
       if (simTypes.length === 0) {
         return false;
       } else {
-        const simsHtml = simTypes.map(sim => {
-          const simType = sim.type || sim.simType || sim;
-          const lineNumber = sim.lineNumber || null;
-          return renderSim(simType, lineNumber);
-        }).join('');
+        // Render both ESIM and PSIM cards (regardless of what's in simTypes)
+        const simsHtml = [
+          renderSim('ESIM'),
+          renderSim('PSIM')
+        ].join('');
         container.innerHTML = simsHtml;
+        
+        // Update confirm buttons after rendering
+        setTimeout(() => {
+          updateConfirmButtons();
+        }, 10);
+        
         return true;
       }
     }
@@ -356,6 +960,7 @@
     // Watch for toolOutput changes
     let rendered = false;
     let lastToolOutputValue = null;
+    let lastLinesCount = 0;
     let checkCount = 0;
     const startTime = Date.now();
     const maxChecks = 1000;
@@ -363,25 +968,38 @@
     const minTimeBeforeError = 20000;
     
     function watchForToolOutputChange() {
-      if (rendered) return;
-      
       checkCount++;
       const elapsedTime = Date.now() - startTime;
       
-      if (hasValidToolOutput()) {
+      // Check if lines data has changed
+      const extractedLines = extractLines();
+      const linesChanged = extractedLines.length !== lastLinesCount;
+      if (linesChanged && extractedLines.length > 0) {
+        lastLinesCount = extractedLines.length;
+        currentLines = extractedLines;
+        console.log('✅ Lines data updated, re-rendering SIMs:', currentLines.length, 'lines');
+        // Re-render even if already rendered to update line checkboxes
         const success = renderAllSims();
-        if (success) {
-          console.log('✅ SIM types rendered successfully (toolOutput populated)');
+        if (success && !rendered) {
           rendered = true;
-          return;
         }
       }
       
-      const currentValue = window.openai?.toolOutput;
-      if (currentValue !== lastToolOutputValue) {
-        lastToolOutputValue = currentValue;
+      if (!rendered) {
+        if (hasValidToolOutput()) {
+          const success = renderAllSims();
+          if (success) {
+            console.log('✅ SIM types rendered successfully (toolOutput populated)');
+            rendered = true;
+            return;
+          }
+        }
         
-        if (currentValue !== null && currentValue !== undefined) {
+        const currentValue = window.openai?.toolOutput;
+        if (currentValue !== lastToolOutputValue) {
+          lastToolOutputValue = currentValue;
+          
+          if (currentValue !== null && currentValue !== undefined) {
           console.log('toolOutput changed from null to:', typeof currentValue);
           const success = renderAllSims();
           if (success) {
@@ -389,10 +1007,11 @@
             rendered = true;
             return;
           }
+          }
         }
       }
       
-      if (!rendered && checkCount < maxChecks) {
+      if (checkCount < maxChecks) {
         setTimeout(watchForToolOutputChange, 25);
       } else if (!rendered && checkCount >= maxChecks) {
         if (checkCount >= minChecksBeforeError && elapsedTime >= minTimeBeforeError) {

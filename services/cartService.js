@@ -1,13 +1,55 @@
-import { save, load } from '../utils/storage.js';
+import { save, load, loadAsync } from '../utils/storage.js';
 
 // Initialize from storage or default
-const initialCarts = load('carts') || {};
+const initialCarts = {};
 const carts = new Map(Object.entries(initialCarts));
 const DEFAULT_SESSION_ID = "default_session";
 const SESSION_TTL = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
 
 // Track the most recent session ID (for when get_cart is called without sessionId)
-let mostRecentSessionId = load('state')?.mostRecentSessionId || null;
+let mostRecentSessionId = null;
+let initialized = false;
+
+/**
+ * Initialize cart service from MongoDB or JSON storage
+ * Call this after MongoDB connection is established
+ */
+export async function initializeCartService() {
+  if (initialized) return;
+  
+  try {
+    const loadedCarts = await loadAsync('carts');
+    if (loadedCarts) {
+      carts.clear();
+      Object.entries(loadedCarts).forEach(([key, value]) => {
+        carts.set(key, value);
+      });
+    }
+    
+    const loadedState = await loadAsync('state');
+    if (loadedState?.mostRecentSessionId) {
+      mostRecentSessionId = loadedState.mostRecentSessionId;
+    }
+    
+    initialized = true;
+    console.log('Cart service initialized', { 
+      cartCount: carts.size, 
+      mostRecentSessionId 
+    });
+  } catch (error) {
+    console.warn('Error initializing cart service, using defaults:', error.message);
+    // Fallback to synchronous load if async fails
+    const fallbackCarts = load('carts') || {};
+    Object.entries(fallbackCarts).forEach(([key, value]) => {
+      carts.set(key, value);
+    });
+    const fallbackState = load('state');
+    if (fallbackState?.mostRecentSessionId) {
+      mostRecentSessionId = fallbackState.mostRecentSessionId;
+    }
+    initialized = true;
+  }
+}
 
 // Helper to persist state
 function persist() {

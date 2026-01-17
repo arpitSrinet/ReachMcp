@@ -12,8 +12,8 @@
     }
     
     :root {
-      --primary-green: #00C853;
-      --primary-green-hover: #063418;
+      --primary-green: #30ba95;
+      --primary-green-hover: #269678;
       --button-radius: 8px;
       --button-padding: 14px 22px;
     }
@@ -60,7 +60,7 @@
       color: #023d1a;
       margin-bottom: 20px;
       padding-bottom: 12px;
-      border-bottom: 2px solid #00C853;
+      border-bottom: 2px solid #30ba95;
     }
     
     .item-section {
@@ -88,6 +88,13 @@
       justify-content: space-between;
       align-items: flex-start;
       gap: 16px;
+      flex-wrap: nowrap;
+    }
+    
+    @media (max-width: 600px) {
+      .item-content {
+        flex-wrap: wrap;
+      }
     }
     
     .item-name {
@@ -100,7 +107,7 @@
     .item-price {
       font-size: 18px;
       font-weight: bold;
-      color: #00C853;
+      color: #30ba95;
       white-space: nowrap;
       text-align: right;
       min-width: 80px;
@@ -130,9 +137,9 @@
       border-radius: 20px;
       font-size: 14px;
       font-weight: 600;
-      background: #e8f5e9;
-      color: #00C853;
-      border: 1px solid #00C853;
+      background: #ecfdf5;
+      color: #30ba95;
+      border: 1px solid #30ba95;
     }
     
     .sim-badge.missing {
@@ -169,7 +176,7 @@
       color: #023d1a;
       margin-bottom: 20px;
       padding-bottom: 12px;
-      border-bottom: 2px solid #00C853;
+      border-bottom: 2px solid #30ba95;
     }
     
     .summary-row {
@@ -197,7 +204,7 @@
     .summary-total {
       margin-top: 16px;
       padding-top: 16px;
-      border-top: 2px solid #00C853;
+      border-top: 2px solid #30ba95;
       font-size: 24px;
       font-weight: bold;
       color: #023d1a;
@@ -266,40 +273,46 @@
       let deviceTotal = 0;
       let protectionTotal = 0;
       
-      // Plan section
+      // Plan section - Show all API fields if available
       let planHtml = '';
       if (line.plan) {
         monthlyTotal += line.plan.price || 0;
-        const planData = line.plan.data || line.plan.planData || '';
+        
+        // Get all available API fields
+        const planName = line.plan.name || line.plan.displayName || line.plan.displayNameWeb || 'Plan';
+        const planPrice = line.plan.price || line.plan.baseLinePrice || 0;
+        const planData = line.plan.data || line.plan.planData;
         const dataUnit = line.plan.dataUnit || 'GB';
         const isUnlimited = line.plan.unlimited || line.plan.isUnlimited;
-        const planType = line.plan.planType || '';
+        const planType = line.plan.planType;
         const maxLines = line.plan.maxLines;
         const additionalLinePrice = line.plan.additionalLinePrice;
-        const discountPctg = line.plan.discountPctg || 0;
-        const planCharging = line.plan.planCharging || '';
-        const serviceCode = line.plan.serviceCode || '';
+        const discountPctg = line.plan.discountPctg;
+        const planCharging = line.plan.planCharging;
+        const serviceCode = line.plan.serviceCode;
+        const description = line.plan.description;
         
+        // Only add details that have actual values
         let planDetails = [];
         if (isUnlimited) planDetails.push('Unlimited data');
-        if (planData && !isUnlimited) planDetails.push(`${planData}${dataUnit} high-speed data`);
-        if (planType) planDetails.push(`Type: ${planType}`);
-        if (maxLines) planDetails.push(`Up to ${maxLines} lines`);
-        if (additionalLinePrice) planDetails.push(`Additional lines: $${additionalLinePrice}/mo`);
-        if (discountPctg > 0) planDetails.push(`${discountPctg}% discount`);
-        if (planCharging) planDetails.push(`Charging: ${planCharging}`);
-        if (serviceCode) planDetails.push(`Service: ${serviceCode}`);
+        if (planData && !isUnlimited && planData !== '' && planData !== null && planData !== undefined) planDetails.push(`${planData}${dataUnit} high-speed data`);
+        if (planType && planType.trim() !== '') planDetails.push(`Type: ${planType}`);
+        if (maxLines && maxLines > 0) planDetails.push(`Up to ${maxLines} lines`);
+        if (additionalLinePrice && additionalLinePrice > 0) planDetails.push(`Additional lines: $${additionalLinePrice}/mo`);
+        if (discountPctg && discountPctg > 0) planDetails.push(`${discountPctg}% discount`);
+        if (planCharging && planCharging.trim() !== '') planDetails.push(`Charging: ${planCharging}`);
+        if (serviceCode && serviceCode.trim() !== '') planDetails.push(`Service: ${serviceCode}`);
         
         planHtml = `
           <div class="item-section">
             <div class="item-label">📱 Mobile Plan</div>
             <div class="item-content">
               <div style="flex: 1;">
-                <div class="item-name">${line.plan.name || line.plan.displayName || 'Plan'}</div>
+                <div class="item-name">${planName}</div>
                 ${planDetails.length > 0 ? `<div class="item-details">${planDetails.join(' • ')}</div>` : ''}
-                ${line.plan.description ? `<div class="item-details" style="margin-top: 4px; font-style: italic;">${line.plan.description}</div>` : ''}
+                ${description && description.trim() !== '' ? `<div class="item-details" style="margin-top: 4px; font-style: italic;">${description}</div>` : ''}
               </div>
-              <div class="item-price">$${(line.plan.price || 0).toFixed(2)}/mo</div>
+              <div class="item-price">$${planPrice.toFixed(2)}/mo</div>
             </div>
           </div>
         `;
@@ -315,102 +328,142 @@
         `;
       }
       
-      // Device section
+      // Device section - Show all API fields if available (only show if device data exists)
       let deviceHtml = '';
-      if (line.device) {
+      if (line.device && (line.device.id || line.device.name || line.device.price !== undefined)) {
         deviceTotal += line.device.price || 0;
-        const deviceBrand = line.device.brand || line.device.manufacturer?.name || '';
-        const deviceName = line.device.name || 'Device';
-        const deviceImage = line.device.image || line.device.cover?.media?.url || line.device.media?.[0]?.media?.url;
-        const storage = line.device.storage || line.device.properties?.find(p => p.name?.toLowerCase().includes('storage'))?.value;
-        const color = line.device.color || line.device.properties?.find(p => p.name?.toLowerCase().includes('color'))?.value;
-        const productNumber = line.device.productNumber || line.device.id;
-        const originalPrice = line.device.originalPrice || line.device.calculatedPrice?.listPrice?.price;
-        const available = line.device.available !== false;
-        const availableStock = line.device.availableStock;
         
-        let deviceDetails = [];
-        if (storage) deviceDetails.push(storage);
-        if (color) deviceDetails.push(color);
-        if (productNumber) deviceDetails.push(`SKU: ${productNumber}`);
-        if (availableStock !== undefined) deviceDetails.push(`${availableStock} in stock`);
+        // Get all available API fields
+        const deviceName = line.device.name || line.device.translated?.name || 'Device';
+        const deviceBrand = line.device.brand || line.device.manufacturer?.name || line.device.translated?.manufacturer?.name || line.device.customFields?.brand || '';
+        const devicePrice = line.device.price || line.device.calculatedPrice?.unitPrice || line.device.calculatedPrice?.totalPrice || 0;
+        const deviceImage = line.device.image || line.device.cover?.media?.url || (line.device.media && line.device.media[0]?.media?.url) || line.device.coverImage || line.device.thumbnail;
+        const listPrice = line.device.calculatedPrice?.listPrice?.price;
+        const available = line.device.available;
+        
+        // Extract device specs from customFields (preferred) or properties
+        const properties = line.device.properties || [];
+        const customFields = line.device.customFields || line.device.translated?.customFields || {};
+        
+        const storage = customFields.storage_capacity || 
+                       properties.find(p => p.group?.name === 'Storage' || p.group?.name === 'storage')?.name || '';
+        const color = customFields.design_color || 
+                     properties.find(p => p.group?.name === 'Color' || p.group?.name === 'color')?.name || '';
+        const condition = customFields.condition || 
+                         properties.find(p => p.group?.name === 'Condition' || p.group?.name === 'condition')?.name || 
+                         line.device.condition || '';
+        
+        // Extract additional specs from customFields
+        const ram = customFields.ram_capacity || '';
+        const display = customFields.display_type || customFields.display_resolution || '';
+        const camera = customFields.back_camera_resolution || customFields.front_camera_resolution || '';
+        const battery = customFields.battery_capacity || '';
+        
+        // Build device specs array (only include non-empty values, NO SKU/ID)
+        let deviceSpecs = [];
+        if (storage && storage.trim() !== '') deviceSpecs.push(storage);
+        if (color && color.trim() !== '') deviceSpecs.push(color);
+        if (display && display.trim() !== '') deviceSpecs.push(display);
+        if (ram && ram.trim() !== '') deviceSpecs.push(ram);
+        if (camera && camera.trim() !== '') {
+          // Simplify camera description if too long
+          const cameraShort = camera.length > 30 ? camera.substring(0, 30) + '...' : camera;
+          deviceSpecs.push(cameraShort);
+        }
+        if (battery && battery.trim() !== '') deviceSpecs.push(battery);
+        if (condition && condition.trim() !== '' && condition.toLowerCase() !== 'new') deviceSpecs.push(condition);
+        
+        // Build device name - only include brand if it exists and not already in name
+        let displayName = deviceName;
+        if (deviceBrand && deviceBrand.trim() !== '') {
+          // Check if brand is already in device name to avoid duplication (e.g., "Google Google Pixel")
+          const brandLower = deviceBrand.toLowerCase().trim();
+          const nameLower = deviceName.toLowerCase().trim();
+          if (!nameLower.startsWith(brandLower)) {
+            displayName = `${deviceBrand} ${deviceName}`;
+          }
+        }
         
         deviceHtml = `
           <div class="item-section">
             <div class="item-label">📱 Device</div>
             <div class="item-content">
-              <div style="flex: 1; display: flex; align-items: center; gap: 12px;">
-                ${deviceImage ? `<img src="${deviceImage}" alt="${deviceName}" style="width: 60px; height: 60px; object-fit: contain; border-radius: 8px; background: #f5f5f5; padding: 4px;">` : ''}
-                <div style="flex: 1;">
-                <div class="item-name">${deviceBrand ? `${deviceBrand} ` : ''}${deviceName}</div>
-                  ${deviceDetails.length > 0 ? `<div class="item-details">${deviceDetails.join(' • ')}</div>` : ''}
-                  ${!available ? `<div class="item-details" style="color: #ff9800; margin-top: 4px;">⚠️ Limited availability</div>` : ''}
+              <div style="flex: 1; display: flex; align-items: center; gap: 16px; min-width: 0;">
+                <div style="flex-shrink: 0; width: 80px; height: 80px; position: relative;">
+                  ${deviceImage ? `
+                    <img src="${deviceImage}" 
+                         alt="${deviceName}" 
+                         style="width: 100%; height: 100%; object-fit: contain; border-radius: 8px; background: #f5f5f5; padding: 4px; display: block;"
+                         onerror="this.onerror=null; this.style.display='none'; const placeholder = this.parentElement.querySelector('.device-image-placeholder'); if(placeholder) placeholder.style.display='flex';">
+                    <div class="device-image-placeholder" style="width: 100%; height: 100%; border-radius: 8px; background: #f5f5f5; display: none; align-items: center; justify-content: center; color: #999; font-size: 32px; position: absolute; top: 0; left: 0;">📱</div>
+                  ` : `
+                    <div style="width: 100%; height: 100%; border-radius: 8px; background: #f5f5f5; display: flex; align-items: center; justify-content: center; color: #999; font-size: 32px;">📱</div>
+                  `}
+                </div>
+                <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+                  <div class="item-name" style="word-break: break-word;">${displayName}</div>
+                  ${deviceSpecs.length > 0 ? `<div class="item-details" style="line-height: 1.4;">${deviceSpecs.join(' • ')}</div>` : ''}
+                  ${available === false ? `<div class="item-details" style="color: #ff9800; margin-top: 2px;">⚠️ Limited availability</div>` : ''}
+                </div>
               </div>
+              <div style="text-align: right; flex-shrink: 0; margin-left: 16px; align-self: flex-start;">
+                ${listPrice && listPrice > devicePrice ? `<div style="font-size: 12px; color: #999; text-decoration: line-through; margin-bottom: 2px;">$${listPrice.toFixed(2)}</div>` : ''}
+                <div class="item-price">$${devicePrice.toFixed(2)}</div>
               </div>
-              <div style="text-align: right;">
-                ${originalPrice && originalPrice > (line.device.price || 0) ? `<div style="font-size: 12px; color: #999; text-decoration: line-through;">$${originalPrice.toFixed(2)}</div>` : ''}
-              <div class="item-price">$${(line.device.price || 0).toFixed(2)}</div>
-              </div>
-            </div>
-          </div>
-        `;
-      } else {
-        deviceHtml = `
-          <div class="item-section">
-            <div class="item-label">📱 Device</div>
-            <div class="item-content">
-              <div class="item-name item-optional">None (optional)</div>
-              <div class="item-price item-optional">-</div>
             </div>
           </div>
         `;
       }
       
-      // Protection section
+      // Protection section - Only show if protection data exists (optional field)
       let protectionHtml = '';
-      if (line.protection) {
+      if (line.protection && 
+          line.protection !== null && 
+          line.protection !== undefined &&
+          typeof line.protection === 'object' &&
+          (line.protection.id || line.protection.name || (line.protection.price !== undefined && line.protection.price !== null))) {
         protectionTotal += line.protection.price || 0;
+        
+        // Get all available API fields
+        const protectionName = line.protection.name || 'Protection Plan';
+        const protectionPrice = line.protection.price || 0;
         const deductible = line.protection.deductible;
         const coverage = line.protection.coverage;
         const highlights = line.protection.highlights || [];
-        const isMonthly = line.protection.billingCycle === 'monthly' || line.protection.price < 100; // Heuristic
+        const billingCycle = line.protection.billingCycle;
+        const isMonthly = billingCycle === 'monthly' || (billingCycle === undefined && protectionPrice < 100);
         
+        // Only add details that have actual values
         let protectionDetails = [];
-        if (deductible) protectionDetails.push(`Deductible: $${deductible}`);
-        if (coverage) protectionDetails.push(`Coverage: ${coverage}`);
-        if (highlights.length > 0) protectionDetails.push(highlights.slice(0, 2).join(', '));
+        if (deductible && deductible !== '' && deductible !== null && deductible !== undefined) protectionDetails.push(`Deductible: $${deductible}`);
+        if (coverage && coverage.trim() !== '') protectionDetails.push(`Coverage: ${coverage}`);
+        if (highlights && highlights.length > 0 && highlights.filter(h => h && h.trim() !== '').length > 0) {
+          const validHighlights = highlights.filter(h => h && h.trim() !== '').slice(0, 2);
+          if (validHighlights.length > 0) protectionDetails.push(validHighlights.join(', '));
+        }
         
         protectionHtml = `
           <div class="item-section">
             <div class="item-label">🛡️ Device Protection</div>
             <div class="item-content">
               <div style="flex: 1;">
-              <div class="item-name">${line.protection.name || 'Protection Plan'}</div>
+                <div class="item-name">${protectionName}</div>
                 ${protectionDetails.length > 0 ? `<div class="item-details">${protectionDetails.join(' • ')}</div>` : ''}
-                ${highlights.length > 2 ? `<div class="item-details" style="margin-top: 4px; font-size: 12px;">+ ${highlights.length - 2} more features</div>` : ''}
+                ${highlights && highlights.length > 2 && highlights.filter(h => h && h.trim() !== '').length > 2 ? `<div class="item-details" style="margin-top: 4px; font-size: 12px;">+ ${highlights.filter(h => h && h.trim() !== '').length - 2} more features</div>` : ''}
               </div>
-              <div class="item-price">$${(line.protection.price || 0).toFixed(2)}${isMonthly ? '/mo' : ''}</div>
-            </div>
-          </div>
-        `;
-      } else if (line.device) {
-        protectionHtml = `
-          <div class="item-section">
-            <div class="item-label">🛡️ Device Protection</div>
-            <div class="item-content">
-              <div class="item-name item-optional">None (optional)</div>
-              <div class="item-price item-optional">-</div>
+              <div class="item-price">$${protectionPrice.toFixed(2)}${isMonthly ? '/mo' : ''}</div>
             </div>
           </div>
         `;
       }
       
-      // SIM section
+      // SIM section - Show all API fields if available
       let simHtml = '';
       if (line.sim && line.sim.simType) {
+        // Get all available API fields
         const simType = line.sim.simType === 'ESIM' ? 'eSIM' : (line.sim.simType === 'PSIM' ? 'Physical SIM' : line.sim.simType);
-        const isEsim = line.sim.simType === 'ESIM';
         const iccId = line.sim.iccId;
+        const isEsim = line.sim.simType === 'ESIM';
         
         let simDetails = [];
         if (isEsim) {
@@ -420,7 +473,7 @@
           simDetails.push('📦 Physical card shipped');
           simDetails.push('Standard shipping');
         }
-        if (iccId) simDetails.push(`ICCID: ${iccId}`);
+        if (iccId && iccId.trim() !== '') simDetails.push(`ICCID: ${iccId}`);
         
         simHtml = `
           <div class="item-section">
@@ -428,7 +481,7 @@
             <div class="item-content">
               <div style="flex: 1;">
                 <div style="margin-bottom: 8px;">
-                <span class="sim-badge">${simType}</span>
+                  <span class="sim-badge">${simType}</span>
                 </div>
                 ${simDetails.length > 0 ? `<div class="item-details">${simDetails.join(' • ')}</div>` : ''}
               </div>
@@ -548,7 +601,7 @@
           ` : ''}
           
           ${hasMonthlyCharges && hasOneTimeCharges ? `
-            <div style="margin-top: 16px; padding-top: 16px; border-top: 2px solid #00C853;">
+            <div style="margin-top: 16px; padding-top: 16px; border-top: 2px solid #30ba95;">
               <div class="summary-row" style="font-size: 16px; margin-bottom: 8px;">
                 <span class="summary-label">Due Today</span>
                 <span class="summary-value">$${totalDueToday.toFixed(2)}</span>
@@ -579,9 +632,16 @@
       const lines = cart.lines || [];
       const items = cart.items || [];
       
-      // Don't show "empty" immediately - return false so retry continues
+      // Show empty cart UI if cart is empty (but only if we have valid data)
       if (lines.length === 0 && items.length === 0) {
-        return false;
+        container.innerHTML = `
+          <div class="empty-cart">
+            <div class="empty-cart-icon">🛒</div>
+            <div class="empty-cart-text">Your cart is empty</div>
+            <div class="empty-cart-subtext">Add plans or devices to get started!</div>
+          </div>
+        `;
+        return true;
       }
       
       // Use multi-line structure if available
@@ -709,26 +769,22 @@
     // Make proceedToCheckout available globally
     window.proceedToCheckout = proceedToCheckout;
     
-    // Function to check if toolOutput has valid data
+    // Function to check if toolOutput has valid data (including empty cart)
     function hasValidToolOutput() {
       if (!window.openai) return false;
       
       const toolOutput = window.openai.toolOutput;
+      // If toolOutput exists and is an object (even if cart is empty/null), we have valid data
       if (toolOutput && toolOutput !== null && typeof toolOutput === 'object') {
-        if (toolOutput.cart && typeof toolOutput.cart === 'object') {
-          return true;
-        }
-        if (toolOutput.structuredContent && toolOutput.structuredContent.cart && 
-            typeof toolOutput.structuredContent.cart === 'object') {
-          return true;
-        }
+        // If toolOutput is an object (even empty), it means we got a response
+        // This could be an empty cart response, so we should render it
+        return true;
       }
       
+      // Also check metadata
       const metadata = window.openai.toolResponseMetadata;
       if (metadata && metadata !== null && typeof metadata === 'object') {
-        if (metadata.cart && typeof metadata.cart === 'object') {
-          return true;
-        }
+        return true;
       }
       
       return false;
@@ -745,50 +801,166 @@
       console.log('extractCartData: toolOutput =', toolOutput);
       
       if (toolOutput && toolOutput !== null && typeof toolOutput === 'object') {
-        if (toolOutput.cart && typeof toolOutput.cart === 'object') {
-          console.log('extractCartData: Found cart in toolOutput.cart');
+        // Check if cart exists (even if empty/null)
+        if (toolOutput.cart !== undefined) {
+          const cart = toolOutput.cart || { lines: [], items: [], total: 0 };
+          console.log('extractCartData: Found cart in toolOutput.cart, lines:', cart.lines?.length || 0, 'items:', cart.items?.length || 0);
           return {
-            cart: toolOutput.cart,
+            cart: cart,
             sessionId: toolOutput.sessionId || 'default'
           };
         }
-        if (toolOutput.structuredContent && toolOutput.structuredContent.cart && 
-            typeof toolOutput.structuredContent.cart === 'object') {
-          const cart = toolOutput.structuredContent.cart;
-          console.log('extractCartData: Found cart in structuredContent, lines:', cart.lines?.length || 0);
-          return {
-            cart: cart,
-            sessionId: toolOutput.structuredContent.sessionId || toolOutput.sessionId || 'default'
-          };
+        // Check structuredContent
+        if (toolOutput.structuredContent) {
+          if (toolOutput.structuredContent.cart !== undefined) {
+            const cart = toolOutput.structuredContent.cart || { lines: [], items: [], total: 0 };
+            console.log('extractCartData: Found cart in structuredContent, lines:', cart.lines?.length || 0, 'items:', cart.items?.length || 0);
+            return {
+              cart: cart,
+              sessionId: toolOutput.structuredContent.sessionId || toolOutput.sessionId || 'default'
+            };
+          }
         }
       }
       
       const metadata = window.openai.toolResponseMetadata;
       if (metadata && metadata !== null && typeof metadata === 'object') {
-        if (metadata.cart && typeof metadata.cart === 'object') {
-          console.log('extractCartData: Found cart in toolResponseMetadata');
+        if (metadata.cart !== undefined) {
+          const cart = metadata.cart || { lines: [], items: [], total: 0 };
+          console.log('extractCartData: Found cart in toolResponseMetadata, lines:', cart.lines?.length || 0, 'items:', cart.items?.length || 0);
           return {
-            cart: metadata.cart,
+            cart: cart,
             sessionId: metadata.sessionId || 'default'
           };
         }
       }
       
       console.log('extractCartData: No cart data found, returning empty cart');
-      return { cart: { items: [], total: 0 }, sessionId: 'default' };
+      return { cart: { lines: [], items: [], total: 0 }, sessionId: 'default' };
     }
     
     // Function to render all cart data
     function renderAllCart() {
-      const cartData = extractCartData();
-      const items = cartData.cart.items || [];
-      const lines = cartData.cart.lines || [];
+      // TEMPORARY: Use dummy data for UI development
+      const useDummyData = false; // Set to false to use real data
       
-      if (items.length === 0 && lines.length === 0 && !hasValidToolOutput()) {
+      if (useDummyData) {
+        const dummyCart = {
+          lines: [
+            {
+              lineNumber: 1,
+              plan: {
+                name: "Unlimited 10",
+                displayName: "Unlimited 10",
+                price: 25,
+                data: 10,
+                dataUnit: "GB",
+                unlimited: false,
+                planType: "HSD",
+                maxLines: 25,
+                additionalLinePrice: 25,
+                discountPctg: 0,
+                planCharging: "MIA",
+                serviceCode: "USA"
+              },
+              device: {
+                name: "iPhone 15 Pro Max",
+                brand: "Apple",
+                price: 1099,
+                originalPrice: 1299,
+                image: "https://shopware-api-nctc-qa.reachmobileplatform.com/media/25/6c/46/1730972224/bec9b5be978942e5a4f7743d5c80e1e3.jpg",
+                storage: "256GB",
+                color: "Natural Titanium",
+                productNumber: "AP-5TM43LLA-A660-GEGE",
+                available: true,
+                availableStock: 11
+              },
+              protection: {
+                name: "Premium Device Protection",
+                price: 12.99,
+                billingCycle: "monthly",
+                deductible: 99,
+                coverage: "Accidental damage, theft, loss",
+                highlights: ["Screen repair", "Battery replacement", "Water damage coverage"]
+              },
+              sim: {
+                simType: "ESIM",
+                iccId: "8901260123456789012"
+              }
+            },
+            {
+              lineNumber: 2,
+              plan: {
+                name: "Essentials",
+                displayName: "Essentials",
+                price: 25,
+                data: 5,
+                dataUnit: "GB",
+                unlimited: false,
+                planType: "HSD",
+                maxLines: 25,
+                additionalLinePrice: 25,
+                discountPctg: 0,
+                planCharging: "MIA",
+                serviceCode: "USA"
+              },
+              device: {
+                name: "Google Pixel 9 Pro XL",
+                brand: "Google",
+                price: 699,
+                originalPrice: 1099,
+                image: "https://shopware-api-nctc-qa.reachmobileplatform.com/media/f6/5b/4c/1728034328/42733d29e6af46a4be0e95c9339ba99b.PNG",
+                storage: "128GB",
+                color: "Black",
+                productNumber: "GO-GA05900US-A001-GEGE",
+                available: true,
+                availableStock: 8
+              },
+              protection: null,
+              sim: {
+                simType: "PSIM",
+                iccId: null
+              }
+            },
+            {
+              lineNumber: 3,
+              plan: {
+                name: "By the Gig",
+                displayName: "By the Gig",
+                price: 15,
+                data: 1,
+                dataUnit: "GB",
+                unlimited: false,
+                planType: "HSD",
+                maxLines: 25,
+                additionalLinePrice: 15,
+                discountPctg: 0,
+                planCharging: "MIA",
+                serviceCode: "USA"
+              },
+              device: null,
+              protection: null,
+              sim: {
+                simType: "ESIM",
+                iccId: null
+              }
+            }
+          ],
+          items: [],
+          total: 0
+        };
+        
+        const success = renderCart(dummyCart, 'dummy-session');
+        return success;
+      }
+      
+      // Only render if we have valid toolOutput (to distinguish loading from empty)
+      if (!hasValidToolOutput()) {
         console.log('renderAllCart: No valid toolOutput yet, waiting...');
         return false;
       }
       
+      const cartData = extractCartData();
       const success = renderCart(cartData.cart, cartData.sessionId);
       return success;
     }

@@ -38,96 +38,127 @@ export function formatThreeSectionResponse(response, suggestions, nextSteps) {
  * @returns {string} Next steps text
  */
 export function getNextStepsForIntent(context, intent) {
-  if (!context || !context.sessionId) {
-    return "To get started, tell me how many lines you need (e.g., \"I need 2 lines\").";
-  }
-  
-  const progress = getFlowProgress(context.sessionId);
-  if (!progress) {
-    return "To get started, tell me how many lines you need.";
-  }
-  
-  // Normalize intent
-  const intentStr = typeof intent === 'string' ? intent.toLowerCase() : String(intent || '').toLowerCase();
-  
-  // After coverage check - resume previous step or guide to plans
-  if (intentStr === 'coverage') {
-    if (context.resumeStep) {
-      return "Coverage checked! Returning to where you were in the flow.";
-    }
-    return "Great! Now let's choose a mobile plan. Say \"Show me plans\" or \"I need a plan\".";
-  }
-  
-  // After showing plans
-  if (intentStr === 'plan') {
-    if (!progress.lineCount || progress.lineCount === 0) {
-      return "**Step 1:** Tell me how many lines you need (e.g., \"I need 2 lines\").\n**Step 2:** Then select a plan for each line by clicking \"Add to Cart\".";
+  try {
+    if (!context || !context.sessionId) {
+      return `**Getting Started:**\n\n1. Tell me how many lines you need (e.g., "I need 2 lines")\n2. Select plans for each line (required for checkout)\n3. Choose SIM types (eSIM or Physical) per line\n4. (Optional) Add devices and device protection\n5. Review cart and checkout`;
     }
     
-    const missingPlans = progress.missing?.plans || [];
-    if (missingPlans.length > 0) {
-      return `**Action Required:** Click \"Add to Cart\" on a plan above for ${missingPlans.length} line${missingPlans.length > 1 ? 's' : ''}.\n**Options:** You can choose the same plan for all lines or different plans per line.`;
+    let progress;
+    try {
+      progress = getFlowProgress(context.sessionId);
+    } catch (error) {
+      logger.error('Error getting flow progress in getNextStepsForIntent', { error: error.message });
+      progress = { lineCount: 0, missing: { plans: [], devices: [], sim: [] } };
     }
     
-    // Plans complete - what's next?
-    const missingSims = progress.missing?.sim || [];
-    if (missingSims.length > 0) {
-      return "**Mandatory Next:** Select SIM type (eSIM or Physical) for each line. Say \"Show SIM options\".\n**Optional:** Add devices before SIM selection. Say \"Show devices\".";
+    if (!progress) {
+      return "To get started, tell me how many lines you need.";
     }
     
-    return "**Plans selected!** You can:\n• Add devices (optional): \"Show me devices\"\n• Select SIM types (required): \"Show SIM options\"\n• Review cart: \"Show my cart\"";
+    // Normalize intent
+    const intentStr = typeof intent === 'string' ? intent.toLowerCase() : String(intent || '').toLowerCase();
+    
+    // After coverage check - resume previous step or guide to plans
+    if (intentStr === 'coverage') {
+      if (context.resumeStep) {
+        return "✅ **Coverage checked!** Returning to where you were in the flow.\n\n**Next:** Continue with your previous step or say \"Show me plans\" to select plans.";
+      }
+      return "✅ **Coverage checked!**\n\n**Next Steps:**\n• **Select Plans:** Say \"Show me plans\" to choose a mobile plan\n• **Check Compatibility:** Say \"Check if my device works\" (if you have a device)\n• **Browse Devices:** Say \"Show me devices\" to see available phones";
+    }
+    
+    // After showing plans
+    if (intentStr === 'plan') {
+      if (!progress.lineCount || progress.lineCount === 0) {
+        return "**Step 1:** Tell me how many lines you need (e.g., \"I need 2 lines\").\n**Step 2:** Then select a plan for each line by clicking \"Add to Cart\".";
+      }
+      
+      const missingPlans = progress.missing?.plans || [];
+      if (missingPlans.length > 0) {
+        return `**Action Required:** Click \"Add to Cart\" on a plan above for ${missingPlans.length} line${missingPlans.length > 1 ? 's' : ''}.\n**Options:** You can choose the same plan for all lines or different plans per line.\n\n**After selecting plans:** Select SIM types (required) → Add devices (optional) → Checkout`;
+      }
+      
+      // Plans complete - what's next?
+      const missingSims = progress.missing?.sim || [];
+      if (missingSims.length > 0) {
+        return "**Plans selected!** ✅\n\n**Mandatory Next:** Select SIM type (eSIM or Physical) for each line. Say \"Show SIM options\".\n**Optional:** Add devices before SIM selection. Say \"Show devices\".";
+      }
+      
+      return "**Plans selected!** ✅\n\n**You can:**\n• Add devices (optional): \"Show me devices\"\n• Select SIM types (required): \"Show SIM options\"\n• Review cart: \"Show my cart\"";
+    }
+    
+    // After showing devices
+    if (intentStr === 'device') {
+      if (!progress.lineCount || progress.lineCount === 0) {
+        return "**Step 1:** First tell me how many lines you need.\n**Step 2:** Then select devices for your lines.\n**Step 3:** Select plans (required for checkout).";
+      }
+      
+      const missingPlans = progress.missing?.plans || [];
+      const hasDevices = (context.lines || []).some(line => line && line.deviceSelected);
+      
+      if (missingPlans.length > 0) {
+        let response = "**Note:** You can browse devices now, but you'll need to select plans before checkout.\n\n";
+        response += `**Next (REQUIRED):** Say \"Show me plans\" to select plans for ${missingPlans.length} line${missingPlans.length > 1 ? 's' : ''}.\n\n`;
+        response += "**After adding device, you can:**\n";
+        response += "• View detailed specs: Click on any device card\n";
+        response += "• Add device to cart: Click \"Add to Cart\" button\n";
+        response += "• Check compatibility: Say \"Check if my device works\" (if you already have a device)\n";
+        response += "• Select plans: Say \"Show me plans\" (required before checkout)";
+        return response;
+      }
+      
+      if (hasDevices) {
+        return "**After adding device:** ✅\n\n**You can:**\n• **Add protection (optional):** \"I want device protection\"\n• **Continue with plans:** \"Show me plans\" (if not done)\n• **Select SIM types:** \"Show SIM options\" (required before checkout)\n• **View device details:** Click on device cards for full specifications";
+      }
+      
+      return "**Device browsing:**\n\n**You can:**\n• Click \"Add to Cart\" to add a device\n• Click device cards to see detailed specifications\n• Say \"Show me plans\" to continue (plans required before checkout)";
+    }
+    
+    // After device compatibility check
+    if (intentStr === 'device' && context.lastAction === 'validate_device') {
+      return "✅ **Device Compatibility Checked**\n\n**Next Steps:**\n• **Select Plans:** Say \"Show me plans\" to choose a mobile plan\n• **Check Coverage:** Say \"Check coverage\" to verify network in your area\n• **Browse Devices:** Say \"Show me devices\" if you want to see other options";
+    }
+    
+    // After protection
+    if (intentStr === 'protection') {
+      const missingSims = progress.missing?.sim || [];
+      if (missingSims.length > 0) {
+        return "✅ **Protection added!**\n\n**Next Required:** Select SIM types for your lines. Say \"Show SIM options\".";
+      }
+      return "✅ **Protection added!**\n\n**Ready to:**\n• Review cart: \"Show my cart\"\n• Proceed to checkout: \"Checkout\"";
+    }
+    
+    // After SIM selection
+    if (intentStr === 'sim') {
+      const missingSims = progress.missing?.sim || [];
+      if (missingSims.length === 0) {
+        return "✅ **All prerequisites complete!**\n\n**Ready for checkout:**\n• Review your cart: \"Show my cart\"\n• Proceed to checkout: \"I'm ready to checkout\"";
+      }
+      return `**SIM type selected!** ✅\n\nSelect SIM types for ${missingSims.length} more line${missingSims.length > 1 ? 's' : ''}, then proceed to checkout.`;
+    }
+    
+    // Checkout intent
+    if (intentStr === 'checkout') {
+      const missingPlans = progress.missing?.plans || [];
+      const missingSims = progress.missing?.sim || [];
+      
+      if (missingPlans.length > 0) {
+        return `**⚠️ Cannot Checkout Yet**\n\nYou need to select plans for ${missingPlans.length} line${missingPlans.length > 1 ? 's' : ''} first.\n**Action:** Say \"Show me plans\" to continue.`;
+      }
+      
+      if (missingSims.length > 0) {
+        return `**⚠️ Cannot Checkout Yet**\n\nYou need to select SIM types for ${missingSims.length} line${missingSims.length > 1 ? 's' : ''}.\n**Action:** Say \"Show SIM options\" to continue.`;
+      }
+      
+      return "✅ **Ready for checkout!**\n\nReview your cart and proceed.";
+    }
+    
+    // Default/other intents - provide general guidance
+    return "**What would you like to do?**\n\n• Check coverage: \"What's coverage in my area?\"\n• See plans: \"Show me plans\"\n• Browse devices: \"Show me devices\"\n• Check compatibility: \"Check if my device works\"\n• Review cart: \"Show my cart\"";
+  } catch (error) {
+    logger.error('Error in getNextStepsForIntent', { error: error.message, hasContext: !!context, intent });
+    // Ultimate fallback
+    return "**What would you like to do?**\n\n• Check coverage\n• See plans\n• Browse devices\n• Review cart";
   }
-  
-  // After showing devices
-  if (intentStr === 'device') {
-    if (!progress.lineCount || progress.lineCount === 0) {
-      return "**Step 1:** First tell me how many lines you need.\n**Step 2:** Then select devices for your lines.";
-    }
-    
-    const missingPlans = progress.missing?.plans || [];
-    if (missingPlans.length > 0) {
-      return "**Note:** You can browse devices now, but you'll need to select plans before checkout.\n**Next:** Say \"Show me plans\" to select plans for your lines.";
-    }
-    
-    return "**After adding device:**\n• Add protection (optional): \"I want device protection\"\n• Continue with plans: \"Show me plans\"\n• Select SIM types: \"Show SIM options\"";
-  }
-  
-  // After protection
-  if (intentStr === 'protection') {
-    const missingSims = progress.missing?.sim || [];
-    if (missingSims.length > 0) {
-      return "**Next Required:** Select SIM types for your lines. Say \"Show SIM options\".";
-    }
-    return "**Protection added!** Ready to:\n• Review cart: \"Show my cart\"\n• Proceed to checkout: \"Checkout\"";
-  }
-  
-  // After SIM selection
-  if (intentStr === 'sim') {
-    const missingSims = progress.missing?.sim || [];
-    if (missingSims.length === 0) {
-      return "**All prerequisites complete!**\n• Review your cart: \"Show my cart\"\n• Proceed to checkout: \"I'm ready to checkout\"";
-    }
-    return `Select SIM types for ${missingSims.length} more line${missingSims.length > 1 ? 's' : ''}, then proceed to checkout.`;
-  }
-  
-  // Checkout intent
-  if (intentStr === 'checkout') {
-    const missingPlans = progress.missing?.plans || [];
-    const missingSims = progress.missing?.sim || [];
-    
-    if (missingPlans.length > 0) {
-      return `**Blocked:** You need to select plans for ${missingPlans.length} line${missingPlans.length > 1 ? 's' : ''} first.\n**Action:** Say \"Show me plans\" to continue.`;
-    }
-    
-    if (missingSims.length > 0) {
-      return `**Blocked:** You need to select SIM types for ${missingSims.length} line${missingSims.length > 1 ? 's' : ''}.\n**Action:** Say \"Show SIM options\" to continue.`;
-    }
-    
-    return "**Ready for checkout!** Review your cart and proceed.";
-  }
-  
-  // Default/other intents - provide general guidance
-  return "You can:\n• Check coverage: \"What's coverage in my area?\"\n• See plans: \"Show me plans\"\n• Browse devices: \"Show me devices\"\n• Review cart: \"Show my cart\"";
 }
 
 /**
@@ -182,114 +213,160 @@ export function getGuidanceForStep(step, context) {
 }
 
 /**
- * Get next step suggestions based on current progress (following exact flow order)
+ * Get next step suggestions based on current progress (BULLETPROOF VERSION)
  * Flow: Line Count → Plans → Devices → Protection → SIM → Checkout
  * @param {Object} context - Flow context
  * @returns {Object} { nextStep, suggestions, guidance, actionablePrompts }
  */
 export function getNextStepSuggestions(context) {
-  if (!context) {
+  try {
+    // ALWAYS return valid suggestions, even if context is null
+    if (!context || !context.sessionId) {
+      return {
+        nextStep: 'line_count',
+        suggestions: ['Start by telling me how many lines you need', 'Check coverage', 'Browse devices'],
+        guidance: "**Welcome! Let's Get Started**\n\nI can help you with:\n• Setting up mobile plans\n• Browsing devices\n• Checking coverage\n• Validating device compatibility\n\n**To begin:** Tell me how many lines you need (e.g., 'I need 2 lines').",
+        actionablePrompts: [
+          "Say: 'I need 2 lines'",
+          "Say: 'Check coverage in my area'",
+          "Say: 'Show me devices'",
+          "Say: 'Check if my device works'"
+        ]
+      };
+    }
+
+    let progress;
+    try {
+      progress = getFlowProgress(context.sessionId);
+    } catch (error) {
+      logger.error('Error getting flow progress', { error: error.message, sessionId: context.sessionId });
+      progress = { lineCount: 0, missing: { plans: [], devices: [], sim: [] } };
+    }
+
+    const suggestions = [];
+    const actionablePrompts = [];
+    let nextStep = null;
+    let guidance = "";
+
+    // Flow Step 1: Line Count (foundation)
+    if (!progress || !progress.lineCount || progress.lineCount === 0) {
+      nextStep = 'line_count';
+      guidance = "**Step 1: Line Count**\n\nFirst, I need to know how many lines you'd like to set up.";
+      suggestions.push("Specify number of lines", "Tell me your line count", "Start with line count");
+      actionablePrompts.push(
+        "Say: 'I need 2 lines'",
+        "Say: 'Start purchase flow for 3 lines'",
+        "Say: 'Family plan for 4 lines'"
+      );
+      return { nextStep, suggestions, guidance, actionablePrompts };
+    }
+
+    // Flow Step 2: Plan Selection (mandatory for checkout)
+    const missingPlans = (progress.missing?.plans || []).filter(p => p && p > 0 && p <= progress.lineCount);
+    if (missingPlans.length > 0) {
+      nextStep = 'plan_selection';
+      guidance = `**Step 2: Plan Selection**\n\nYou need to select plans for ${missingPlans.length} line${missingPlans.length > 1 ? 's' : ''} (${missingPlans.join(', ')}). Plans are required before checkout.`;
+      suggestions.push("View available plans", "Select a plan", "Choose plan for all lines");
+      actionablePrompts.push(
+        "Say: 'Show me plans'",
+        "Say: 'Add Essentials plan to all lines'",
+        "Say: 'Mix & match plans'"
+      );
+      return { nextStep, suggestions, guidance, actionablePrompts };
+    }
+
+    // Flow Step 3: Device Selection (optional, but recommended)
+    const missingDevices = (progress.missing?.devices || []).filter(d => d && d > 0 && d <= progress.lineCount);
+    const hasSomeDevices = (context.lines || []).some(line => line && line.deviceSelected);
+    
+    if (!hasSomeDevices && missingDevices.length > 0) {
+      // Suggest devices but don't block
+      nextStep = 'device_selection';
+      guidance = `**Step 3: Device Selection (Optional)**\n\nYou can add devices for ${missingDevices.length} line${missingDevices.length > 1 ? 's' : ''} (${missingDevices.join(', ')}). Devices are optional but recommended.`;
+      suggestions.push("Browse devices", "Add device for a line", "Skip devices for now");
+      actionablePrompts.push(
+        "Say: 'Show me devices'",
+        "Say: 'Add iPhone to line 1'",
+        "Say: 'Skip devices' or 'No devices'"
+      );
+      // Don't return here - continue to check SIM
+    }
+
+    // Flow Step 4: Protection (optional, requires device)
+    const linesWithDevices = (context.lines || []).filter(line => line && line.deviceSelected) || [];
+    const linesNeedingProtection = (context.lines || []).filter(line => 
+      line && line.deviceSelected && !line.protectionSelected
+    ) || [];
+    
+    if (linesWithDevices.length > 0 && linesNeedingProtection.length > 0 && nextStep === null) {
+      nextStep = 'protection_selection';
+      guidance = `**Step 4: Device Protection (Optional)**\n\nYou have devices on ${linesWithDevices.length} line${linesWithDevices.length > 1 ? 's' : ''}. Would you like to add protection?`;
+      suggestions.push("Add device protection", "Protect all devices", "Skip protection");
+      actionablePrompts.push(
+        "Say: 'Add protection to all lines'",
+        "Say: 'Skip protection' or 'No protection'"
+      );
+      // Don't return here - continue to check SIM
+    }
+
+    // Flow Step 5: SIM Selection (mandatory for checkout)
+    const missingSims = (progress.missing?.sim || []).filter(s => s && s > 0 && s <= progress.lineCount);
+    if (missingSims.length > 0) {
+      nextStep = 'sim_selection';
+      guidance = `**Step 5: SIM Type Selection**\n\nYou need to select SIM types for ${missingSims.length} line${missingSims.length > 1 ? 's' : ''} (${missingSims.join(', ')}). Choose eSIM or Physical SIM for each line. This is required before checkout.`;
+      suggestions.push("Select SIM type", "Choose eSIM or Physical SIM", "Set SIM for all lines");
+      actionablePrompts.push(
+        "Say: 'Show SIM options'",
+        "Say: 'eSIM for all lines'",
+        "Say: 'Physical SIM for line 1, eSIM for line 2'"
+      );
+      return { nextStep, suggestions, guidance, actionablePrompts };
+    }
+
+    // NEW: Check if all required items complete, suggest protection before checkout
+    const allRequiredComplete = 
+      progress.lineCount > 0 &&
+      (!progress.missing?.plans || progress.missing.plans.length === 0) &&
+      (!progress.missing?.sim || progress.missing.sim.length === 0);
+    
+    if (allRequiredComplete && linesWithDevices.length > 0 && linesNeedingProtection.length > 0 && nextStep === null) {
+      // All required items complete, suggest optional protection before checkout
+      nextStep = 'protection_selection';
+      guidance = `**Optional: Device Protection** 🛡️\n\nAll required items are selected! Before checkout, would you like to add device protection for your ${linesWithDevices.length} device${linesWithDevices.length > 1 ? 's' : ''}?\n\n**Protection covers:**\n• Accidental damage\n• Loss or theft\n• Screen repairs\n\nYou can skip this step and proceed directly to checkout if you prefer.`;
+      suggestions.push("Add device protection", "Skip protection and checkout", "Protect all devices");
+      actionablePrompts.push(
+        "Say: 'Add protection to all lines'",
+        "Say: 'Skip protection' or 'No protection'",
+        "Say: 'Proceed to checkout'"
+      );
+      return { nextStep, suggestions, guidance, actionablePrompts };
+    }
+
+    // Flow Step 6: Checkout (all prerequisites met)
+    nextStep = 'checkout';
+    guidance = "**Step 6: Ready for Checkout** ✅\n\nYour cart is complete! All required items are selected.";
+    suggestions.push("Review cart", "Proceed to checkout", "Add optional items");
+    actionablePrompts.push(
+      "Say: 'Review my cart'",
+      "Say: 'Proceed to checkout'",
+      "Say: 'Show me my cart'"
+    );
+
+    return { nextStep, suggestions, guidance, actionablePrompts };
+  } catch (error) {
+    logger.error('Error in getNextStepSuggestions', { error: error.message, hasContext: !!context });
+    // Ultimate fallback - never return null or undefined
     return {
       nextStep: 'line_count',
-      suggestions: ['Start by telling me how many lines you need'],
-      guidance: "Let's get started! How many lines would you like to set up?",
+      suggestions: ['Start by telling me how many lines you need', 'Check coverage', 'Browse devices'],
+      guidance: "**Let's Get Started!**\n\nI can help you with mobile plans, devices, coverage checks, and more.\n\n**What would you like to do?**",
       actionablePrompts: [
-        "Tell me: 'I need 2 lines' or 'family plan for 4'",
-        "Say: 'Start purchase flow for 3 lines'"
+        "Say: 'I need 2 lines'",
+        "Say: 'Check coverage'",
+        "Say: 'Show me devices'"
       ]
     };
   }
-
-  const progress = getFlowProgress(context.sessionId);
-  const suggestions = [];
-  const actionablePrompts = [];
-  let nextStep = null;
-  let guidance = "";
-
-  // Flow Step 1: Line Count (foundation)
-  if (!progress.lineCount || progress.lineCount === 0) {
-    nextStep = 'line_count';
-    guidance = "**Step 1: Line Count**\n\nFirst, I need to know how many lines you'd like to set up.";
-    suggestions.push("Specify number of lines", "Tell me your line count", "Start with line count");
-    actionablePrompts.push(
-      "Say: 'I need 2 lines'",
-      "Say: 'Start purchase flow for 3 lines'",
-      "Say: 'Family plan for 4 lines'"
-    );
-    return { nextStep, suggestions, guidance, actionablePrompts };
-  }
-
-  // Flow Step 2: Plan Selection (mandatory for checkout)
-  const missingPlans = progress.missing?.plans || [];
-  if (missingPlans.length > 0) {
-    nextStep = 'plan_selection';
-    guidance = `**Step 2: Plan Selection**\n\nYou need to select plans for ${missingPlans.length} line${missingPlans.length > 1 ? 's' : ''} (${missingPlans.join(', ')}).`;
-    suggestions.push("View available plans", "Select a plan", "Choose plan for all lines");
-    actionablePrompts.push(
-      "Say: 'Show me plans'",
-      "Say: 'Add Essentials plan to all lines'",
-      "Say: 'Mix & match plans'"
-    );
-    return { nextStep, suggestions, guidance, actionablePrompts };
-  }
-
-  // Flow Step 3: Device Selection (optional, but recommended)
-  const missingDevices = progress.missing?.devices || [];
-  const hasSomeDevices = context.lines?.some(line => line.deviceSelected) || false;
-  if (!hasSomeDevices && missingDevices.length > 0) {
-    // Suggest devices but don't block
-    nextStep = 'device_selection';
-    guidance = `**Step 3: Device Selection (Optional)**\n\nYou can add devices for ${missingDevices.length} line${missingDevices.length > 1 ? 's' : ''} (${missingDevices.join(', ')}). Devices are optional but recommended.`;
-    suggestions.push("Browse devices", "Add device for a line", "Skip devices for now");
-    actionablePrompts.push(
-      "Say: 'Show me devices'",
-      "Say: 'Add iPhone to line 1'",
-      "Say: 'Skip devices' or 'No devices'"
-    );
-    // Don't return here - continue to check SIM
-  }
-
-  // Flow Step 4: Protection (optional, requires device)
-  const linesWithDevices = context.lines?.filter(line => line.deviceSelected) || [];
-  const linesNeedingProtection = context.lines?.filter(line => 
-    line.deviceSelected && !line.protectionSelected
-  ) || [];
-  if (linesWithDevices.length > 0 && linesNeedingProtection.length > 0 && nextStep === null) {
-    nextStep = 'protection_selection';
-    guidance = `**Step 4: Device Protection (Optional)**\n\nYou have devices on ${linesWithDevices.length} line${linesWithDevices.length > 1 ? 's' : ''}. Would you like to add protection?`;
-    suggestions.push("Add device protection", "Protect all devices", "Skip protection");
-    actionablePrompts.push(
-      "Say: 'Add protection to all lines'",
-      "Say: 'Skip protection' or 'No protection'"
-    );
-    // Don't return here - continue to check SIM
-  }
-
-  // Flow Step 5: SIM Selection (mandatory for checkout)
-  const missingSims = progress.missing?.sim || [];
-  if (missingSims.length > 0) {
-    nextStep = 'sim_selection';
-    guidance = `**Step 5: SIM Type Selection**\n\nYou need to select SIM types for ${missingSims.length} line${missingSims.length > 1 ? 's' : ''} (${missingSims.join(', ')}). Choose eSIM or Physical SIM for each line.`;
-    suggestions.push("Select SIM type", "Choose eSIM or Physical SIM", "Set SIM for all lines");
-    actionablePrompts.push(
-      "Say: 'Show SIM options'",
-      "Say: 'eSIM for all lines'",
-      "Say: 'Physical SIM for line 1, eSIM for line 2'"
-    );
-    return { nextStep, suggestions, guidance, actionablePrompts };
-  }
-
-  // Flow Step 6: Checkout (all prerequisites met)
-  nextStep = 'checkout';
-  guidance = "**Step 6: Ready for Checkout** ✅\n\nYour cart is complete! All required items are selected.";
-  suggestions.push("Review cart", "Proceed to checkout", "Add optional items");
-  actionablePrompts.push(
-    "Say: 'Review my cart'",
-    "Say: 'Proceed to checkout'",
-    "Say: 'Show me my cart'"
-  );
-
-  return { nextStep, suggestions, guidance, actionablePrompts };
 }
 
 /**

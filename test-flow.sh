@@ -39,8 +39,8 @@ call_tool() {
     fi
 }
 
-echo "1️⃣ Starting purchase flow for 2 lines..."
-call_tool "start_purchase_flow" '{"lineCount": 2}' 1
+echo "1️⃣ Starting session for 2 lines..."
+call_tool "start_session" '{"lineCount": 2}' 1
 echo ""
 sleep 1
 

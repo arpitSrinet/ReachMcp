@@ -5,8 +5,12 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "start:prod": "MCP_TRANSPORT=http PORT=${PORT:-3000} node server.js",
     "start:http": "MCP_TRANSPORT=http PORT=3000 node server.js",
     "start:https": "MCP_TRANSPORT=https PORT=3000 node server.js",
+    "dev:ui": "ENABLE_DEV_SERVER=true MCP_TRANSPORT=https PORT=3000 node server.js",
+    "dev:ui:http": "ENABLE_DEV_SERVER=true MCP_TRANSPORT=http PORT=3000 node server.js",
+    "ngrok": "./run-ngrok.sh",
     "dev": "node --watch server.js",
     "test": "node test-simple.js",
     "test:full": "node test-client.js",
@@ -16,9 +20,10 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.24.2",
     "cors": "^2.8.5",
-    "express": "^5.2.1"
+    "dotenv": "^16.3.1",
+    "express": "^5.2.1",
+    "mongodb": "^7.0.0"
   },
   "devDependencies": {
-    "dotenv": "^16.3.1"
   }
 }

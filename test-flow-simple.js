@@ -81,9 +81,9 @@ function extractSessionId(result) {
 
 // Test functions
 async function testStartFlow() {
-  console.log('\n📋 Test 1: Start Purchase Flow');
-  console.log('================================');
-  const result = await callTool('start_purchase_flow', { lineCount: 2 }, 1);
+  console.log('\n📋 Test 1: Start Session');
+  console.log('========================');
+  const result = await callTool('start_session', { lineCount: 2 }, 1);
   console.log(result.content[0].text);
   sessionId = extractSessionId(result) || sessionId;
   return result;

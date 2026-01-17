@@ -1,6 +1,15 @@
 import { callReachAPI } from "./apiClient.js";
 import { logger } from "../utils/logger.js";
 
+/**
+ * Device Service
+ * 
+ * AUTHENTICATION NOTES:
+ * - fetchDevices(): Uses Shopware API with hardcoded sw-access-key (NO Reach auth token needed)
+ * - fetchProtectionPlans(): Uses hardcoded authorization token (NO Reach auth token needed)  
+ * - validateDevice(): Uses callReachAPI() which REQUIRES Reach auth token
+ */
+
 export async function validateDevice(imei, tenant = "reach") {
   const response = await callReachAPI(`/apisvc/v0/device/imei/${imei}`, {
     method: "GET",

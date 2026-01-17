@@ -1,5 +1,6 @@
 import { getTenantConfig } from "../config/tenantConfig.js";
-import { getAuthToken } from "./authService.js";
+import { getAuthToken, getAuthTokensMap } from "./authService.js";
+import { ensureTokenOnToolCall } from "./tokenRefreshCron.js";
 import { logger } from "../utils/logger.js";
 
 // Default configuration
@@ -198,11 +199,20 @@ export async function callReachAPI(endpoint, options = {}, tenant = "reach", con
   const finalConfig = { ...DEFAULT_CONFIG, ...config };
   const config_tenant = getTenantConfig(tenant);
   
-  // Get auth token - always force refresh to ensure fresh token on every API call
-  // This prevents token expiration issues during long-running operations
+  // Get auth token - use cached token if valid, only refresh if needed
+  // DO NOT force refresh - let getAuthToken handle caching intelligently
   let authToken;
   try {
-    authToken = await getAuthToken(tenant, true); // forceRefresh = true
+    // Use ensureTokenOnToolCall to check/refresh token before API call
+    await ensureTokenOnToolCall(tenant);
+    const tokensMap = getAuthTokensMap();
+    const cached = tokensMap?.get(tenant);
+    authToken = cached?.token;
+    
+    if (!authToken) {
+      // If no token after ensure, fetch one (but don't force refresh)
+      authToken = await getAuthToken(tenant, false);
+    }
   } catch (error) {
     logger.error("Failed to get auth token for API call", {
       endpoint,
@@ -216,20 +226,18 @@ export async function callReachAPI(endpoint, options = {}, tenant = "reach", con
   const url = `${config_tenant.apiBaseUrl}${endpoint}`;
   
   // Ensure authorization header has Bearer prefix if not already present
-  // Note: The token from generateauth API already includes "Bearer " prefix
   let authHeader = authToken;
   if (authToken && !authToken.startsWith('Bearer ')) {
     authHeader = `Bearer ${authToken}`;
   }
   
-  // Log token format for debugging (first 50 chars only for security)
   logger.debug("API call authorization header", {
     endpoint,
     hasToken: !!authToken,
     tokenPrefix: authToken ? authToken.substring(0, 20) : "none",
-    authHeaderPrefix: authHeader ? authHeader.substring(0, 20) : "none",
-    tokenStartsWithBearer: authToken ? authToken.startsWith('Bearer ') : false
   });
+
+
   
   const requestOptions = {
     ...options,
@@ -270,6 +278,39 @@ export async function callReachAPI(endpoint, options = {}, tenant = "reach", con
         responseBody = await response.text();
       }
       
+      // Auto-refresh token on 401 and retry once
+      if (response.status === 401 && attempt === 0) {
+        logger.warn("Received 401 Unauthorized, refreshing token and retrying", {
+          endpoint,
+          attempt: attempt + 1
+        });
+        
+        try {
+          // Clear cached token and fetch new one
+          const tokensMap = getAuthTokensMap();
+          tokensMap?.delete(tenant);
+          authToken = await getAuthToken(tenant, true); // Force refresh on 401
+          
+          // Update auth header with new token
+          authHeader = authToken;
+          if (authToken && !authToken.startsWith('Bearer ')) {
+            authHeader = `Bearer ${authToken}`;
+          }
+          
+          // Update request options with new auth header
+          requestOptions.headers.authorization = authHeader;
+          
+          // Retry immediately with new token
+          continue;
+        } catch (refreshError) {
+          logger.error("Failed to refresh token after 401", {
+            endpoint,
+            error: refreshError.message
+          });
+          // Continue to normal error handling
+        }
+      }
+
       // Log 403 errors with full details for debugging permissions issues
       if (response.status === 403) {
         logger.error("403 Forbidden - Authorization/Permissions Issue", {
