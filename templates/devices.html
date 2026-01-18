@@ -5,6 +5,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Devices</title>
+  <meta http-equiv="Content-Security-Policy"
+    content="img-src 'self' data: https://shopware-api-nctc-qa.reachmobileplatform.com https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://unpkg.com https://*.oaiusercontent.com https://threejs.org;">
   <style>
     :root {
       --primary-green: #30ba95;
@@ -1126,7 +1128,6 @@
       }
       if (device.image) {
         imageCandidates.push(device.image);
-        console.log("device.image", device.image);
       }
       // Extract <img src="..."> URLs from description HTML (translated or raw)
       const descriptionHtml = (typeof device.translated?.description === 'string'
@@ -1162,7 +1163,6 @@
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
       });
-      console.log("device.image", device.image);
       // Basic availability (used only for CTA enabled/disabled)
       const stock = device.stock;
       const isAvailable = device.available !== false && (stock === undefined || stock > 0);
@@ -1188,8 +1188,8 @@
               </button>
               ` : ''}
               <div class="device-image-container">
-                ${mainImage ?
-          `<img src="${mainImage}" alt="${name}" class="device-image device-image-main" onerror="handleDeviceImageError(this, '${device.localImageUrl || ''}')">` :
+                ${(device.localImageUrl || mainImage) ?
+          `<img src="${device.localImageUrl || mainImage}" alt="${name}" class="device-image device-image-main" onerror="handleDeviceImageError(this, '${device.localImageUrl ? mainImage : ''}')">` :
           `<div class="device-image-placeholder">📱</div>`
         }
               </div>
@@ -1938,22 +1938,22 @@
      * 2. Try local fallback URL (cached image)
      * 3. Show generic placeholder if both fail
      */
-    function handleDeviceImageError(imgElement, localFallback) {
+    function handleDeviceImageError(imgElement, fallback) {
       if (!imgElement) return;
 
-      // If we've already tried the local fallback and it failed too
-      if (imgElement.dataset.triedLocal === 'true') {
+      // If we've already tried the fallback and it failed too
+      if (imgElement.dataset.triedFallback === 'true') {
         renderDevicePlaceholder(imgElement);
         return;
       }
 
-      // If we have a local fallback URL, try it
-      if (localFallback && localFallback !== imgElement.src) {
-        imgElement.dataset.triedLocal = 'true';
-        imgElement.src = localFallback;
-        console.log('🔄 API image failed, falling back to local:', localFallback);
+      // If we have a fallback URL (could be remote API or local depending on search order)
+      if (fallback && fallback !== imgElement.src) {
+        imgElement.dataset.triedFallback = 'true';
+        imgElement.src = fallback;
+        console.log('🔄 Primary image failed, trying fallback:', fallback);
       } else {
-        // No local fallback available, show placeholder
+        // No fallback available, show placeholder
         renderDevicePlaceholder(imgElement);
       }
     }

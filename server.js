@@ -2341,7 +2341,24 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       const limit = args.limit || 8;
       const brand = args.brand || null;
-      let devices = await fetchDevices(limit * 2, brand, tenant); // Fetch more to account for filtering
+      let devices;
+      try {
+        devices = await fetchDevices(limit * 2, brand, tenant); // Fetch more to account for filtering
+      } catch (err) {
+        logger.error("Failed to fetch devices from Shopware API", {
+          error: err.message,
+          brand,
+          limit
+        });
+        return {
+          content: [
+            {
+              type: "text",
+              text: `## ⚠️ Device Catalog Unavailable\n\nI'm currently unable to fetch the live device list due to a connection issue with our catalog service.\n\n**What you can do:**\n- Try again in a few moments\n- Search for a specific brand or model\n- Ask about mobile plans instead while I wait for the service to recover.`
+            }
+          ]
+        };
+      }
 
       // Client-side filtering as fallback (in case API filter doesn't work perfectly)
       if (brand && devices && devices.length > 0) {
@@ -2373,14 +2390,28 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       // Async background caching for device images
       if (devices && devices.length > 0) {
         devices.forEach(device => {
-          const rawImageUrl = device.cover?.media?.url ||
-            (device.media && device.media[0]?.media?.url) ||
-            device.image ||
-            device.coverImage ||
-            device.thumbnail ||
-            null;
+          let source = "none";
+          let rawImageUrl = null;
+
+          if (device.cover?.media?.url) {
+            rawImageUrl = device.cover.media.url;
+            source = "device.cover.media.url";
+          } else if (device.media && device.media[0]?.media?.url) {
+            rawImageUrl = device.media[0].media.url;
+            source = "device.media[0].media.url";
+          } else if (device.image) {
+            rawImageUrl = device.image;
+            source = "device.image";
+          } else if (device.coverImage) {
+            rawImageUrl = device.coverImage;
+            source = "device.coverImage";
+          } else if (device.thumbnail) {
+            rawImageUrl = device.thumbnail;
+            source = "device.thumbnail";
+          }
 
           if (rawImageUrl) {
+            logger.debug(`🖼️ Background Cacher: Found image for ${device.name || device.id} from ${source}`, { rawImageUrl });
             // Extract extension or default to png
             const extension = rawImageUrl.split('.').pop().split(/[?#]/)[0] || 'png';
             const filename = `${device.id || device.productNumber}.${extension}`;
@@ -2394,20 +2425,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             // Use absolute URL if base URL is detected, otherwise relative
             const localPath = `/public/assets/${filename}`;
             device.localImageUrl = serverBaseUrl ? `${serverBaseUrl}${localPath}` : localPath;
+            logger.debug(`📍 Local fallback path generated: ${device.localImageUrl}`);
+          } else {
+            logger.debug(`⚠️ No image found for device: ${device.name || device.id}`);
           }
-          
+
           // Fix mixed content in description (prevent HTTP images in HTTPS site)
           if (device.description) {
             device.description = device.description.replace(/src="http:/g, 'src="https:');
           }
         });
-      }
-      if (devices.length > 0) {
-        console.log("---------------------------------------------------");
-        console.log(`📸 PROCESSED IMAGES FOR ${devices.length} DEVICES`);
-        console.log(`🌍 SERVER URL: ${serverBaseUrl || 'Not Set (Using Relative Paths)'}`);
-        console.log(`🖼️ SAMPLE GENERATED URL: ${devices[0].localImageUrl}`);
-        console.log("---------------------------------------------------");
       }
 
       if (!devices || devices.length === 0) {
@@ -2490,10 +2517,32 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             }))
             : device.media;
 
+          if (normalizedMedia && normalizedMedia.length > 0) {
+            const mediaUrls = normalizedMedia.map(m => m.url || (m.media && m.media.url)).filter(Boolean);
+            logger.info(`🖼️ Gallery URLs [${device.name || device.id}]: ${mediaUrls.length} found`, { urls: mediaUrls });
+          }
+
           // Normalize main image URL
-          const normalizedImageUrl = normalizeDeviceImageUrl(
-            device.cover?.media?.url || device.media?.[0]?.media?.url || null
-          );
+          let mainImageSource = "none";
+          let mainImageRaw = null;
+
+          if (device.cover?.media?.url) {
+            mainImageRaw = device.cover.media.url;
+            mainImageSource = "cover.media.url";
+          } else if (device.media?.[0]?.media?.url) {
+            mainImageRaw = device.media[0].media.url;
+            mainImageSource = "media[0].media.url";
+          }
+
+          const normalizedImageUrl = normalizeDeviceImageUrl(mainImageRaw);
+          if (normalizedImageUrl || device.localImageUrl) {
+            logger.info(`📱 Device Image URLs [${device.name || device.id}]:`, {
+              primary: normalizedImageUrl,
+              local: device.localImageUrl || 'None'
+            });
+            logger.debug(`🎨 UI Mapping: Normalized image for ${device.name || device.id} from ${mainImageSource}`, { normalizedImageUrl });
+          }
+
 
           return {
             // Spread all original device data so widget has access to everything
