@@ -1007,3 +1007,41 @@ export function formatConversationalResponse(message, context, progress, action 
   
   return response;
 }
+
+/**
+ * Normalize device image URLs to ensure they work in all environments
+ * Converts relative URLs to absolute, and ensures URLs are properly formatted
+ * @param {string|null|undefined} imageUrl - Image URL from API response
+ * @returns {string|null} Normalized absolute URL or null
+ */
+export function normalizeDeviceImageUrl(imageUrl) {
+  if (!imageUrl || typeof imageUrl !== 'string') {
+    return null;
+  }
+  
+  // Trim whitespace
+  const trimmed = imageUrl.trim();
+  if (!trimmed) {
+    return null;
+  }
+  
+  // If already absolute URL (starts with http:// or https://), return as-is
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed;
+  }
+  
+  // Protocol-relative URL (//example.com) - default to https
+  if (trimmed.startsWith('//')) {
+    return `https:${trimmed}`;
+  }
+  
+  // If relative URL (starts with /), convert to absolute using Shopware API base URL
+  if (trimmed.startsWith('/')) {
+    const shopwareBaseUrl = 'https://shopware-api-nctc-qa.reachmobileplatform.com';
+    return `${shopwareBaseUrl}${trimmed}`;
+  }
+  
+  // If it's a path without leading slash, assume it's relative to media root
+  const shopwareBaseUrl = 'https://shopware-api-nctc-qa.reachmobileplatform.com';
+  return `${shopwareBaseUrl}/${trimmed}`;
+}

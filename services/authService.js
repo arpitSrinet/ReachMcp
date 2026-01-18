@@ -94,6 +94,7 @@ function calculateRetryDelay(attempt, baseDelay, backoffMultiplier) {
 export async function getAuthToken(tenant = "reach", forceRefresh = false) {
   // Check for existing refresh in progress to prevent race conditions
   const refreshKey = `refresh_${tenant}`;
+  console.log("refreshKey --tenant", tenant, refreshKey);
   if (refreshPromises.has(refreshKey)) {
     logger.info("Token refresh already in progress, waiting for existing refresh", { tenant });
     try {
@@ -167,7 +168,7 @@ export async function getAuthToken(tenant = "reach", forceRefresh = false) {
 async function fetchNewToken(tenant) {
   const config = getTenantConfig(tenant);
   const url = `${config.apiBaseUrl}/apisvc/v0/account/generateauth`;
-
+  
   logger.info("Requesting new auth token", {
     tenant,
     apiBaseUrl: config.apiBaseUrl,

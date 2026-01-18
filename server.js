@@ -28,6 +28,7 @@ import { fetchOffers, fetchServices } from "./services/productService.js";
 import { validateDevice, fetchDevices, fetchProtectionPlans } from "./services/deviceService.js";
 import { getAuthToken, getAuthTokensMap } from "./services/authService.js";
 import { getFlowContext, updateFlowContext, resetFlowContext, checkPrerequisites, getFlowProgress, setResumeStep, getResumeStep, updateLastIntent, addConversationHistory, updateMissingPrerequisites, getGlobalContextFlags } from "./services/flowContextService.js";
+import { normalizeDeviceImageUrl } from "./utils/formatter.js";
 import { swapSim, validateIccId } from "./services/simService.js";
 import { detectIntent, extractEntities, INTENT_TYPES } from "./services/intentService.js";
 import { routeIntent, getNextStep as getNextStepFromRouter } from "./services/conversationRouter.js";
@@ -2243,60 +2244,159 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         throw error;
       }
       
-      const result = await validateDevice(args.imei, tenant);
-      if (isAppsSDK) {
-        return {
-          content: [{ type: "text", text: JSON.stringify({ success: true, ...result, imei: args.imei }) }],
-        };
-      }
-      
-      // Get session context for suggestions
+      // Get session context for error handling and suggestions
       const sessionId = getOrCreateSessionId(args.sessionId || null);
       const context = getFlowContext(sessionId);
       
-      // Update context and conversation history
-      if (context && sessionId) {
-        updateLastIntent(sessionId, INTENT_TYPES.DEVICE, 'validate_device');
-        addConversationHistory(sessionId, {
-          intent: INTENT_TYPES.DEVICE,
-          action: 'validate_device',
-          data: { imei: args.imei ? `${args.imei.substring(0, 4)}...` : 'N/A', isValid: result.isValid }
+      try {
+        const result = await validateDevice(args.imei, tenant);
+        if (isAppsSDK) {
+          return {
+            content: [{ type: "text", text: JSON.stringify({ success: true, ...result, imei: args.imei }) }],
+          };
+        }
+        
+          // Update context and conversation history
+        if (context && sessionId) {
+          updateLastIntent(sessionId, INTENT_TYPES.DEVICE, 'validate_device');
+          addConversationHistory(sessionId, {
+            intent: INTENT_TYPES.DEVICE,
+            action: 'validate_device',
+            data: { imei: args.imei ? `${args.imei.substring(0, 4)}...` : 'N/A', isValid: result.isValid }
+          });
+        }
+        
+        // Format device compatibility card
+        const cardMarkdown = formatDeviceAsCard({ ...result, imei: args.imei });
+        
+        // Add suggestions to buy devices
+        let suggestions = "";
+        if (result.isValid) {
+          suggestions = "✅ **Your device is compatible!**\n\n";
+          suggestions += "**Looking for a new device?** Browse our selection of phones and devices:\n";
+          suggestions += "• Say **\"Show me devices\"** or **\"Browse devices\"** to see available options\n";
+          suggestions += "• You can also search by brand (e.g., \"Show me iPhones\" or \"Show me Samsung phones\")\n";
+          suggestions += "• Devices are optional - you can proceed with your current compatible device or upgrade to a new one";
+        } else {
+          suggestions = "❌ **Your device may not be fully compatible.**\n\n";
+          suggestions += "**Need a new device?** We have a great selection of compatible phones:\n";
+          suggestions += "• Say **\"Show me devices\"** or **\"Browse devices\"** to see available options\n";
+          suggestions += "• Search by brand: \"Show me iPhones\", \"Show me Samsung phones\", etc.\n";
+          suggestions += "• All devices in our catalog are guaranteed to work with Reach Mobile network";
+        }
+        
+        // Get next steps based on context
+        const nextSteps = getNextStepsForIntent(context, INTENT_TYPES.DEVICE);
+        
+        // Format response with three sections
+        const responseText = formatThreeSectionResponse(cardMarkdown, suggestions, nextSteps);
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: responseText,
+            },
+          ],
+        };
+      } catch (deviceError) {
+        // Handle errors from device validation API
+        const statusCode = deviceError.statusCode || (deviceError.message.match(/\b(\d{3})\b/) ? parseInt(deviceError.message.match(/\b(\d{3})\b/)[1]) : null);
+        const errorType = deviceError.errorType || 'API_ERROR';
+        const errorMessage = deviceError.message || 'Unknown error';
+        const imei = args.imei ? `${args.imei.substring(0, 6)}...${args.imei.substring(args.imei.length - 4)}` : 'provided';
+        
+        logger.error("Device validation error", {
+          imei: args.imei ? `${args.imei.substring(0, 4)}...` : 'N/A',
+          statusCode,
+          errorType,
+          errorMessage: errorMessage.substring(0, 200)
         });
+        
+        // Handle server errors (500, 502, 503, 504)
+        if (statusCode >= 500 || statusCode === 503 || errorMessage.includes('503') || errorMessage.includes('Service Unavailable')) {
+          let errorResponse = `## ⚠️ Issue While Checking Compatibility\n\n`;
+          errorResponse += `I tried to validate your device using the IMEI **${imei}**, but the device compatibility service is temporarily unavailable (503 error). This is a server-side issue, not a problem with your IMEI or device.\n\n`;
+          errorResponse += `**What this means:**\n\n`;
+          errorResponse += `• make sure you are using the correct IMEI\n`;
+          errorResponse += `• check spaces in the IMEI\n`;
+          errorResponse += `• Your request reached the system correctly\n`;
+          errorResponse += `• The validation service is currently down or not responding\n`;
+          errorResponse += `• No compatibility result could be fetched right now\n\n`;
+          errorResponse += `**What you can do:**\n\n`;
+          errorResponse += `⏳ **Try again in a few minutes** — This is usually a short-lived issue\n\n`;
+          errorResponse += `🔁 **Retry** — You can ask me to "check compatibility again" or "validate device again" with your IMEI\n\n`;
+          errorResponse += `✅ **Continue without validation** — You can still proceed to select plans and devices. Device validation is optional.\n\n`;
+          errorResponse += `Sorry about the hiccup — I've noted your IMEI and can recheck as soon as the service is back up.\n\n`;
+          
+          return {
+            content: [
+              {
+                type: "text",
+                text: errorResponse,
+              },
+            ],
+          };
+        }
+        
+        // Handle timeout errors
+        if (errorMessage.includes('timeout') || errorMessage.includes('timed out') || errorType === 'TIMEOUT_ERROR' || deviceError.name === 'TimeoutError') {
+          let errorResponse = `## ⏱️ Device Validation Timed Out\n\n`;
+          errorResponse += `I tried to validate your device using the IMEI **${imei}**, but the request took too long to complete.\n\n`;
+          errorResponse += `**What you can do:**\n\n`;
+          errorResponse += `🔁 **Try again** — You can ask me to "check compatibility again" or "validate device again"\n\n`;
+          errorResponse += `✅ **Continue without validation** — Device validation is optional. You can proceed to select plans and devices.\n\n`;
+          
+          return {
+            content: [
+              {
+                type: "text",
+                text: errorResponse,
+              },
+            ],
+          };
+        }
+        
+        // Handle authentication errors (401, 403)
+        if (statusCode === 401 || statusCode === 403 || errorMessage.includes('401') || errorMessage.includes('403') || errorMessage.includes('Unauthorized') || errorMessage.includes('Forbidden')) {
+          let errorResponse = `## 🔒 Authentication Issue\n\n`;
+          errorResponse += `I tried to validate your device, but there was an authentication issue with the device validation service.\n\n`;
+          errorResponse += `**What this means:**\n\n`;
+          errorResponse += `• The service requires proper authentication\n`;
+          errorResponse += `• This is a system-side issue, not a problem with your IMEI\n\n`;
+          errorResponse += `**What you can do:**\n\n`;
+          errorResponse += `🔁 **Try again** — The system will automatically retry with fresh authentication\n\n`;
+          errorResponse += `✅ **Continue without validation** — You can proceed to select plans and devices\n\n`;
+          errorResponse += `If this persists, please contact support.\n\n`;
+          
+          return {
+            content: [
+              {
+                type: "text",
+                text: errorResponse,
+              },
+            ],
+          };
+        }
+        
+        // Handle other errors
+        let errorResponse = `## ❌ Device Validation Failed\n\n`;
+        errorResponse += `I tried to validate your device using the IMEI **${imei}**, but encountered an error.\n\n`;
+        errorResponse += `**Error:** ${errorMessage.substring(0, 200)}\n\n`;
+        errorResponse += `**What you can do:**\n\n`;
+        errorResponse += `🔍 **Check your IMEI** — Make sure you provided the correct 15-digit IMEI number\n\n`;
+        errorResponse += `🔁 **Try again** — You can ask me to "check compatibility again"\n\n`;
+        errorResponse += `✅ **Continue without validation** — Device validation is optional. You can proceed to browse devices and select plans.\n\n`;
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: errorResponse,
+            },
+          ],
+        };
       }
-      
-      // Format device compatibility card
-      const cardMarkdown = formatDeviceAsCard({ ...result, imei: args.imei });
-      
-      // Add suggestions to buy devices
-      let suggestions = "";
-      if (result.isValid) {
-        suggestions = "✅ **Your device is compatible!**\n\n";
-        suggestions += "**Looking for a new device?** Browse our selection of phones and devices:\n";
-        suggestions += "• Say **\"Show me devices\"** or **\"Browse devices\"** to see available options\n";
-        suggestions += "• You can also search by brand (e.g., \"Show me iPhones\" or \"Show me Samsung phones\")\n";
-        suggestions += "• Devices are optional - you can proceed with your current compatible device or upgrade to a new one";
-      } else {
-        suggestions = "❌ **Your device may not be fully compatible.**\n\n";
-        suggestions += "**Need a new device?** We have a great selection of compatible phones:\n";
-        suggestions += "• Say **\"Show me devices\"** or **\"Browse devices\"** to see available options\n";
-        suggestions += "• Search by brand: \"Show me iPhones\", \"Show me Samsung phones\", etc.\n";
-        suggestions += "• All devices in our catalog are guaranteed to work with Reach Mobile network";
-      }
-      
-      // Get next steps based on context
-      const nextSteps = getNextStepsForIntent(context, INTENT_TYPES.DEVICE);
-      
-      // Format response with three sections
-      const responseText = formatThreeSectionResponse(cardMarkdown, suggestions, nextSteps);
-      
-      return {
-        content: [
-          {
-            type: "text",
-            text: responseText,
-          },
-        ],
-      };
     }
 
     if (name === "get_devices") {
@@ -2399,31 +2499,65 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       // Return structuredContent for Apps SDK widget
       // Pass all device fields so widget can display full specs
       const structuredData = {
-        devices: devices.map(device => ({
-          // Spread all original device data so widget has access to everything
-          ...device,
+        devices: devices.map(device => {
+          // Normalize cover media URL if present
+          const normalizedCoverMediaUrl = device.cover?.media?.url 
+            ? normalizeDeviceImageUrl(device.cover.media.url) 
+            : null;
           
-          // Normalized fields the widget expects
-          id: device.id || device.productNumber || device.ean,
-          name: device.name || device.translated?.name,
-          brand: device.manufacturer?.name || device.brand || device.translated?.manufacturer?.name,
-          productNumber: device.productNumber,
-          manufacturerNumber: device.manufacturerNumber,
-          price: device.calculatedPrice?.unitPrice || device.calculatedPrice?.totalPrice || device.price?.[0]?.gross || 0,
-          originalPrice: device.calculatedPrice?.listPrice?.price || device.price?.[0]?.listPrice || device.listPrice || null,
-          image: device.cover?.media?.url || device.media?.[0]?.media?.url || null,
-          properties: device.properties || [],
-          calculatedPrice: device.calculatedPrice || device.calculatedCheapestPrice,
-          calculatedCheapestPrice: device.calculatedCheapestPrice,
-          stock: device.stock,
-          availableStock: device.availableStock,
-          available: device.available,
-          weight: device.weight,
-          width: device.width,
-          height: device.height,
-          length: device.length,
-          releaseDate: device.releaseDate,
-        })),
+          // Normalize media array URLs if present
+          const normalizedMedia = device.media && Array.isArray(device.media)
+            ? device.media.map(m => ({
+                ...m,
+                media: m.media ? {
+                  ...m.media,
+                  url: m.media.url ? normalizeDeviceImageUrl(m.media.url) : m.media.url
+                } : m.media,
+                url: m.url ? normalizeDeviceImageUrl(m.url) : m.url
+              }))
+            : device.media;
+          
+          // Normalize main image URL
+          const normalizedImageUrl = normalizeDeviceImageUrl(
+            device.cover?.media?.url || device.media?.[0]?.media?.url || null
+          );
+          
+          return {
+            // Spread all original device data so widget has access to everything
+            ...device,
+            
+            // Override cover and media with normalized URLs
+            cover: device.cover ? {
+              ...device.cover,
+              media: device.cover.media ? {
+                ...device.cover.media,
+                url: normalizedCoverMediaUrl
+              } : device.cover.media
+            } : device.cover,
+            media: normalizedMedia,
+            
+            // Normalized fields the widget expects
+            id: device.id || device.productNumber || device.ean,
+            name: device.name || device.translated?.name,
+            brand: device.manufacturer?.name || device.brand || device.translated?.manufacturer?.name,
+            productNumber: device.productNumber,
+            manufacturerNumber: device.manufacturerNumber,
+            price: device.calculatedPrice?.unitPrice || device.calculatedPrice?.totalPrice || device.price?.[0]?.gross || 0,
+            originalPrice: device.calculatedPrice?.listPrice?.price || device.price?.[0]?.listPrice || device.listPrice || null,
+            image: normalizedImageUrl,
+            properties: device.properties || [],
+            calculatedPrice: device.calculatedPrice || device.calculatedCheapestPrice,
+            calculatedCheapestPrice: device.calculatedCheapestPrice,
+            stock: device.stock,
+            availableStock: device.availableStock,
+            available: device.available,
+            weight: device.weight,
+            width: device.width,
+            height: device.height,
+            length: device.length,
+            releaseDate: device.releaseDate,
+          };
+        }),
         // Include flowContext data for line selection
         lineCount: context ? (context.lineCount || 0) : 0,
         lines: context && context.lines ? context.lines.map((line, index) => ({
@@ -2757,13 +2891,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           throw new Error(`Device "${args.itemId}" not found in the catalog. Please browse available devices first or check the device name.`);
         }
         
-        // Extract device image from multiple sources
-        const deviceImage = item.cover?.media?.url || 
+        // Extract device image from multiple sources and normalize URL
+        const rawImageUrl = item.cover?.media?.url || 
                            (item.media && item.media[0]?.media?.url) || 
                            item.image || 
                            item.coverImage || 
                            item.thumbnail ||
                            null;
+        const deviceImage = normalizeDeviceImageUrl(rawImageUrl);
         
         // Extract device properties for specs
         const properties = item.properties || [];

@@ -202,6 +202,9 @@ export async function callReachAPI(endpoint, options = {}, tenant = "reach", con
   // Get auth token - use cached token if valid, only refresh if needed
   // DO NOT force refresh - let getAuthToken handle caching intelligently
   let authToken;
+
+  
+  
   try {
     // Use ensureTokenOnToolCall to check/refresh token before API call
     await ensureTokenOnToolCall(tenant);
@@ -310,7 +313,7 @@ export async function callReachAPI(endpoint, options = {}, tenant = "reach", con
           // Continue to normal error handling
         }
       }
-
+      
       // Log 403 errors with full details for debugging permissions issues
       if (response.status === 403) {
         logger.error("403 Forbidden - Authorization/Permissions Issue", {

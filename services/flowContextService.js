@@ -17,8 +17,8 @@ export async function initializeFlowContextService() {
     if (loadedContexts) {
       flowContexts.clear();
       Object.entries(loadedContexts).forEach(([sessionId, context]) => {
-        flowContexts.set(sessionId, context);
-      });
+  flowContexts.set(sessionId, context);
+});
     }
     
     initialized = true;
