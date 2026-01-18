@@ -20,53 +20,53 @@ if (!fs.existsSync(IMAGE_DIR)) {
  * Helper to download with redirect support
  */
 function downloadFile(url, destPath, maxRedirects = 5) {
-  return new Promise((resolve, reject) => {
-    if (maxRedirects < 0) {
-      return reject(new Error('Too many redirects'));
-    }
+    return new Promise((resolve, reject) => {
+        if (maxRedirects < 0) {
+            return reject(new Error('Too many redirects'));
+        }
 
-    // Select module based on protocol
-    const isHttps = url.startsWith('https:');
-    const client = isHttps ? https : http;
+        // Select module based on protocol
+        const isHttps = url.startsWith('https:');
+        const client = isHttps ? https : http;
 
-    const request = client.get(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-      }
-    }, (response) => {
-      // Handle Redirects
-      if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
-        const redirectUrl = new URL(response.headers.location, url).toString();
-        logger.info(`Following redirect for image: ${redirectUrl}`);
-        downloadFile(redirectUrl, destPath, maxRedirects - 1)
-          .then(resolve)
-          .catch(reject);
-        return;
-      }
+        const request = client.get(url, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+        }, (response) => {
+            // Handle Redirects
+            if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+                const redirectUrl = new URL(response.headers.location, url).toString();
+                logger.info(`Following redirect for image: ${redirectUrl}`);
+                downloadFile(redirectUrl, destPath, maxRedirects - 1)
+                    .then(resolve)
+                    .catch(reject);
+                return;
+            }
 
-      if (response.statusCode !== 200) {
-        return reject(new Error(`Status code: ${response.statusCode}`));
-      }
+            if (response.statusCode !== 200) {
+                return reject(new Error(`Status code: ${response.statusCode}`));
+            }
 
-      const file = fs.createWriteStream(destPath);
-      response.pipe(file);
+            const file = fs.createWriteStream(destPath);
+            response.pipe(file);
 
-      file.on('finish', () => {
-        file.close();
-        resolve();
-      });
+            file.on('finish', () => {
+                file.close();
+                resolve();
+            });
 
-      file.on('error', (err) => {
-        fs.unlink(destPath, () => {}); // cleanup
-        reject(err);
-      });
+            file.on('error', (err) => {
+                fs.unlink(destPath, () => { }); // cleanup
+                reject(err);
+            });
+        });
+
+        request.on('error', (err) => {
+            fs.unlink(destPath, () => { }); // cleanup
+            reject(err);
+        });
     });
-
-    request.on('error', (err) => {
-      fs.unlink(destPath, () => {}); // cleanup
-      reject(err);
-    });
-  });
 }
 
 /**
@@ -102,4 +102,26 @@ export async function cacheImage(url, filename) {
 export async function cacheImages(items) {
     const results = await Promise.all(items.map(item => cacheImage(item.url, item.filename)));
     return results;
+}
+
+/**
+ * Reads a cached image and returns it as a Base64 string
+ * @param {string} filename 
+ * @returns {Promise<string|null>} Base64 string with data: prefix
+ */
+export async function getImageBase64(filename) {
+    if (!filename) return null;
+    const targetPath = path.join(IMAGE_DIR, filename);
+
+    if (!fs.existsSync(targetPath)) return null;
+
+    try {
+        const buffer = await fs.promises.readFile(targetPath);
+        const extension = path.extname(filename).toLowerCase().replace('.', '') || 'png';
+        const mimeType = extension === 'jpg' ? 'image/jpeg' : (extension === 'webp' ? 'image/webp' : 'image/png');
+        return `data:${mimeType};base64,${buffer.toString('base64')}`;
+    } catch (err) {
+        logger.error(`Error reading image for base64: ${err.message}`);
+        return null;
+    }
 }

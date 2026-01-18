@@ -1188,8 +1188,8 @@
               </button>
               ` : ''}
               <div class="device-image-container">
-                ${(device.localImageUrl || mainImage) ?
-          `<img src="${device.localImageUrl || mainImage}" alt="${name}" class="device-image device-image-main" onerror="handleDeviceImageError(this, '${device.localImageUrl ? mainImage : ''}')">` :
+                ${(device.base64Image || device.localImageUrl || mainImage) ?
+          `<img src="${device.base64Image || device.localImageUrl || mainImage}" alt="${name}" class="device-image device-image-main" data-fallback-index="0" data-fallbacks='${JSON.stringify([device.localImageUrl, mainImage].filter(Boolean))}' onerror="handleDeviceImageEnhancedError(this)">` :
           `<div class="device-image-placeholder">📱</div>`
         }
               </div>
@@ -1954,6 +1954,30 @@
         console.log('🔄 Primary image failed, trying fallback:', fallback);
       } else {
         // No fallback available, show placeholder
+        renderDevicePlaceholder(imgElement);
+      }
+    }
+
+    /**
+     * Enhanced error handler for multiple fallbacks (Base64 -> Local -> Remote)
+     */
+    function handleDeviceImageEnhancedError(imgElement) {
+      if (!imgElement) return;
+
+      try {
+        const fallbacks = JSON.parse(imgElement.dataset.fallbacks || '[]');
+        let index = parseInt(imgElement.dataset.fallbackIndex || '0');
+
+        if (index < fallbacks.length) {
+          const nextFallback = fallbacks[index];
+          imgElement.dataset.fallbackIndex = (index + 1).toString();
+          imgElement.src = nextFallback;
+          console.log(`🔄 Image failed, trying fallback ${index + 1}:`, nextFallback);
+        } else {
+          renderDevicePlaceholder(imgElement);
+        }
+      } catch (e) {
+        console.error('Error in enhanced image fallback:', e);
         renderDevicePlaceholder(imgElement);
       }
     }

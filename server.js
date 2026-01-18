@@ -56,7 +56,7 @@ import {
 import { setupDevServer } from "./devServer.js";
 import { initializeCartService } from "./services/cartService.js";
 import { initializeFlowContextService } from "./services/flowContextService.js";
-import { cacheImage } from "./services/imageCacher.js";
+import { cacheImage, getImageBase64 } from "./services/imageCacher.js";
 import * as mongoStorage from "./utils/mongodbStorage.js";
 
 // Global variable to store server base URL for absolute asset links
@@ -1024,29 +1024,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     ];
 
     // Auth generation on each tool call - ensures token exists and is valid
-    if (TOOLS_REQUIRING_AUTH.includes(name)) {
+    // Optimization: skip Reach auth for tools that don't need it (Devices/Protection)
+    if (TOOLS_WITHOUT_REACH_AUTH.includes(name)) {
+      logger.debug("Tool does not require Reach API authentication", { tool: name });
+    } else {
+      // For all other tools (default), ensure token exists and is valid
       try {
         await ensureTokenOnToolCall(tenant);
         logger.debug("Auth token verified for tool", { tool: name, tenant });
       } catch (error) {
-        logger.error("Failed to get auth token for tool call", {
-          tool: name,
+        logger.error(`Failed to get auth token for tool call: ${name}`, {
           error: error.message,
           errorType: error.errorType || error.name
-        });
-        throw error;
-      }
-    } else if (TOOLS_WITHOUT_REACH_AUTH.includes(name)) {
-      logger.debug("Tool does not require Reach API authentication", { tool: name });
-    } else {
-      // Unknown tool - require auth for safety
-      logger.warn("Unknown tool, requiring auth for safety", { tool: name });
-      try {
-        await ensureTokenOnToolCall(tenant);
-      } catch (error) {
-        logger.error("Failed to get auth token for unknown tool", {
-          tool: name,
-          error: error.message
         });
         throw error;
       }
@@ -2498,88 +2487,105 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       // Return structuredContent for Apps SDK widget
       // Pass all device fields so widget can display full specs
+      // Return structuredContent for Apps SDK widget
+      // Pass all device fields so widget can display full specs
+      const structuredDevices = [];
+      for (const device of devices) {
+        // Normalize cover media URL if present
+        const normalizedCoverMediaUrl = device.cover?.media?.url
+          ? normalizeDeviceImageUrl(device.cover.media.url)
+          : null;
+
+        // Normalize media array URLs if present
+        const normalizedMedia = device.media && Array.isArray(device.media)
+          ? device.media.map(m => ({
+            ...m,
+            media: m.media ? {
+              ...m.media,
+              url: m.media.url ? normalizeDeviceImageUrl(m.media.url) : m.media.url
+            } : m.media,
+            url: m.url ? normalizeDeviceImageUrl(m.url) : m.url
+          }))
+          : device.media;
+
+        if (normalizedMedia && normalizedMedia.length > 0) {
+          const mediaUrls = normalizedMedia.map(m => m.url || (m.media && m.media.url)).filter(Boolean);
+          logger.info(`🖼️ Gallery URLs [${device.name || device.id}]: ${mediaUrls.length} found`, { urls: mediaUrls });
+        }
+
+        // Normalize main image URL
+        let mainImageSource = "none";
+        let mainImageRaw = null;
+
+        if (device.cover?.media?.url) {
+          mainImageRaw = device.cover.media.url;
+          mainImageSource = "cover.media.url";
+        } else if (device.media?.[0]?.media?.url) {
+          mainImageRaw = device.media[0].media.url;
+          mainImageSource = "media[0].media.url";
+        }
+
+        const normalizedImageUrl = normalizeDeviceImageUrl(mainImageRaw);
+        if (normalizedImageUrl || device.localImageUrl) {
+          logger.info(`📱 Device Image URLs [${device.name || device.id}]:`, {
+            primary: normalizedImageUrl,
+            local: device.localImageUrl || 'None'
+          });
+          logger.debug(`🎨 UI Mapping: Normalized image for ${device.name || device.id} from ${mainImageSource}`, { normalizedImageUrl });
+        }
+
+        // Generate Base64 for the primary image to bypass CSP (data URIs are usually allowed)
+        // Use filename derived from ID
+        const extension = (normalizedImageUrl || '').split('.').pop().split(/[?#]/)[0] || 'png';
+        const filename = `${device.id || device.productNumber}.${extension}`;
+        const base64Image = await getImageBase64(filename);
+        if (base64Image) {
+          logger.debug(`✨ Base64 generated for ${device.name || device.id}`);
+        }
+
+
+        structuredDevices.push({
+          // Spread all original device data so widget has access to everything
+          ...device,
+
+          // Attachment of base64 image for the UI widget
+          base64Image: base64Image,
+
+          // Override cover and media with normalized URLs
+          cover: device.cover ? {
+            ...device.cover,
+            media: device.cover.media ? {
+              ...device.cover.media,
+              url: normalizedCoverMediaUrl
+            } : device.cover.media
+          } : device.cover,
+          media: normalizedMedia,
+
+          // Normalized fields the widget expects
+          id: device.id || device.productNumber || device.ean,
+          name: device.name || device.translated?.name,
+          brand: device.manufacturer?.name || device.brand || device.translated?.manufacturer?.name,
+          productNumber: device.productNumber,
+          manufacturerNumber: device.manufacturerNumber,
+          price: device.calculatedPrice?.unitPrice || device.calculatedPrice?.totalPrice || device.price?.[0]?.gross || 0,
+          originalPrice: device.calculatedPrice?.listPrice?.price || device.price?.[0]?.listPrice || device.listPrice || null,
+          image: normalizedImageUrl,
+          properties: device.properties || [],
+          calculatedPrice: device.calculatedPrice || device.calculatedCheapestPrice,
+          calculatedCheapestPrice: device.calculatedCheapestPrice,
+          stock: device.stock,
+          availableStock: device.availableStock,
+          available: device.available,
+          weight: device.weight,
+          width: device.width,
+          height: device.height,
+          length: device.length,
+          releaseDate: device.releaseDate,
+        });
+      }
+
       const structuredData = {
-        devices: devices.map(device => {
-          // Normalize cover media URL if present
-          const normalizedCoverMediaUrl = device.cover?.media?.url
-            ? normalizeDeviceImageUrl(device.cover.media.url)
-            : null;
-
-          // Normalize media array URLs if present
-          const normalizedMedia = device.media && Array.isArray(device.media)
-            ? device.media.map(m => ({
-              ...m,
-              media: m.media ? {
-                ...m.media,
-                url: m.media.url ? normalizeDeviceImageUrl(m.media.url) : m.media.url
-              } : m.media,
-              url: m.url ? normalizeDeviceImageUrl(m.url) : m.url
-            }))
-            : device.media;
-
-          if (normalizedMedia && normalizedMedia.length > 0) {
-            const mediaUrls = normalizedMedia.map(m => m.url || (m.media && m.media.url)).filter(Boolean);
-            logger.info(`🖼️ Gallery URLs [${device.name || device.id}]: ${mediaUrls.length} found`, { urls: mediaUrls });
-          }
-
-          // Normalize main image URL
-          let mainImageSource = "none";
-          let mainImageRaw = null;
-
-          if (device.cover?.media?.url) {
-            mainImageRaw = device.cover.media.url;
-            mainImageSource = "cover.media.url";
-          } else if (device.media?.[0]?.media?.url) {
-            mainImageRaw = device.media[0].media.url;
-            mainImageSource = "media[0].media.url";
-          }
-
-          const normalizedImageUrl = normalizeDeviceImageUrl(mainImageRaw);
-          if (normalizedImageUrl || device.localImageUrl) {
-            logger.info(`📱 Device Image URLs [${device.name || device.id}]:`, {
-              primary: normalizedImageUrl,
-              local: device.localImageUrl || 'None'
-            });
-            logger.debug(`🎨 UI Mapping: Normalized image for ${device.name || device.id} from ${mainImageSource}`, { normalizedImageUrl });
-          }
-
-
-          return {
-            // Spread all original device data so widget has access to everything
-            ...device,
-
-            // Override cover and media with normalized URLs
-            cover: device.cover ? {
-              ...device.cover,
-              media: device.cover.media ? {
-                ...device.cover.media,
-                url: normalizedCoverMediaUrl
-              } : device.cover.media
-            } : device.cover,
-            media: normalizedMedia,
-
-            // Normalized fields the widget expects
-            id: device.id || device.productNumber || device.ean,
-            name: device.name || device.translated?.name,
-            brand: device.manufacturer?.name || device.brand || device.translated?.manufacturer?.name,
-            productNumber: device.productNumber,
-            manufacturerNumber: device.manufacturerNumber,
-            price: device.calculatedPrice?.unitPrice || device.calculatedPrice?.totalPrice || device.price?.[0]?.gross || 0,
-            originalPrice: device.calculatedPrice?.listPrice?.price || device.price?.[0]?.listPrice || device.listPrice || null,
-            image: normalizedImageUrl,
-            properties: device.properties || [],
-            calculatedPrice: device.calculatedPrice || device.calculatedCheapestPrice,
-            calculatedCheapestPrice: device.calculatedCheapestPrice,
-            stock: device.stock,
-            availableStock: device.availableStock,
-            available: device.available,
-            weight: device.weight,
-            width: device.width,
-            height: device.height,
-            length: device.length,
-            releaseDate: device.releaseDate,
-          };
-        }),
+        devices: structuredDevices,
         // Include flowContext data for line selection
         lineCount: context ? (context.lineCount || 0) : 0,
         lines: context && context.lines ? context.lines.map((line, index) => ({

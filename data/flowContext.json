@@ -9490,5 +9490,231 @@
     "protectionSelected": false,
     "simSelected": false,
     "linesConfigured": false
+  },
+  "session_1768760529100_iz8fm73": {
+    "sessionId": "session_1768760529100_iz8fm73",
+    "flowStage": "initial",
+    "resumeStep": null,
+    "lastIntent": "other",
+    "lastAction": null,
+    "conversationHistory": [],
+    "currentQuestion": null,
+    "lastUpdated": 1768760529109,
+    "coverageChecked": false,
+    "coverageZipCode": null,
+    "zip": null,
+    "lineCount": null,
+    "lines": [],
+    "cartRef": null,
+    "missingPrerequisites": [],
+    "planSelected": false,
+    "deviceSelected": false,
+    "protectionSelected": false,
+    "simSelected": false,
+    "linesConfigured": false
+  },
+  "session_1768760560133_e4ob81l": {
+    "sessionId": "session_1768760560133_e4ob81l",
+    "flowStage": "configuring",
+    "resumeStep": "device_selection",
+    "lastIntent": "device",
+    "lastAction": "add_to_cart",
+    "conversationHistory": [
+      {
+        "intent": "device",
+        "action": "get_devices",
+        "timestamp": 1768763646740,
+        "data": {
+          "deviceCount": 8,
+          "brand": null
+        }
+      },
+      {
+        "intent": "device",
+        "action": "add_to_cart",
+        "timestamp": 1768763722685,
+        "data": {
+          "itemType": "device",
+          "itemId": "ab586a73c7914ea09a7991975577178c",
+          "lineNumber": 1
+        }
+      },
+      {
+        "intent": "device",
+        "action": "add_to_cart",
+        "timestamp": 1768763734865,
+        "data": {
+          "itemType": "device",
+          "itemId": "ab586a73c7914ea09a7991975577178c",
+          "lineNumber": 3
+        }
+      }
+    ],
+    "currentQuestion": null,
+    "lastUpdated": 1768763734866,
+    "coverageChecked": false,
+    "coverageZipCode": null,
+    "zip": null,
+    "lineCount": 3,
+    "lines": [
+      {
+        "lineNumber": 1,
+        "planSelected": false,
+        "planId": null,
+        "deviceSelected": true,
+        "deviceId": "ab586a73c7914ea09a7991975577178c",
+        "protectionSelected": false,
+        "protectionId": null,
+        "simType": null,
+        "simIccId": null
+      },
+      {
+        "lineNumber": 2,
+        "planSelected": false,
+        "planId": null,
+        "deviceSelected": false,
+        "deviceId": null,
+        "protectionSelected": false,
+        "protectionId": null,
+        "simType": null,
+        "simIccId": null
+      },
+      {
+        "lineNumber": 3,
+        "planSelected": false,
+        "planId": null,
+        "deviceSelected": true,
+        "deviceId": "ab586a73c7914ea09a7991975577178c",
+        "protectionSelected": false,
+        "protectionId": null,
+        "simType": null,
+        "simIccId": null
+      }
+    ],
+    "cartRef": null,
+    "missingPrerequisites": [],
+    "planSelected": false,
+    "deviceSelected": true,
+    "protectionSelected": false,
+    "simSelected": false,
+    "linesConfigured": true
+  },
+  "session_1768763636571_8mdkntn": {
+    "sessionId": "session_1768763636571_8mdkntn",
+    "flowStage": "configuring",
+    "resumeStep": "device_selection",
+    "lastIntent": "device",
+    "lastAction": "add_to_cart",
+    "conversationHistory": [
+      {
+        "intent": "device",
+        "action": "get_devices",
+        "timestamp": 1768763949595,
+        "data": {
+          "deviceCount": 8,
+          "brand": null
+        }
+      },
+      {
+        "intent": "device",
+        "action": "add_to_cart",
+        "timestamp": 1768763997934,
+        "data": {
+          "itemType": "device",
+          "itemId": "480a63dbede44fb39262140d0b708a50",
+          "lineNumber": 1
+        }
+      },
+      {
+        "intent": "device",
+        "action": "add_to_cart",
+        "timestamp": 1768764016226,
+        "data": {
+          "itemType": "device",
+          "itemId": "ab586a73c7914ea09a7991975577178c",
+          "lineNumber": 2
+        }
+      },
+      {
+        "intent": "device",
+        "action": "add_to_cart",
+        "timestamp": 1768764029414,
+        "data": {
+          "itemType": "device",
+          "itemId": "ab586a73c7914ea09a7991975577178c",
+          "lineNumber": 3
+        }
+      }
+    ],
+    "currentQuestion": null,
+    "lastUpdated": 1768764029415,
+    "coverageChecked": false,
+    "coverageZipCode": null,
+    "zip": null,
+    "lineCount": 3,
+    "lines": [
+      {
+        "lineNumber": 1,
+        "planSelected": false,
+        "planId": null,
+        "deviceSelected": true,
+        "deviceId": "480a63dbede44fb39262140d0b708a50",
+        "protectionSelected": false,
+        "protectionId": null,
+        "simType": null,
+        "simIccId": null
+      },
+      {
+        "lineNumber": 2,
+        "planSelected": false,
+        "planId": null,
+        "deviceSelected": true,
+        "deviceId": "ab586a73c7914ea09a7991975577178c",
+        "protectionSelected": false,
+        "protectionId": null,
+        "simType": null,
+        "simIccId": null
+      },
+      {
+        "lineNumber": 3,
+        "planSelected": false,
+        "planId": null,
+        "deviceSelected": true,
+        "deviceId": "ab586a73c7914ea09a7991975577178c",
+        "protectionSelected": false,
+        "protectionId": null,
+        "simType": null,
+        "simIccId": null
+      }
+    ],
+    "cartRef": null,
+    "missingPrerequisites": [],
+    "planSelected": false,
+    "deviceSelected": true,
+    "protectionSelected": false,
+    "simSelected": false,
+    "linesConfigured": true
+  },
+  "session_1768763941341_7655tic": {
+    "sessionId": "session_1768763941341_7655tic",
+    "flowStage": "initial",
+    "resumeStep": null,
+    "lastIntent": "device",
+    "lastAction": null,
+    "conversationHistory": [],
+    "currentQuestion": null,
+    "lastUpdated": 1768763941357,
+    "coverageChecked": false,
+    "coverageZipCode": null,
+    "zip": null,
+    "lineCount": null,
+    "lines": [],
+    "cartRef": null,
+    "missingPrerequisites": [],
+    "planSelected": false,
+    "deviceSelected": false,
+    "protectionSelected": false,
+    "simSelected": false,
+    "linesConfigured": false
   }
 }
