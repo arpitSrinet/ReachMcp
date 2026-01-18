@@ -377,6 +377,60 @@
       font-weight: 500;
     }
 
+    .line-label.occupied {
+      color: #9ca3af;
+      font-style: italic;
+    }
+
+    .setup-lines-section {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #fef2f2;
+      border-top: 2px solid #fee2e2;
+      padding: 24px;
+      box-shadow: 0 -4px 20px rgba(220, 38, 38, 0.1);
+      z-index: 101;
+      display: none;
+      text-align: center;
+    }
+
+    .setup-lines-section.show {
+      display: block;
+    }
+
+    .setup-lines-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #991b1b;
+      margin-bottom: 8px;
+    }
+
+    .setup-lines-text {
+      font-size: 14px;
+      color: #b91c1c;
+      margin-bottom: 16px;
+    }
+
+    .setup-lines-button {
+      background: #dc2626;
+      color: white;
+      border: none;
+      padding: 12px 32px;
+      border-radius: var(--button-radius);
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .setup-lines-button:hover {
+      background: #b91c1c;
+      transform: translateY(-1px);
+      box-shadow: 0 8px 16px rgba(220, 38, 38, 0.3);
+    }
+
     .global-confirm-section {
       position: fixed;
       bottom: 0;
@@ -834,6 +888,14 @@
     </div>
   </div>
 
+  <div class="setup-lines-section" id="setup-lines-section">
+    <div class="setup-lines-title">📦 Lines Required First</div>
+    <div class="setup-lines-text">You need to configure your lines before you can select devices.</div>
+    <button class="setup-lines-button" id="setup-lines-button" onclick="sendPrompt('I want to set up my lines')">
+      Set Up Lines Now
+    </button>
+  </div>
+
   <script>
     // Immediate diagnostic check
     console.log('🔍 Devices widget initializing...', {
@@ -1064,6 +1126,7 @@
       }
       if (device.image) {
         imageCandidates.push(device.image);
+        console.log("device.image", device.image);
       }
       // Extract <img src="..."> URLs from description HTML (translated or raw)
       const descriptionHtml = (typeof device.translated?.description === 'string'
@@ -1099,7 +1162,7 @@
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
       });
-
+      console.log("device.image", device.image);
       // Basic availability (used only for CTA enabled/disabled)
       const stock = device.stock;
       const isAvailable = device.available !== false && (stock === undefined || stock > 0);
@@ -1166,8 +1229,8 @@
 
           <button class="add-to-cart-btn ${selectedDevices.has(deviceId) ? 'add-to-cart-btn--added' : ''}" 
                   onclick="selectDevice('${deviceId}', '${name.replace(/'/g, "\\'")}', this)" 
-                  ${!isAvailable ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>
-            ${!isAvailable ? 'Out of Stock' : (selectedDevices.has(deviceId) ? '✓ Selected' : 'Select Device')}
+                  ${!isAvailable || currentLines.length === 0 ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>
+            ${!isAvailable ? 'Out of Stock' : (currentLines.length === 0 ? 'Setup Lines First' : (selectedDevices.has(deviceId) ? '✓ Selected' : 'Select Device'))}
           </button>
           
           <div class="line-selection-section ${devicesWithSelection.has(deviceId) ? 'show' : ''}" id="line-selection-${deviceId}">
@@ -1175,19 +1238,28 @@
             <div class="line-checkboxes">
               ${currentLines.map(line => {
           const lineIdStr = String(line.id);
-          const isLineAssigned = lineDeviceAssignments[lineIdStr] && lineDeviceAssignments[lineIdStr] !== deviceId;
           const isChecked = lineDeviceAssignments[lineIdStr] === deviceId;
+          // Line is assigned to another device in this widget session
+          const isLineAssignedToOther = lineDeviceAssignments[lineIdStr] && !isChecked;
+          // Line already has a device assigned in the cart (from tool data)
+          const isLineOccupiedInCart = line.deviceSelected === true;
+
+          const isDisabled = isLineAssignedToOther || isLineOccupiedInCart;
+
           return `
-                  <label class="line-checkbox-item ${isLineAssigned ? 'disabled' : ''}" ${isLineAssigned ? 'onclick="return false;"' : ''}>
+                  <label class="line-checkbox-item ${isDisabled ? 'disabled' : ''}" ${isDisabled ? 'onclick="return false;"' : ''}>
                     <div class="line-checkbox">
                       <input type="checkbox" 
                              id="line-${line.id}-device-${deviceId}"
                              ${isChecked ? 'checked' : ''}
-                             ${isLineAssigned ? 'disabled' : ''}
+                             ${isDisabled ? 'disabled' : ''}
                              onchange="toggleDeviceLineAssignment(${line.id}, '${deviceId}', '${name.replace(/'/g, "\\'")}')">
                       <span class="line-checkbox-custom"></span>
                     </div>
-                    <span class="line-label">${line.name} ${line.phoneNumber ? `(${line.phoneNumber})` : ''}</span>
+                    <span class="line-label ${isLineOccupiedInCart ? 'occupied' : ''}">
+                      ${line.name} ${line.phoneNumber ? `(${line.phoneNumber})` : ''}
+                      ${isLineOccupiedInCart ? ' (Occupied)' : ''}
+                    </span>
                   </label>
                 `;
         }).join('')}
@@ -1363,15 +1435,23 @@
         console.log('✅ updateConfirmButtons: Lines updated:', currentLines.length, currentLines);
       }
 
-      // Check if all lines have devices assigned (convert line.id to string for consistent comparison)
-      const allLinesAssigned = currentLines.length > 0 && currentLines.every(line => {
-        const lineIdStr = String(line.id);
-        const hasAssignment = !!lineDeviceAssignments[lineIdStr];
-        if (!hasAssignment) {
-          console.log('❌ Line missing assignment:', { lineId: line.id, lineIdStr, lineName: line.name });
+      // Check if no lines are set up
+      const noLinesConfigured = currentLines.length === 0;
+      const setupSection = document.getElementById('setup-lines-section');
+      const globalConfirmSection = document.getElementById('global-confirm-section');
+
+      if (setupSection) {
+        if (noLinesConfigured) {
+          setupSection.classList.add('show');
+          if (globalConfirmSection) globalConfirmSection.classList.remove('show');
+
+          const container = document.getElementById('devices-container');
+          if (container) container.style.paddingBottom = '160px';
+          return;
+        } else {
+          setupSection.classList.remove('show');
         }
-        return hasAssignment;
-      });
+      }
 
       // Get all device-to-line assignments
       const assignments = [];
@@ -1389,13 +1469,10 @@
       console.log('✅ updateConfirmButtons: State check', {
         totalLines: currentLines.length,
         assignedLines: assignments.length,
-        allLinesAssigned: allLinesAssigned,
         lineDeviceAssignments: Object.assign({}, lineDeviceAssignments),
-        currentLinesIds: currentLines.map(l => String(l.id))
       });
 
       // Update global confirm section
-      const globalConfirmSection = document.getElementById('global-confirm-section');
       const globalConfirmButton = document.getElementById('global-confirm-button');
       const globalConfirmTitle = document.getElementById('global-confirm-title');
       const globalConfirmDetails = document.getElementById('global-confirm-details');
@@ -1405,19 +1482,13 @@
         if (assignments.length > 0) {
           globalConfirmSection.classList.add('show');
 
-          // Update summary
           const assignedLinesCount = assignments.length;
           const totalLinesCount = currentLines.length;
 
-          if (allLinesAssigned && totalLinesCount > 0) {
-            globalConfirmTitle.textContent = `All ${totalLinesCount} lines have devices selected`;
-            globalConfirmDetails.textContent = `Ready to add all devices to cart`;
-            globalConfirmButton.disabled = false;
-          } else {
-            globalConfirmTitle.textContent = `${assignedLinesCount} of ${totalLinesCount} lines have devices`;
-            globalConfirmDetails.textContent = `Select devices for all lines to continue`;
-            globalConfirmButton.disabled = true;
-          }
+          // Relaxed logic: allow confirmation if at least one device is selected
+          globalConfirmTitle.textContent = `${assignedLinesCount} ${assignedLinesCount === 1 ? 'device' : 'devices'} selected`;
+          globalConfirmDetails.textContent = `Ready to add to cart (Devices are optional)`;
+          globalConfirmButton.disabled = false;
         } else {
           globalConfirmSection.classList.remove('show');
           globalConfirmButton.disabled = true;
@@ -1427,9 +1498,9 @@
         const container = document.getElementById('devices-container');
         if (container) {
           if (globalConfirmSection.classList.contains('show')) {
-            container.style.paddingBottom = '140px';
+            container.style.paddingBottom = '160px';
           } else {
-            container.style.paddingBottom = '0';
+            container.style.paddingBottom = '24px';
           }
         }
       }
@@ -1461,18 +1532,6 @@
       if (allAssignments.length === 0) {
         alert('Please select at least one device for a line.');
         return;
-      }
-
-      // Check if all lines have devices (devices are optional, but if user selects some, they can confirm)
-      const allLinesAssigned = currentLines.length > 0 && currentLines.every(line => {
-        const lineIdStr = String(line.id);
-        return !!lineDeviceAssignments[lineIdStr];
-      });
-
-      if (!allLinesAssigned && currentLines.length > 0) {
-        // Devices are optional, but if user wants to confirm, show message
-        const result = confirm('Not all lines have devices selected. Would you like to add the selected devices to cart? (Devices are optional)');
-        if (!result) return;
       }
 
       // Build individual add_to_cart commands for each device-line combination

@@ -9,7 +9,7 @@ const __dirname = path.dirname(__filename);
 async function runTest() {
     const testImageUrl = 'https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png';
     const testFilename = 'test-google-logo.png';
-    const targetPath = path.join(__dirname, 'public/images/devices', testFilename);
+    const targetPath = path.join(__dirname, 'public/assets', testFilename);
 
     console.log('Testing image caching...');
 

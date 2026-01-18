@@ -7,7 +7,12 @@ import { logger } from '../utils/logger.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const IMAGE_DIR = path.join(__dirname, '../public/images/devices');
+const IMAGE_DIR = path.join(__dirname, '../public/assets');
+
+// Ensure directory exists
+if (!fs.existsSync(IMAGE_DIR)) {
+    fs.mkdirSync(IMAGE_DIR, { recursive: true });
+}
 
 /**
  * Downloads an image from a URL and saves it to the local storage

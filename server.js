@@ -2365,10 +2365,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           }
         });
       }
-
+      console.log("Devices", devices);
       // Limit results after filtering
       devices = devices.slice(0, limit);
-
+      console.log("Devices-images", devices.localImageUrl);
       // Async background caching for device images
       if (devices && devices.length > 0) {
         devices.forEach(device => {
@@ -2396,6 +2396,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           }
         });
       }
+      console.log("Devices-images", devices.localImageUrl);
 
       if (!devices || devices.length === 0) {
         return {
