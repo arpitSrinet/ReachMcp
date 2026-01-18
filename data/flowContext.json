@@ -9117,10 +9117,41 @@
           "deviceCount": 8,
           "brand": null
         }
+      },
+      {
+        "intent": "device",
+        "action": "get_devices",
+        "timestamp": 1768752623313,
+        "data": {
+          "deviceCount": 8,
+          "brand": null
+        }
       }
     ],
     "currentQuestion": null,
-    "lastUpdated": 1768752056042,
+    "lastUpdated": 1768752623313,
+    "coverageChecked": false,
+    "coverageZipCode": null,
+    "zip": null,
+    "lineCount": null,
+    "lines": [],
+    "cartRef": null,
+    "missingPrerequisites": [],
+    "planSelected": false,
+    "deviceSelected": false,
+    "protectionSelected": false,
+    "simSelected": false,
+    "linesConfigured": false
+  },
+  "session_1768752613670_aypq1ks": {
+    "sessionId": "session_1768752613670_aypq1ks",
+    "flowStage": "initial",
+    "resumeStep": null,
+    "lastIntent": "device",
+    "lastAction": null,
+    "conversationHistory": [],
+    "currentQuestion": null,
+    "lastUpdated": 1768752613674,
     "coverageChecked": false,
     "coverageZipCode": null,
     "zip": null,

@@ -2395,11 +2395,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             const localPath = `/public/assets/${filename}`;
             device.localImageUrl = serverBaseUrl ? `${serverBaseUrl}${localPath}` : localPath;
           }
+          
+          // Fix mixed content in description (prevent HTTP images in HTTPS site)
+          if (device.description) {
+            device.description = device.description.replace(/src="http:/g, 'src="https:');
+          }
         });
       }
       if (devices.length > 0) {
-        console.log("Sample Device Image URL:", devices[0].localImageUrl);
-        console.log("All Device Image URLs:", devices.map(d => d.localImageUrl));
+        console.log("---------------------------------------------------");
+        console.log(`📸 PROCESSED IMAGES FOR ${devices.length} DEVICES`);
+        console.log(`🌍 SERVER URL: ${serverBaseUrl || 'Not Set (Using Relative Paths)'}`);
+        console.log(`🖼️ SAMPLE GENERATED URL: ${devices[0].localImageUrl}`);
+        console.log("---------------------------------------------------");
       }
 
       if (!devices || devices.length === 0) {
