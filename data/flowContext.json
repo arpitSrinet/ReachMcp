@@ -8854,5 +8854,37 @@
     "protectionSelected": false,
     "simSelected": false,
     "linesConfigured": false
+  },
+  "session_1768739142141_8vr0umx": {
+    "sessionId": "session_1768739142141_8vr0umx",
+    "flowStage": "initial",
+    "resumeStep": "device_selection",
+    "lastIntent": "device",
+    "lastAction": "get_devices",
+    "conversationHistory": [
+      {
+        "intent": "device",
+        "action": "get_devices",
+        "timestamp": 1768739152592,
+        "data": {
+          "deviceCount": 8,
+          "brand": null
+        }
+      }
+    ],
+    "currentQuestion": null,
+    "lastUpdated": 1768739152592,
+    "coverageChecked": false,
+    "coverageZipCode": null,
+    "zip": null,
+    "lineCount": null,
+    "lines": [],
+    "cartRef": null,
+    "missingPrerequisites": [],
+    "planSelected": false,
+    "deviceSelected": false,
+    "protectionSelected": false,
+    "simSelected": false,
+    "linesConfigured": false
   }
 }
