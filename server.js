@@ -832,7 +832,7 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
                     });
                     
                     // Log for debugging
-                    console.log("Hello widget loaded", {
+                    logger.debug("Hello widget loaded", {
                       hasOpenAI: !!window.openai,
                       toolOutput: window.openai?.toolOutput,
                       message: output.message
@@ -2371,11 +2371,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           }
         });
       }
-      console.log("Devices", devices);
+      logger.debug("Fetched devices for tool response", { deviceCount: devices.length });
       // Limit results after filtering
       // Limit results after filtering
       devices = devices.slice(0, limit);
-      console.log(`Processing images for ${devices.length} devices. ServerURL: ${serverBaseUrl}`);
+      logger.info(`Processing images for ${devices.length} devices. ServerURL: ${serverBaseUrl}`);
       // Async background caching for device images
       if (devices && devices.length > 0) {
         devices.forEach(device => {

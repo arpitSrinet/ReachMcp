@@ -26,20 +26,20 @@ let mongoInitPromise = null;
  */
 export async function init() {
   if (mongoInitialized) return;
-  
+
   const connectionString = process.env.MONGODB_URI;
   const dbName = process.env.MONGODB_DB_NAME || 'reach_mobile';
-  
+
   if (connectionString) {
     try {
       await mongoStorage.connect(connectionString, dbName);
       useMongoDB = mongoStorage.isMongoConnected();
       mongoInitialized = true;
       if (useMongoDB) {
-        console.log('Using MongoDB for storage');
+        logger.info('Using MongoDB for storage');
       }
     } catch (error) {
-      console.warn('MongoDB connection failed, falling back to JSON storage:', error.message);
+      logger.warn('MongoDB connection failed, falling back to JSON storage', { error: error.message });
       useMongoDB = false;
       mongoInitialized = true;
     }
@@ -73,7 +73,7 @@ export function save(key, value) {
               break;
           }
         } catch (error) {
-          console.error(`Error saving ${key} to MongoDB:`, error);
+          logger.error(`Error saving ${key} to MongoDB`, { error: error.message });
           // Fallback to JSON on error
           saveToJSON(key, value);
         }
@@ -82,11 +82,10 @@ export function save(key, value) {
         saveToJSON(key, value);
       });
     }
-    
-    // Always save to JSON for backward compatibility and as backup
+
     saveToJSON(key, value);
   } catch (error) {
-    console.error(`Error saving ${key}:`, error);
+    logger.error(`Error saving ${key}`, { error: error.message });
   }
 }
 
@@ -98,7 +97,7 @@ function saveToJSON(key, value) {
     const filePath = path.join(STORAGE_DIR, `${key}.json`);
     fs.writeFileSync(filePath, JSON.stringify(value, null, 2), 'utf8');
   } catch (error) {
-    console.error(`Error saving ${key} to JSON:`, error);
+    logger.error(`Error saving ${key} to JSON`, { error: error.message });
   }
 }
 
@@ -115,7 +114,7 @@ export function load(key) {
     // MongoDB will be the source of truth after migration
     return loadFromJSON(key);
   } catch (error) {
-    console.error(`Error loading ${key}:`, error);
+    logger.error(`Error loading ${key}`, { error: error.message });
     return null;
   }
 }
@@ -135,7 +134,7 @@ function loadFromJSON(key) {
     }
     return JSON.parse(data);
   } catch (error) {
-    console.error(`Error loading ${key} from JSON:`, error);
+    logger.error(`Error loading ${key} from JSON`, { error: error.message });
     return null;
   }
 }
@@ -149,7 +148,7 @@ export async function loadAsync(key) {
   if (!useMongoDB || !mongoInitialized) {
     return load(key); // Fallback to JSON
   }
-  
+
   try {
     switch (key) {
       case 'flowContext':
@@ -162,7 +161,7 @@ export async function loadAsync(key) {
         return load(key);
     }
   } catch (error) {
-    console.error(`Error loading ${key} from MongoDB:`, error);
+    logger.error(`Error loading ${key} from MongoDB`, { error: error.message });
     return load(key); // Fallback to JSON
   }
 }
@@ -178,7 +177,7 @@ export async function saveAsync(key, value) {
     save(key, value); // Fallback to JSON
     return;
   }
-  
+
   try {
     switch (key) {
       case 'flowContext':
@@ -197,7 +196,7 @@ export async function saveAsync(key, value) {
     // Also save to JSON as backup
     save(key, value);
   } catch (error) {
-    console.error(`Error saving ${key} to MongoDB:`, error);
+    logger.error(`Error saving ${key} to MongoDB`, { error: error.message });
     save(key, value); // Fallback to JSON
   }
 }

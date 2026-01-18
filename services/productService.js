@@ -19,10 +19,10 @@ export async function fetchProducts(tenant = "reach") {
 
   // Response structure: { status: "SUCCESS", data: { plans: [], offers: [], services: [] } }
   // OR: { data: { plans: [], offers: [], services: [] } } (if status field is missing)
-  
+
   // Handle different response structures
   if (response.data) {
-  return response.data;
+    return response.data;
   } else if (response.plans !== undefined || response.offers !== undefined || response.services !== undefined) {
     // Response itself is the data object
     return response;
@@ -41,72 +41,82 @@ export async function fetchProducts(tenant = "reach") {
 }
 
 export async function fetchPlans(serviceCode = null, tenant = "reach") {
-  // ALWAYS use unified endpoint: /apisvc/v0/product/fetch
-  // This endpoint works correctly and doesn't have the modifiedDate issue
-  // The item-wise endpoints (/apisvc/v0/product/fetch/plan) have the modifiedDate bug
-  // Response structure: { status: "SUCCESS", data: { plans: [], offers: [], services: [] } }
-  
+  // Try unified endpoint first, then fall back to item-wise endpoint
+  // Unified: /apisvc/v0/product/fetch
+  // Item-wise: /apisvc/v0/product/fetch/plan
+
   try {
-    // Use unified endpoint - this is the reliable one that works
+    // Attempt unified endpoint - this is usually the most complete
     const allProducts = await fetchProducts(tenant);
-    
-    if (!allProducts || !allProducts.plans || !Array.isArray(allProducts.plans)) {
-      logger.warn("Unified endpoint returned invalid or empty plans data", {
-        hasData: !!allProducts,
-        hasPlans: !!(allProducts && allProducts.plans),
-        planCount: allProducts?.plans?.length || 0,
-        serviceCode,
-        tenant
-      });
-      throw new Error("No plans found in unified endpoint response");
+
+    if (allProducts && allProducts.plans && Array.isArray(allProducts.plans) && allProducts.plans.length > 0) {
+      let plans = allProducts.plans;
+      if (serviceCode) {
+        plans = plans.filter(plan => plan.serviceCode === serviceCode);
+      }
+      if (plans.length > 0) {
+        logger.info("Successfully fetched plans from unified endpoint", {
+          planCount: plans.length,
+          serviceCode,
+          tenant
+        });
+        return plans;
+      }
     }
-    
-    let plans = allProducts.plans;
-  
-  // Filter by serviceCode if provided
-  if (serviceCode && plans.length > 0) {
-    plans = plans.filter(plan => plan.serviceCode === serviceCode);
-  }
-  
-    if (plans.length === 0) {
-      logger.warn("No plans found after filtering", {
-        totalPlans: allProducts.plans.length,
-        serviceCode,
-        tenant
-      });
-      throw new Error(`No plans found${serviceCode ? ` for service code: ${serviceCode}` : ''}`);
-    }
-    
-    logger.info("Successfully fetched plans from unified endpoint", {
-      planCount: plans.length,
-      serviceCode,
+
+    throw new Error("No plans found in unified endpoint response");
+
+  } catch (error) {
+    const errorMessage = error.message || String(error);
+    const statusCode = error.statusCode;
+
+    logger.warn("Unified endpoint failed for plans, trying item-wise fallback", {
+      error: errorMessage,
+      statusCode,
       tenant
     });
 
-  return plans;
-    
-  } catch (error) {
-    const errorMessage = error.message || String(error);
-    
-    // Check if this is the modifiedDate unconversion error (shouldn't happen with unified endpoint)
-    if (errorMessage.includes('modifiedDate') || errorMessage.includes('unconvert') || errorMessage.includes('ReachPlanDTO')) {
-      logger.error("Unified endpoint returned modifiedDate error - this should not happen", {
-        error: errorMessage,
-        serviceCode,
+    // FALLBACK: Try item-wise endpoint
+    try {
+      const endpoint = serviceCode
+        ? `/apisvc/v0/product/fetch/plan?serviceCode=${serviceCode}`
+        : `/apisvc/v0/product/fetch/plan`;
+
+      const response = await callReachAPI(endpoint, {
+        method: "GET",
+      }, tenant);
+
+      if (response.status === "SUCCESS" && response.data && Array.isArray(response.data.plans)) {
+        logger.info("Successfully fetched plans from item-wise fallback endpoint", {
+          planCount: response.data.plans.length,
+          serviceCode,
+          tenant
+        });
+        return response.data.plans;
+      }
+
+      throw new Error(response.message || "Item-wise endpoint returned empty or failed");
+
+    } catch (fallbackError) {
+      const finalErrorMessage = fallbackError.message || String(fallbackError);
+
+      // Check for the specific modifiedDate unconversion error
+      if (finalErrorMessage.includes('modifiedDate') || finalErrorMessage.includes('unconvert') || finalErrorMessage.includes('ReachPlanDTO')) {
+        logger.error("Item-wise fallback also failed with modifiedDate error", {
+          error: finalErrorMessage,
+          tenant
+        });
+        throw new Error(`Server error: The Reach API has a server-side bug with the modifiedDate field. Both unified and item-wise endpoints are affected. Please contact Reach support.`);
+      }
+
+      logger.error("Final failure fetching plans after fallback", {
+        originalError: errorMessage,
+        fallbackError: finalErrorMessage,
         tenant
       });
-      throw new Error(`Server error: The Reach API has a server-side bug with the modifiedDate field. The unified endpoint should work, but it's also affected. Please contact Reach support.`);
+
+      throw new Error(`Failed to fetch plans after trying fallback: ${finalErrorMessage}`);
     }
-    
-    // If unified endpoint fails for other reasons, log and throw
-    logger.error("Failed to fetch plans from unified endpoint", {
-      error: errorMessage,
-      serviceCode,
-      tenant,
-      errorType: error.errorType || error.name
-    });
-    
-    throw new Error(`Failed to fetch plans: ${errorMessage}`);
   }
 }
 
@@ -114,7 +124,7 @@ export async function fetchOffers(serviceCode = null, tenant = "reach") {
   // Try unified endpoint first, then fall back to item-wise endpoints
   let response;
   let offers = [];
-  
+
   try {
     // First try unified endpoint
     const allProducts = await fetchProducts(tenant);
@@ -129,36 +139,36 @@ export async function fetchOffers(serviceCode = null, tenant = "reach") {
     } else {
       endpoint = `/nbi/v0/product/fetch/offer`;
     }
-    
+
     try {
       response = await callReachAPI(endpoint, {
         method: "GET",
       }, tenant);
-      
+
       if (response.status === "SUCCESS") {
         offers = response.data.offers || response.data || [];
       }
     } catch (nbiError) {
       // Final fallback to apisvc item-wise endpoint
-      endpoint = serviceCode 
+      endpoint = serviceCode
         ? `/apisvc/v0/product/fetch/offer?serviceCode=${serviceCode}`
         : `/apisvc/v0/product/fetch/offer`;
-      
+
       response = await callReachAPI(endpoint, {
         method: "GET",
       }, tenant);
-      
+
       if (response.status === "SUCCESS") {
         offers = response.data.offers || response.data || [];
       }
     }
   }
-  
+
   // Filter by serviceCode if provided
   if (serviceCode && offers.length > 0) {
     offers = offers.filter(offer => offer.serviceCode === serviceCode);
   }
-  
+
   if (offers.length === 0 && response && response.status !== "SUCCESS") {
     throw new Error(`Failed to fetch offers: ${response?.message || "Unknown error"}`);
   }
@@ -170,7 +180,7 @@ export async function fetchServices(serviceCode = null, tenant = "reach") {
   // Try unified endpoint first, then fall back to item-wise endpoints
   let response;
   let services = [];
-  
+
   try {
     // First try unified endpoint
     const allProducts = await fetchProducts(tenant);
@@ -185,36 +195,36 @@ export async function fetchServices(serviceCode = null, tenant = "reach") {
     } else {
       endpoint = `/nbi/v0/product/fetch/service`;
     }
-    
+
     try {
       response = await callReachAPI(endpoint, {
         method: "GET",
       }, tenant);
-      
+
       if (response.status === "SUCCESS") {
         services = response.data.services || response.data || [];
       }
     } catch (nbiError) {
       // Final fallback to apisvc item-wise endpoint
-      endpoint = serviceCode 
+      endpoint = serviceCode
         ? `/apisvc/v0/product/fetch/service?serviceCode=${serviceCode}`
         : `/apisvc/v0/product/fetch/service`;
-      
+
       response = await callReachAPI(endpoint, {
         method: "GET",
       }, tenant);
-      
+
       if (response.status === "SUCCESS") {
         services = response.data.services || response.data || [];
       }
     }
   }
-  
+
   // Filter by serviceCode if provided
   if (serviceCode && services.length > 0) {
     services = services.filter(service => service.serviceCode === serviceCode);
   }
-  
+
   if (services.length === 0 && response && response.status !== "SUCCESS") {
     throw new Error(`Failed to fetch services: ${response?.message || "Unknown error"}`);
   }

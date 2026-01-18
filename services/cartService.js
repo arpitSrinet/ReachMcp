@@ -16,7 +16,7 @@ let initialized = false;
  */
 export async function initializeCartService() {
   if (initialized) return;
-  
+
   try {
     const loadedCarts = await loadAsync('carts');
     if (loadedCarts) {
@@ -25,19 +25,19 @@ export async function initializeCartService() {
         carts.set(key, value);
       });
     }
-    
+
     const loadedState = await loadAsync('state');
     if (loadedState?.mostRecentSessionId) {
       mostRecentSessionId = loadedState.mostRecentSessionId;
     }
-    
+
     initialized = true;
-    console.log('Cart service initialized', { 
-      cartCount: carts.size, 
-      mostRecentSessionId 
+    logger.debug('Cart service initialized', {
+      cartCount: carts.size,
+      mostRecentSessionId
     });
   } catch (error) {
-    console.warn('Error initializing cart service, using defaults:', error.message);
+    logger.warn('Error initializing cart service, using defaults:', error.message);
     // Fallback to synchronous load if async fails
     const fallbackCarts = load('carts') || {};
     Object.entries(fallbackCarts).forEach(([key, value]) => {
@@ -73,7 +73,7 @@ function cleanupExpiredSessions() {
       if (sessionId === mostRecentSessionId) {
         mostRecentSessionId = null;
       }
-      console.log(`Cleaned up expired session: ${sessionId}`);
+      logger.debug(`Cleaned up expired session: ${sessionId}`);
       changed = true;
     }
   }
@@ -122,7 +122,7 @@ export function getMostRecentSession() {
  */
 export function updateMostRecentSession(sessionId) {
   if (!sessionId) return;
-  
+
   mostRecentSessionId = sessionId;
   persist();
 }
@@ -153,7 +153,7 @@ function migrateCartToMultiLine(cartData) {
 
   // Find all plans first
   const plans = cartData.items.filter(item => item.type === 'plan');
-  
+
   plans.forEach(plan => {
     const line = {
       lineNumber: lineNumber++,
@@ -162,23 +162,23 @@ function migrateCartToMultiLine(cartData) {
       protection: null,
       sim: { type: 'sim', simType: null, iccId: null }
     };
-    
+
     // Find device for this line (if any)
-    const device = cartData.items.find(item => 
+    const device = cartData.items.find(item =>
       item.type === 'device' && item.lineNumber === line.lineNumber
     );
     if (device) {
       line.device = device;
     }
-    
+
     // Find protection for this line (if any)
-    const protection = cartData.items.find(item => 
+    const protection = cartData.items.find(item =>
       item.type === 'protection' && item.lineNumber === line.lineNumber
     );
     if (protection) {
       line.protection = protection;
     }
-    
+
     lines.push(line);
   });
 
@@ -213,7 +213,7 @@ export function getCart(sessionId = null) {
       }
       return { items: [], total: 0, sessionId: id };
     }
-    
+
     // Support both old and new structure
     if (isMultiLineCart(cartData)) {
       // New structure - convert to old format for backward compatibility
@@ -259,7 +259,7 @@ export function getCartMultiLine(sessionId = null) {
       }
       return { lines: [], total: 0, sessionId: id };
     }
-    
+
     if (isMultiLineCart(cartData)) {
       return {
         lines: cartData.lines || [],
@@ -300,22 +300,22 @@ export function addToCart(sessionId = null, item, lineNumber = null) {
   // Auto-generate sessionId if not provided
   const id = sessionId || generateSessionId();
   const cartData = carts.get(id);
-  
+
   const expiresAt = Date.now() + SESSION_TTL;
   const createdAt = cartData?.createdAt || Date.now();
 
   // Check if we should use multi-line structure
   const useMultiLine = lineNumber !== null && lineNumber > 0;
-  
+
   if (useMultiLine) {
     // Multi-line structure
     let cart = getCartMultiLine(id);
-    
+
     // Ensure lines array exists
     if (!cart.lines || cart.lines.length === 0) {
       cart.lines = [];
     }
-    
+
     // Find or create line
     let line = cart.lines.find(l => l.lineNumber === lineNumber);
     if (!line) {
@@ -328,7 +328,7 @@ export function addToCart(sessionId = null, item, lineNumber = null) {
       };
       cart.lines.push(line);
     }
-    
+
     // Add item to appropriate field based on type
     if (item.type === 'plan') {
       line.plan = item;
@@ -344,44 +344,44 @@ export function addToCart(sessionId = null, item, lineNumber = null) {
         line.plan = item;
       }
     }
-    
+
     // Calculate total
     cart.total = cart.lines.reduce((sum, l) => {
-      return sum + 
+      return sum +
         (l.plan?.price || 0) +
         (l.device?.price || 0) +
         (l.protection?.price || 0) +
         (l.sim?.price || 0);
     }, 0);
-    
+
     carts.set(id, {
       ...cart,
       expiresAt,
       createdAt
     });
-    
+
     mostRecentSessionId = id;
     persist();
-    
+
     return { cart, sessionId: id };
   } else {
     // Old structure (backward compatibility)
     const cart = getCart(id);
-    
+
     // Add item to cart
     cart.items.push(item);
     cart.total = cart.items.reduce((sum, item) => sum + (item.price || 0), 0);
-    
+
     carts.set(id, {
       items: cart.items,
       total: cart.total,
       expiresAt: expiresAt,
       createdAt: createdAt
     });
-    
+
     mostRecentSessionId = id;
     persist();
-    
+
     return { cart, sessionId: id };
   }
 }
@@ -411,19 +411,19 @@ export function removeFromCartLine(sessionId, lineNumber, itemType) {
   if (!sessionId) {
     throw new Error('Session ID is required');
   }
-  
+
   const cart = getCartMultiLine(sessionId);
-  
+
   if (!cart || !cart.lines || cart.lines.length === 0) {
     return { cart: { lines: [], total: 0, sessionId }, sessionId };
   }
-  
+
   // Find the line
   const line = cart.lines.find(l => (l.lineNumber || 0) === lineNumber);
   if (!line) {
     return { cart, sessionId };
   }
-  
+
   // Remove the item based on type
   if (itemType === 'plan') {
     line.plan = null;
@@ -438,29 +438,29 @@ export function removeFromCartLine(sessionId, lineNumber, itemType) {
   } else if (itemType === 'sim') {
     line.sim = { type: 'sim', simType: null, iccId: null, price: 0 };
   }
-  
+
   // Recalculate total
   cart.total = cart.lines.reduce((sum, l) => {
-    return sum + 
+    return sum +
       (l.plan?.price || 0) +
       (l.device?.price || 0) +
       (l.protection?.price || 0) +
       (l.sim?.price || 0);
   }, 0);
-  
+
   // Update cart storage
   const expiresAt = Date.now() + SESSION_TTL;
   const createdAt = cart.createdAt || Date.now();
-  
+
   carts.set(sessionId, {
     ...cart,
     expiresAt,
     createdAt
   });
-  
+
   mostRecentSessionId = sessionId;
   persist();
-  
+
   return { cart, sessionId };
 }
 
@@ -472,9 +472,9 @@ export function removeAllFromCart(sessionId) {
   if (!sessionId) {
     throw new Error('Session ID is required');
   }
-  
+
   const cart = getCartMultiLine(sessionId);
-  
+
   // Clear all items from all lines
   if (cart && cart.lines && cart.lines.length > 0) {
     cart.lines.forEach(line => {
@@ -483,22 +483,22 @@ export function removeAllFromCart(sessionId) {
       line.protection = null;
       line.sim = { type: 'sim', simType: null, iccId: null, price: 0 };
     });
-    
+
     cart.total = 0;
-    
+
     const expiresAt = Date.now() + SESSION_TTL;
     const createdAt = cart.createdAt || Date.now();
-    
+
     carts.set(sessionId, {
       ...cart,
       expiresAt,
       createdAt
     });
-    
+
     mostRecentSessionId = sessionId;
     persist();
   }
-  
+
   return { cart: cart || { lines: [], total: 0, sessionId }, sessionId };
 }
 

@@ -43,7 +43,7 @@ function createTimeoutPromise(timeoutMs) {
 async function makeAuthRequest(url, options, timeoutMs) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  
+
   try {
     const response = await Promise.race([
       fetch(url, {
@@ -52,27 +52,27 @@ async function makeAuthRequest(url, options, timeoutMs) {
       }),
       createTimeoutPromise(timeoutMs),
     ]);
-    
+
     clearTimeout(timeoutId);
     return response;
   } catch (error) {
     clearTimeout(timeoutId);
-    
+
     // Handle abort (timeout)
     if (error.name === 'AbortError' || error instanceof TimeoutError) {
       throw new TimeoutError(`Auth request timed out after ${timeoutMs}ms`, timeoutMs);
     }
-    
+
     // Handle network errors
     if (error instanceof TypeError && error.message.includes('fetch')) {
       throw new NetworkError(`Network error during auth: ${error.message}`, error);
     }
-    
+
     // Re-throw if it's already a custom error
     if (error instanceof TimeoutError || error instanceof NetworkError) {
       throw error;
     }
-    
+
     // Wrap other errors as network errors
     throw new NetworkError(`Auth request failed: ${error.message}`, error);
   }
@@ -94,7 +94,6 @@ function calculateRetryDelay(attempt, baseDelay, backoffMultiplier) {
 export async function getAuthToken(tenant = "reach", forceRefresh = false) {
   // Check for existing refresh in progress to prevent race conditions
   const refreshKey = `refresh_${tenant}`;
-  console.log("refreshKey --tenant", tenant, refreshKey);
   if (refreshPromises.has(refreshKey)) {
     logger.info("Token refresh already in progress, waiting for existing refresh", { tenant });
     try {
@@ -109,11 +108,11 @@ export async function getAuthToken(tenant = "reach", forceRefresh = false) {
   if (!forceRefresh) {
     const cached = authTokens.get(tenant);
     const now = Date.now();
-    
+
     if (cached) {
       const timeUntilExpiration = cached.expiresAt - now;
       const bufferTime = TOKEN_REFRESH_BUFFER;
-      
+
       // Token is still valid with buffer time - return cached token
       if (timeUntilExpiration > bufferTime) {
         const minutesUntilExpiration = Math.floor(timeUntilExpiration / (60 * 1000));
@@ -124,7 +123,7 @@ export async function getAuthToken(tenant = "reach", forceRefresh = false) {
         });
         return cached.token;
       }
-      
+
       // Token is expiring soon but still valid - refresh in background
       if (timeUntilExpiration > 0) {
         logger.info("Token expiring soon, refreshing in background", {
@@ -137,7 +136,7 @@ export async function getAuthToken(tenant = "reach", forceRefresh = false) {
         });
         return cached.token;
       }
-      
+
       // Token expired
       logger.info("Cached token expired, fetching new token", {
         tenant,
@@ -153,7 +152,7 @@ export async function getAuthToken(tenant = "reach", forceRefresh = false) {
   // Create refresh promise to prevent concurrent refreshes
   const refreshPromise = fetchNewToken(tenant);
   refreshPromises.set(refreshKey, refreshPromise);
-  
+
   try {
     const token = await refreshPromise;
     return token;
@@ -168,7 +167,7 @@ export async function getAuthToken(tenant = "reach", forceRefresh = false) {
 async function fetchNewToken(tenant) {
   const config = getTenantConfig(tenant);
   const url = `${config.apiBaseUrl}/apisvc/v0/account/generateauth`;
-  
+
   logger.info("Requesting new auth token", {
     tenant,
     apiBaseUrl: config.apiBaseUrl,
@@ -194,7 +193,7 @@ async function fetchNewToken(tenant) {
   };
 
   let lastError;
-  
+
   // Retry loop
   for (let attempt = 0; attempt <= AUTH_CONFIG.retries; attempt++) {
     try {
@@ -214,10 +213,10 @@ async function fetchNewToken(tenant) {
       }
 
       if (!response.ok) {
-        const errorMessage = typeof responseBody === 'object' 
+        const errorMessage = typeof responseBody === 'object'
           ? (responseBody.message || responseBody.error || JSON.stringify(responseBody))
           : responseBody;
-        
+
         // Log full auth failure details once per response
         logger.error("Auth HTTP error from generateauth", {
           tenant,
@@ -237,7 +236,7 @@ async function fetchNewToken(tenant) {
           responseBody,
           response.status === 401 ? 'AUTHENTICATION_ERROR' : (isAuthStatus ? 'AUTHORIZATION_ERROR' : 'API_ERROR')
         );
-        
+
         // Retry on server errors or rate limits
         if (attempt < AUTH_CONFIG.retries && (response.status >= 500 || response.status === 429)) {
           const delay = calculateRetryDelay(attempt, AUTH_CONFIG.retryDelay, AUTH_CONFIG.retryBackoff);
@@ -248,19 +247,19 @@ async function fetchNewToken(tenant) {
             delay,
             statusCode: response.status,
           });
-          
+
           await new Promise(resolve => setTimeout(resolve, delay));
           lastError = error;
           continue;
         }
-        
+
         // Don't retry on client errors (4xx except 429)
         throw error;
       }
 
       // Parse response
       const data = typeof responseBody === 'string' ? JSON.parse(responseBody) : responseBody;
-      
+
       if (data.status !== "SUCCESS") {
         logger.error("Auth logical error from generateauth", {
           tenant,
@@ -277,7 +276,7 @@ async function fetchNewToken(tenant) {
           data,
           'AUTHENTICATION_ERROR'
         );
-        
+
         // Don't retry on authentication failures
         throw error;
       }
@@ -321,20 +320,20 @@ async function fetchNewToken(tenant) {
       // Cache the token
       authTokens.set(tenant, { token, expiresAt });
 
-      logger.info("Authentication successful", { 
+      logger.info("Authentication successful", {
         tenant,
         expiresAt: new Date(expiresAt).toISOString(),
         minutesUntilExpiration: Math.floor((expiresAt - Date.now()) / (60 * 1000))
       });
-      
+
       return token;
-      
+
     } catch (error) {
       lastError = error;
-      
+
       // Retry on network/timeout errors
-      if (attempt < AUTH_CONFIG.retries && 
-          (error instanceof NetworkError || error instanceof TimeoutError)) {
+      if (attempt < AUTH_CONFIG.retries &&
+        (error instanceof NetworkError || error instanceof TimeoutError)) {
         const delay = calculateRetryDelay(attempt, AUTH_CONFIG.retryDelay, AUTH_CONFIG.retryBackoff);
         logger.warn("Auth request failed, retrying...", {
           tenant,
@@ -344,11 +343,11 @@ async function fetchNewToken(tenant) {
           errorType: error.errorType || error.name,
           errorMessage: error.message,
         });
-        
+
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
-      
+
       // Out of retries or not retryable
       logger.error("Authentication failed", {
         error: error.message,
@@ -356,11 +355,11 @@ async function fetchNewToken(tenant) {
         attempts: attempt + 1,
         errorType: error.errorType || error.name,
       });
-      
+
       throw error;
     }
   }
-  
+
   throw lastError || new Error('Unknown authentication error');
 }
 
