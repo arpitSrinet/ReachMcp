@@ -264,5 +264,285 @@
     "sessionId": "session_1768760560133_e4ob81l",
     "expiresAt": 1768770934864,
     "createdAt": 1768763722683
+  },
+  "session_1768774999148_8ej3lxv": {
+    "lines": [
+      {
+        "lineNumber": 1,
+        "plan": {
+          "type": "plan",
+          "id": "M0028122398SHK447DCBB742CC",
+          "uniqueIdentifier": "M0028122398SHK447DCBB742CC",
+          "name": "Unlimited 10",
+          "price": 25,
+          "data": 10,
+          "dataUnit": "GB"
+        },
+        "device": {
+          "type": "device",
+          "id": "ab586a73c7914ea09a7991975577178c",
+          "name": "Google Pixel 9 Pro XL",
+          "brand": "",
+          "price": 699,
+          "image": "https://shopware-api-nctc-qa.reachmobileplatform.com/media/f6/5b/4c/1728034328/42733d29e6af46a4be0e95c9339ba99b.PNG",
+          "localImageUrl": "https://reach-api-mcp.applore.in/public/assets/ab586a73c7914ea09a7991975577178c.PNG",
+          "properties": [],
+          "customFields": {
+            "os": "Android",
+            "hac": "M3/T4",
+            "nfc": "Yes",
+            "brand": "Google",
+            "model": "GA05900-US",
+            "chipset": "Google Tensor G4 (4 nm)",
+            "condition": "New",
+            "ip_rating": "IP68",
+            "dimensions": "162.8 x 76.6 x 8.5 mm",
+            "os_version": "Android 14",
+            "chargingport": "USB Type-C 3.2",
+            "design_color": "Black",
+            "display_type": "6.8\" Super Actua display",
+            "merchant_sku": "GO-GA05900US-A001-GEGE",
+            "ram_capacity": "16GB",
+            "wifi_feature": "Wi-Fi 7",
+            "mobilehotspot": "Yes",
+            "processor_cpu": "Octa-core (1x3.1 GHz Cortex-X4 & 3x2.6 GHz Cortex-A720 & 4x1.92 GHz Cortex-A520)",
+            "hac_rating_info": "{     \"rating\": \"Pass\",     \"fccId\": \"A4RGGX8B\",     \"standard\": \"ANSI C63.19-2019\",     \"type\": \"SmartPhone\" }",
+            "reach_vendor_id": "9625c2a764614753a87460e22031ad59",
+            "battery_capacity": "5060mAh",
+            "storage_capacity": "128GB",
+            "wirelesscharging": "Yes",
+            "bluetooth_version": "v5.3",
+            "fingerprintsensor": "Yes",
+            "cellulartechnology": "5G",
+            "display_resolution": "1344 x 2992",
+            "display_refresh_rate": "120Hz",
+            "compatibility_service": "Unlocked",
+            "back_camera_resolution": "50MP Wide, 48MP UltraWide, 48MP Telephoto, 8K Video Boost",
+            "front_camera_resolution": "42 MP Dual PD selfie camera with autofocus",
+            "reach_vendor_product_id": "GO-GA05900US-A001-GEGE"
+          },
+          "translated": {
+            "metaDescription": null,
+            "name": "Google Pixel 9 Pro XL",
+            "keywords": null,
+            "description": " <img  src=\"http://shopware-api-nctc-qa.reachmobileplatform.com/media/e6/9e/b9/1728034318/ad77d7297fec42b1a75bdd6f77d70485.jpg\" alt=\"Google Pixel 9 Pro XL\"  /> <img  src=\"http://shopware-api-nctc-qa.reachmobileplatform.com/media/5b/18/67/1728034319/d53b6f5510d140319a6d4bbf124b9e5e.jpg\" alt=\"Google Pixel 9 Pro XL\"  /> <img  src=\"http://shopware-api-nctc-qa.reachmobileplatform.com/media/ec/13/67/1728034321/baead529415549ca87e683b4d33afd4c.jpg\" alt=\"Google Pixel 9 Pro XL\"  /> <img  src=\"http://shopware-api-nctc-qa.reachmobileplatform.com/media/cb/84/7e/1728034322/32a51120f69a44678edaa68c365ebae2.jpg\" alt=\"Google Pixel 9 Pro XL\"  /> <img  src=\"http://shopware-api-nctc-qa.reachmobileplatform.com/media/c5/3e/a9/1728034323/0b71443e3b774f37bbbdd35958bea65f.jpg\" alt=\"Google Pixel 9 Pro XL\"  /> <img  src=\"http://shopware-api-nctc-qa.reachmobileplatform.com/media/e1/4b/66/1728034324/08ab2cc2fe6f4ef0a1b7c47a087b7ad7.jpg\" alt=\"Google Pixel 9 Pro XL\"  />",
+            "metaTitle": null,
+            "packUnit": null,
+            "packUnitPlural": null,
+            "customFields": {
+              "os": "Android",
+              "hac": "M3/T4",
+              "nfc": "Yes",
+              "brand": "Google",
+              "model": "GA05900-US",
+              "chipset": "Google Tensor G4 (4 nm)",
+              "condition": "New",
+              "ip_rating": "IP68",
+              "dimensions": "162.8 x 76.6 x 8.5 mm",
+              "os_version": "Android 14",
+              "chargingport": "USB Type-C 3.2",
+              "design_color": "Black",
+              "display_type": "6.8\" Super Actua display",
+              "merchant_sku": "GO-GA05900US-A001-GEGE",
+              "ram_capacity": "16GB",
+              "wifi_feature": "Wi-Fi 7",
+              "mobilehotspot": "Yes",
+              "processor_cpu": "Octa-core (1x3.1 GHz Cortex-X4 & 3x2.6 GHz Cortex-A720 & 4x1.92 GHz Cortex-A520)",
+              "hac_rating_info": "{     \"rating\": \"Pass\",     \"fccId\": \"A4RGGX8B\",     \"standard\": \"ANSI C63.19-2019\",     \"type\": \"SmartPhone\" }",
+              "reach_vendor_id": "9625c2a764614753a87460e22031ad59",
+              "battery_capacity": "5060mAh",
+              "storage_capacity": "128GB",
+              "wirelesscharging": "Yes",
+              "bluetooth_version": "v5.3",
+              "fingerprintsensor": "Yes",
+              "cellulartechnology": "5G",
+              "display_resolution": "1344 x 2992",
+              "display_refresh_rate": "120Hz",
+              "compatibility_service": "Unlocked",
+              "back_camera_resolution": "50MP Wide, 48MP UltraWide, 48MP Telephoto, 8K Video Boost",
+              "front_camera_resolution": "42 MP Dual PD selfie camera with autofocus",
+              "reach_vendor_product_id": "GO-GA05900US-A001-GEGE"
+            }
+          },
+          "calculatedPrice": {
+            "unitPrice": 699,
+            "quantity": 1,
+            "totalPrice": 699,
+            "calculatedTaxes": [
+              {
+                "tax": 0,
+                "taxRate": 0,
+                "price": 699,
+                "apiAlias": "cart_tax_calculated"
+              }
+            ],
+            "taxRules": [
+              {
+                "taxRate": 0,
+                "percentage": 100,
+                "apiAlias": "cart_tax_rule"
+              }
+            ],
+            "referencePrice": null,
+            "listPrice": {
+              "price": 1099,
+              "discount": -400,
+              "percentage": 36.4,
+              "apiAlias": "cart_list_price"
+            },
+            "regulationPrice": null,
+            "apiAlias": "calculated_price"
+          },
+          "available": true,
+          "availableStock": -23,
+          "stock": 8
+        },
+        "protection": null,
+        "sim": {
+          "type": "sim",
+          "simType": null,
+          "iccId": null
+        }
+      },
+      {
+        "lineNumber": 2,
+        "plan": {
+          "type": "plan",
+          "id": "M0028122398SHK447DCBB742CC",
+          "uniqueIdentifier": "M0028122398SHK447DCBB742CC",
+          "name": "Unlimited 10",
+          "price": 25,
+          "data": 10,
+          "dataUnit": "GB"
+        },
+        "device": {
+          "type": "device",
+          "id": "4a7f8bad90b2491eb391226b61bb9f45",
+          "name": "Samsung Galaxy S24FE",
+          "brand": "",
+          "price": 649.99,
+          "image": "https://shopware-api-nctc-qa.reachmobileplatform.com/media/c1/c1/aa/1732474419/dc9aa1c153e540b5aa2cfad58a709201.png",
+          "localImageUrl": "https://reach-api-mcp.applore.in/public/assets/4a7f8bad90b2491eb391226b61bb9f45.png",
+          "properties": [],
+          "customFields": {
+            "os": "Android",
+            "hac": "M3/T3",
+            "nfc": "Yes",
+            "brand": "Samsung",
+            "model": "SM-S721UZKAXAG",
+            "chipset": "Exynos 2400e (4 nm)",
+            "condition": "New",
+            "ip_rating": "IP68",
+            "dimensions": "162 x 77.3 x 8 mm",
+            "os_version": "Android 14",
+            "chargingport": "USB Type-C 3.2",
+            "design_color": "Black",
+            "display_type": "6.7\" Super AMOLED (6.5\" rounded corners)",
+            "merchant_sku": "SA-S721UG-A001-GEGE",
+            "ram_capacity": "8GB",
+            "mobilehotspot": "Yes",
+            "processor_cpu": "SEC | S5E9945(Exynos 2400e)",
+            "hac_rating_info": "{     \"rating\": \"Pass\",     \"fccId\": \"A3LSMAF21U\",     \"standard\": \"ANSI C63.19-2019\",     \"type\": \"SmartPhone\" }",
+            "reach_vendor_id": "9625c2a764614753a87460e22031ad59",
+            "battery_capacity": "4700mAh",
+            "storage_capacity": "128 GB",
+            "wirelesscharging": "Yes",
+            "bluetooth_version": "v5.3",
+            "fingerprintsensor": "Yes",
+            "cellulartechnology": "5G",
+            "display_resolution": "1080 x 2340 pixels",
+            "display_refresh_rate": "120Hz",
+            "compatibility_service": "Unlocked",
+            "back_camera_resolution": "50MP, 12MP, 8MP",
+            "front_camera_resolution": "10MP",
+            "reach_vendor_product_id": "SA-S721UG-A001-GEGE"
+          },
+          "translated": {
+            "metaDescription": null,
+            "name": "Samsung Galaxy S24FE",
+            "keywords": null,
+            "description": null,
+            "metaTitle": null,
+            "packUnit": null,
+            "packUnitPlural": null,
+            "customFields": {
+              "os": "Android",
+              "hac": "M3/T3",
+              "nfc": "Yes",
+              "brand": "Samsung",
+              "model": "SM-S721UZKAXAG",
+              "chipset": "Exynos 2400e (4 nm)",
+              "condition": "New",
+              "ip_rating": "IP68",
+              "dimensions": "162 x 77.3 x 8 mm",
+              "os_version": "Android 14",
+              "chargingport": "USB Type-C 3.2",
+              "design_color": "Black",
+              "display_type": "6.7\" Super AMOLED (6.5\" rounded corners)",
+              "merchant_sku": "SA-S721UG-A001-GEGE",
+              "ram_capacity": "8GB",
+              "mobilehotspot": "Yes",
+              "processor_cpu": "SEC | S5E9945(Exynos 2400e)",
+              "hac_rating_info": "{     \"rating\": \"Pass\",     \"fccId\": \"A3LSMAF21U\",     \"standard\": \"ANSI C63.19-2019\",     \"type\": \"SmartPhone\" }",
+              "reach_vendor_id": "9625c2a764614753a87460e22031ad59",
+              "battery_capacity": "4700mAh",
+              "storage_capacity": "128 GB",
+              "wirelesscharging": "Yes",
+              "bluetooth_version": "v5.3",
+              "fingerprintsensor": "Yes",
+              "cellulartechnology": "5G",
+              "display_resolution": "1080 x 2340 pixels",
+              "display_refresh_rate": "120Hz",
+              "compatibility_service": "Unlocked",
+              "back_camera_resolution": "50MP, 12MP, 8MP",
+              "front_camera_resolution": "10MP",
+              "reach_vendor_product_id": "SA-S721UG-A001-GEGE"
+            }
+          },
+          "calculatedPrice": {
+            "unitPrice": 649.99,
+            "quantity": 1,
+            "totalPrice": 649.99,
+            "calculatedTaxes": [
+              {
+                "tax": 0,
+                "taxRate": 0,
+                "price": 649.99,
+                "apiAlias": "cart_tax_calculated"
+              }
+            ],
+            "taxRules": [
+              {
+                "taxRate": 0,
+                "percentage": 100,
+                "apiAlias": "cart_tax_rule"
+              }
+            ],
+            "referencePrice": null,
+            "listPrice": {
+              "price": 749.99,
+              "discount": -100,
+              "percentage": 13.33,
+              "apiAlias": "cart_list_price"
+            },
+            "regulationPrice": null,
+            "apiAlias": "calculated_price"
+          },
+          "available": true,
+          "availableStock": -2,
+          "stock": 7
+        },
+        "protection": null,
+        "sim": {
+          "type": "sim",
+          "simType": null,
+          "iccId": null
+        }
+      }
+    ],
+    "total": 1398.99,
+    "sessionId": "session_1768774999148_8ej3lxv",
+    "expiresAt": 1768783253018,
+    "createdAt": 1768775035841
   }
 }

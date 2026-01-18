@@ -276,6 +276,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               type: "number",
               description: "Minimum data in GB if applicable (optional)",
             },
+            lineCount: {
+              type: "number",
+              description: "Number of lines to configure (optional) - if provided, updates the session context",
+            },
           },
         },
         _meta: {
@@ -1013,14 +1017,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     ];
 
     // Tools that use different APIs (no Reach auth needed)
+    // Tools that use different APIs (no Reach auth needed)
     const TOOLS_WITHOUT_REACH_AUTH = [
       "get_devices",         // Uses Shopware API
-      "get_protection_plan",  // Uses hardcoded token
-      "hello_widget",        // Test tool, no API
-      "detect_intent",       // Local logic
-      "get_next_step",       // Local logic
-      "get_flow_status",     // Local logic
-      "get_global_context"   // Local logic
+      "get_protection_plan"  // Uses hardcoded token
     ];
 
     // Auth generation on each tool call - ensures token exists and is valid
@@ -1507,7 +1507,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     if (name === "get_plans") {
       // Check flow context FIRST to see if line is selected
       const sessionId = getOrCreateSessionId(args.sessionId || null);
-      const context = getFlowContext(sessionId);
+      let context = getFlowContext(sessionId);
+
+      // If lineCount provided in args, update context immediately
+      if (args.lineCount && args.lineCount > 0) {
+        context = updateFlowContext(sessionId, {
+          lineCount: args.lineCount,
+          flowStage: 'planning'
+        });
+      }
+
       const progress = getFlowProgress(sessionId);
 
       // CRITICAL CHECK: If lineCount is not set or is 0/null, return TEXT ONLY (no widgets)
@@ -3406,7 +3415,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         ],
         _meta: {
           // Widget-only data, not Apps SDK config
-          widgetType: "cart"
+          widgetType: "ui://widget/cart.html"
         }
       };
 

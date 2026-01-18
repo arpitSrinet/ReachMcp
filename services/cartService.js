@@ -1,4 +1,5 @@
 import { save, load, loadAsync } from '../utils/storage.js';
+import { logger } from '../utils/logger.js';
 
 // Initialize from storage or default
 const initialCarts = {};
