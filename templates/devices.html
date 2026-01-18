@@ -1126,6 +1126,7 @@
       }
       if (device.image) {
         imageCandidates.push(device.image);
+        console.log("device.image", device.image);
       }
       // Extract <img src="..."> URLs from description HTML (translated or raw)
       const descriptionHtml = (typeof device.translated?.description === 'string'
@@ -1161,7 +1162,7 @@
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
       });
-
+      console.log("device.image", device.image);
       // Basic availability (used only for CTA enabled/disabled)
       const stock = device.stock;
       const isAvailable = device.available !== false && (stock === undefined || stock > 0);
