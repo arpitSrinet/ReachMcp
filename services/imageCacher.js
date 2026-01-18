@@ -15,6 +15,51 @@ if (!fs.existsSync(IMAGE_DIR)) {
 }
 
 /**
+ * Helper to download with redirect support
+ */
+function downloadFile(url, destPath, maxRedirects = 5) {
+  return new Promise((resolve, reject) => {
+    if (maxRedirects < 0) {
+      return reject(new Error('Too many redirects'));
+    }
+
+    const request = https.get(url, (response) => {
+      // Handle Redirects
+      if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+        const redirectUrl = new URL(response.headers.location, url).toString();
+        logger.info(`Following redirect for image: ${redirectUrl}`);
+        downloadFile(redirectUrl, destPath, maxRedirects - 1)
+          .then(resolve)
+          .catch(reject);
+        return;
+      }
+
+      if (response.statusCode !== 200) {
+        return reject(new Error(`Status code: ${response.statusCode}`));
+      }
+
+      const file = fs.createWriteStream(destPath);
+      response.pipe(file);
+
+      file.on('finish', () => {
+        file.close();
+        resolve();
+      });
+
+      file.on('error', (err) => {
+        fs.unlink(destPath, () => {}); // cleanup
+        reject(err);
+      });
+    });
+
+    request.on('error', (err) => {
+      fs.unlink(destPath, () => {}); // cleanup
+      reject(err);
+    });
+  });
+}
+
+/**
  * Downloads an image from a URL and saves it to the local storage
  * @param {string} url - The URL of the image to download
  * @param {string} filename - The name to save the file as
@@ -30,30 +75,14 @@ export async function cacheImage(url, filename) {
         return filename;
     }
 
-    return new Promise((resolve) => {
-        const file = fs.createWriteStream(targetPath);
-
-        https.get(url, (response) => {
-            if (response.statusCode !== 200) {
-                logger.error(`Failed to download image: ${url}, Status: ${response.statusCode}`);
-                fs.unlink(targetPath, () => { }); // Delete partial file
-                resolve(null);
-                return;
-            }
-
-            response.pipe(file);
-
-            file.on('finish', () => {
-                file.close();
-                logger.info(`Successfully cached image: ${filename}`);
-                resolve(filename);
-            });
-        }).on('error', (err) => {
-            fs.unlink(targetPath, () => { }); // Delete partial file
-            logger.error(`Error downloading image ${url}: ${err.message}`);
-            resolve(null);
-        });
-    });
+    try {
+        await downloadFile(url, targetPath);
+        logger.info(`Successfully cached image: ${filename}`);
+        return filename;
+    } catch (err) {
+        logger.error(`Error downloading image ${url}: ${err.message}`);
+        return null;
+    }
 }
 
 /**

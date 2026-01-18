@@ -2367,8 +2367,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
       console.log("Devices", devices);
       // Limit results after filtering
+      // Limit results after filtering
       devices = devices.slice(0, limit);
-      console.log("Devices-images", devices.localImageUrl);
+      console.log(`Processing images for ${devices.length} devices. ServerURL: ${serverBaseUrl}`);
       // Async background caching for device images
       if (devices && devices.length > 0) {
         devices.forEach(device => {
@@ -2396,7 +2397,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           }
         });
       }
-      console.log("Devices-images", devices.localImageUrl);
+      if (devices.length > 0) {
+        console.log("Sample Device Image URL:", devices[0].localImageUrl);
+        console.log("All Device Image URLs:", devices.map(d => d.localImageUrl));
+      }
 
       if (!devices || devices.length === 0) {
         return {
