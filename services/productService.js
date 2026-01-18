@@ -70,13 +70,43 @@ export async function fetchPlans(serviceCode = null, tenant = "reach") {
     const errorMessage = error.message || String(error);
     const statusCode = error.statusCode;
 
-    logger.warn("Unified endpoint failed for plans, trying item-wise fallback", {
+    logger.warn("Unified endpoint failed for plans, trying fallbacks", {
       error: errorMessage,
       statusCode,
       tenant
     });
 
-    // FALLBACK: Try item-wise endpoint
+    // FALLBACK 1: Try NBI item-wise endpoint (Northbound Interface)
+    // Sometimes permissions are available on NBI but not APISVC
+    try {
+      const nbiEndpoint = serviceCode
+        ? `/nbi/v0/product/fetch/plan?serviceCode=${serviceCode}`
+        : `/nbi/v0/product/fetch/plan`;
+
+      const response = await callReachAPI(nbiEndpoint, {
+        method: "GET",
+      }, tenant);
+
+      if (response.status === "SUCCESS" && response.data && Array.isArray(response.data.plans)) {
+        logger.info("Successfully fetched plans from NBI fallback endpoint", {
+          planCount: response.data.plans.length,
+          serviceCode,
+          tenant
+        });
+        return response.data.plans;
+      }
+
+      // If NBI returns success but no plans, or non-success, we fall through to APISVC fallback
+      logger.debug("NBI fallback returned no plans or non-success, trying APISVC fallback");
+    } catch (nbiError) {
+      logger.warn("NBI fallback failed, trying APISVC fallback", {
+        error: nbiError.message,
+        tenant
+      });
+      // Continue to next fallback
+    }
+
+    // FALLBACK 2: Try APISVC item-wise endpoint
     try {
       const endpoint = serviceCode
         ? `/apisvc/v0/product/fetch/plan?serviceCode=${serviceCode}`
@@ -87,7 +117,7 @@ export async function fetchPlans(serviceCode = null, tenant = "reach") {
       }, tenant);
 
       if (response.status === "SUCCESS" && response.data && Array.isArray(response.data.plans)) {
-        logger.info("Successfully fetched plans from item-wise fallback endpoint", {
+        logger.info("Successfully fetched plans from APISVC item-wise fallback endpoint", {
           planCount: response.data.plans.length,
           serviceCode,
           tenant
