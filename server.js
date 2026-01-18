@@ -4672,6 +4672,11 @@ async function main() {
           const host = req.get('host');
           if (host) {
             serverBaseUrl = `${protocol}://${host}`;
+            // Fix: If running in HTTPS mode (e.g. ngrok or SSL) but behind proxy (http), force https
+            if (process.env.MCP_TRANSPORT === 'https' && serverBaseUrl.startsWith('http:')) {
+              serverBaseUrl = serverBaseUrl.replace('http:', 'https:');
+              logger.info(`Upgraded serverBaseUrl to HTTPS: ${serverBaseUrl}`);
+            }
           }
         }
         if (acceptHeader !== req.headers.accept) {

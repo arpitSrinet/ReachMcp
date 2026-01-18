@@ -3,7 +3,7 @@ import path from 'path';
 import https from 'https';
 import { fileURLToPath } from 'url';
 import { logger } from '../utils/logger.js';
-
+import http from 'http';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -14,6 +14,8 @@ if (!fs.existsSync(IMAGE_DIR)) {
     fs.mkdirSync(IMAGE_DIR, { recursive: true });
 }
 
+
+
 /**
  * Helper to download with redirect support
  */
@@ -23,7 +25,15 @@ function downloadFile(url, destPath, maxRedirects = 5) {
       return reject(new Error('Too many redirects'));
     }
 
-    const request = https.get(url, (response) => {
+    // Select module based on protocol
+    const isHttps = url.startsWith('https:');
+    const client = isHttps ? https : http;
+
+    const request = client.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      }
+    }, (response) => {
       // Handle Redirects
       if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
         const redirectUrl = new URL(response.headers.location, url).toString();
