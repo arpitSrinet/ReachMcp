@@ -5,7 +5,7 @@ export function formatPlansAsCards(plans) {
     }
 
     let markdown = `## 📱 Here are a few great options for you\n\n`;
-    
+
     plans.forEach((plan, index) => {
       const name = plan.displayName || plan.name || "Unnamed Plan";
       const price = plan.price || plan.baseLinePrice || 0;
@@ -13,7 +13,7 @@ export function formatPlansAsCards(plans) {
       const dataUnit = plan.dataUnit || "GB";
       const planId = plan.id || plan.uniqueIdentifier || "N/A";
       const discountPctg = plan.discountPctg || 0;
-      
+
       // Calculate original price if there's a discount
       let originalPrice = null;
       let discountAmount = 0;
@@ -21,10 +21,10 @@ export function formatPlansAsCards(plans) {
         originalPrice = Math.round(price / (1 - discountPctg / 100));
         discountAmount = Math.round(originalPrice - price);
       }
-      
+
       // Card format using markdown that ChatGPT will preserve
       markdown += `### ⭐ ${name} (${data}${dataUnit}) — $${price}/mo\n\n`;
-      
+
       // Pricing
       if (originalPrice && originalPrice > price) {
         markdown += `~~$${originalPrice}~~ **$${price}/mo**\n`;
@@ -34,7 +34,7 @@ export function formatPlansAsCards(plans) {
         markdown += `**$${price}/mo**\n`;
         markdown += `*(Taxes & fees included)*\n\n`;
       }
-      
+
       // Features - clean list format
       if (plan.isUnlimited || plan.unlimited) {
         markdown += `📞 Unlimited calls\n`;
@@ -55,7 +55,7 @@ export function formatPlansAsCards(plans) {
       if (plan.allowPlanChange || plan.isAllowPlanChange) {
         markdown += `🔄 Plan changes allowed\n`;
       }
-      
+
       // Show upgrade/downgrade options if available
       if (plan.upGradableTo && plan.upGradableTo.length > 0) {
         markdown += `⬆️ Upgradeable to: ${plan.upGradableTo.join(', ')}\n`;
@@ -63,11 +63,11 @@ export function formatPlansAsCards(plans) {
       if (plan.downGradableTo && plan.downGradableTo.length > 0) {
         markdown += `⬇️ Downgradeable to: ${plan.downGradableTo.join(', ')}\n`;
       }
-      
+
       markdown += `\n**🔘 Select Plan**\n\n`;
       markdown += `To add this plan:\n`;
       markdown += `itemId: \`${planId}\`\n\n`;
-      
+
       // Broadband Facts - using markdown details
       markdown += `<details>\n<summary>📋 <strong>Broadband Facts</strong></summary>\n\n`;
       markdown += `- Plan ID: \`${planId}\`\n`;
@@ -90,7 +90,7 @@ export function formatPlansAsCards(plans) {
         markdown += `- Throttling: Enabled after data limit\n`;
       }
       markdown += `\n</details>\n\n`;
-      
+
       markdown += `---\n\n`;
     });
 
@@ -106,15 +106,15 @@ export function formatOffersAsCards(offers) {
   }
 
   let markdown = `## 🎁 Here are great offers for you\n\n`;
-  
+
   offers.forEach((offer, index) => {
     const isActive = offer.expired === false;
-    
+
     markdown += `### 🎁 ${offer.name}\n\n`;
-    
+
     // Coupon code prominently displayed
     markdown += `**Coupon Code:** \`${offer.coupon}\`\n\n`;
-    
+
     // Discount information
     markdown += `**Discount:**\n`;
     if (offer.discountInDollar) {
@@ -126,14 +126,14 @@ export function formatOffersAsCards(offers) {
     if (offer.secondaryDiscount) {
       markdown += `💰 **${offer.secondaryDiscount}% secondary discount**\n`;
     }
-    
+
     // Validity period
     if (offer.startDate && offer.endDate) {
       const startDate = new Date(offer.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       const endDate = new Date(offer.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
       markdown += `\n📅 **Valid:** ${startDate} - ${endDate}\n`;
     }
-    
+
     // Status badge
     markdown += `\n**Status:**\n`;
     if (isActive) {
@@ -141,7 +141,7 @@ export function formatOffersAsCards(offers) {
     } else {
       markdown += `🔴 ❌ Expired\n`;
     }
-    
+
     // Details
     if (offer.maxCouponLimit || offer.maxBudgetInDollar) {
       markdown += `\n**Details:**\n`;
@@ -152,11 +152,11 @@ export function formatOffersAsCards(offers) {
         markdown += `• 💵 Max budget: $${offer.maxBudgetInDollar}\n`;
       }
     }
-    
+
     // Action
     markdown += `\n**✅ Use This Coupon**\n`;
     markdown += `\nCode: \`${offer.coupon}\` - Apply during checkout!\n\n`;
-    
+
     markdown += `---\n\n`;
   });
 
@@ -169,14 +169,14 @@ export function formatServicesAsCards(services) {
   }
 
   let markdown = `## 🚚 Here are service options for you\n\n`;
-  
+
   services.forEach((service, index) => {
     const serviceName = service.name || service.serviceType || service.serviceCode || "Service";
-    
+
     markdown += `### 🚚 ${serviceName}\n\n`;
-    
+
     markdown += `**Service Type:** ${service.type || service.serviceCode}\n\n`;
-    
+
     // Pricing
     markdown += `**Pricing:**\n`;
     if (service.shippingAmount) {
@@ -185,7 +185,7 @@ export function formatServicesAsCards(services) {
     if (service.pulseCost) {
       markdown += `💰 Pulse Cost: $${service.pulseCost}\n`;
     }
-    
+
     // Features
     const features = [];
     if (service.deliveryDays) {
@@ -197,18 +197,18 @@ export function formatServicesAsCards(services) {
     if (service.dataPulse) {
       features.push(`📊 Data Pulse: ${service.dataPulse}${service.dataLimit ? ` (Limit: ${service.dataLimit})` : ''}`);
     }
-    
+
     if (features.length > 0) {
       markdown += `\n**Features:**\n`;
       features.forEach(feature => {
         markdown += `• ${feature}\n`;
       });
     }
-    
+
     // Action
     markdown += `\n**✅ Select Service**\n`;
     markdown += `\nAvailable during checkout\n\n`;
-    
+
     markdown += `---\n\n`;
   });
 
@@ -217,10 +217,10 @@ export function formatServicesAsCards(services) {
 
 export function formatCoverageAsCard(coverage) {
   // Handle null/undefined for isValid - null means unknown, not false
-  const isValid = coverage.isValid === true 
-    ? true 
+  const isValid = coverage.isValid === true
+    ? true
     : (coverage.isValid === false ? false : (coverage.brandCoverage === true ? true : null));
-  
+
   let status, statusColor;
   if (isValid === true) {
     status = "✅ Available";
@@ -232,9 +232,9 @@ export function formatCoverageAsCard(coverage) {
     status = "⚠️ Coverage information unavailable";
     statusColor = "🟡";
   }
-  
+
   let markdown = `## 📶 Network Coverage Details\n\n`;
-  
+
   // ZIP Code & headline
   markdown += `### 📍 Location\n\n`;
   markdown += `**ZIP Code:** ${coverage.zipCode || 'N/A'}\n\n`;
@@ -242,12 +242,12 @@ export function formatCoverageAsCard(coverage) {
     markdown += `**Signal Summary:** ${coverage.msg}\n\n`;
   }
   markdown += `${statusColor} **Coverage Status:** ${status}\n\n`;
-  
+
   // Brand Coverage
   if (coverage.brandCoverage !== undefined) {
     markdown += `**Brand Coverage:** ${coverage.brandCoverage ? '✅ Available' : '❌ Not Available'}\n\n`;
   }
-  
+
   // SIM Availability
   markdown += `### 📲 SIM Card Availability\n\n`;
   if (coverage.esimAvailable !== undefined) {
@@ -255,17 +255,17 @@ export function formatCoverageAsCard(coverage) {
   } else {
     markdown += `**eSIM:** ⚠️ Information not available\n`;
   }
-  
+
   if (coverage.psimAvailable !== undefined) {
     markdown += `**Physical SIM (PSIM):** ${coverage.psimAvailable ? '✅ Available' : '❌ Not Available'}\n`;
   } else {
     markdown += `**Physical SIM (PSIM):** ⚠️ Information not available\n`;
   }
   markdown += `\n`;
-  
+
   // Network Compatibility
   markdown += `### 📡 Network Compatibility\n\n`;
-  
+
   // 4G / LTE
   if (coverage.signal4g) {
     markdown += `**4G Signal:** ${coverage.signal4g}\n`;
@@ -276,7 +276,7 @@ export function formatCoverageAsCard(coverage) {
   } else {
     markdown += `**4G/LTE Network:** ⚠️ Information not available\n`;
   }
-  
+
   // 5G
   if (coverage.signal5g) {
     markdown += `**5G Signal:** ${coverage.signal5g}\n`;
@@ -287,113 +287,113 @@ export function formatCoverageAsCard(coverage) {
   } else {
     markdown += `**5G Network:** ⚠️ Information not available\n`;
   }
-  
+
   if (coverage.volteCompatible !== undefined) {
     markdown += `**VoLTE (Voice over LTE):** ${coverage.volteCompatible ? '✅ Compatible' : '❌ Not Compatible'}\n`;
   } else {
     markdown += `**VoLTE (Voice over LTE):** ⚠️ Information not available\n`;
   }
-  
+
   if (coverage.wfcCompatible !== undefined) {
     markdown += `**WiFi Calling (WFC):** ${coverage.wfcCompatible ? '✅ Compatible' : '❌ Not Compatible'}\n`;
   } else {
     markdown += `**WiFi Calling (WFC):** ⚠️ Information not available\n`;
   }
-  
+
   // WiFi Calling details
   if (coverage.wifiCalling !== undefined && coverage.wifiCalling !== null && coverage.wifiCalling !== 'NA') {
     markdown += `**WiFi Calling Mode:** ${coverage.wifiCalling}\n`;
   }
-  
+
   // HD Voice
   if (coverage.hdVoice !== undefined && coverage.hdVoice !== null && coverage.hdVoice !== 'NA') {
     markdown += `**HD Voice:** ${coverage.hdVoice}\n`;
   }
-  
+
   // CDMA Less
   if (coverage.cdmaLess !== undefined && coverage.cdmaLess !== null && coverage.cdmaLess !== 'NA') {
     markdown += `**CDMA Less:** ${coverage.cdmaLess}\n`;
   }
-  
+
   // Mode
   if (coverage.mode !== undefined && coverage.mode !== null && coverage.mode !== 'NA') {
     markdown += `**Network Mode:** ${coverage.mode}\n`;
   }
-  
+
   markdown += `\n`;
-  
+
   // Device Status & Validation
   markdown += `### 🔍 Device Status & Validation\n\n`;
-  
+
   if (coverage.isValid !== undefined) {
     markdown += `**Validation Status:** ${coverage.isValid ? '✅ Valid' : '❌ Invalid'}\n`;
   }
-  
+
   if (coverage.errorText && coverage.errorText !== 'NA' && coverage.errorText.trim() !== '') {
     markdown += `**Error/Message:** ${coverage.errorText}\n`;
   }
-  
+
   if (coverage.isLocked !== undefined && coverage.isLocked !== null && coverage.isLocked !== 'NA') {
     markdown += `**Device Lock Status:** ${coverage.isLocked}\n`;
   }
-  
+
   if (coverage.lostOrStolen !== undefined && coverage.lostOrStolen !== null && coverage.lostOrStolen !== 'NA') {
     markdown += `**Lost/Stolen Status:** ${coverage.lostOrStolen}\n`;
   }
-  
+
   if (coverage.inProgress !== undefined) {
     markdown += `**In Progress:** ${coverage.inProgress ? 'Yes' : 'No'}\n`;
   }
-  
+
   if (coverage.filteredDevice !== undefined && coverage.filteredDevice !== null && coverage.filteredDevice !== 'NA') {
     markdown += `**Filtered Device:** ${coverage.filteredDevice}\n`;
   }
-  
+
   if (coverage.compatibleFuture !== undefined) {
     markdown += `**Future Compatibility:** ${coverage.compatibleFuture ? '✅ Yes' : '❌ No'}\n`;
   }
-  
+
   if (coverage.preLoadedValid !== undefined) {
     markdown += `**Pre-loaded Valid:** ${coverage.preLoadedValid ? '✅ Yes' : '❌ No'}\n`;
   }
-  
+
   markdown += `\n`;
-  
+
   // Additional Services & Features
   markdown += `### 🛠️ Additional Services & Features\n\n`;
-  
+
   if (coverage.tradeInEnable !== undefined) {
     markdown += `**Trade-In Enabled:** ${coverage.tradeInEnable ? '✅ Yes' : '❌ No'}\n`;
   }
-  
+
   if (coverage.fiberValid !== undefined) {
     markdown += `**Fiber Service Valid:** ${coverage.fiberValid ? '✅ Yes' : '❌ No'}\n`;
   }
-  
+
   if (coverage.refNumbers && Array.isArray(coverage.refNumbers) && coverage.refNumbers.length > 0) {
     markdown += `**Reference Numbers:** ${coverage.refNumbers.join(', ')}\n`;
   }
-  
+
   markdown += `\n`;
-  
+
   // Additional Details (if any other fields exist that weren't displayed)
   const additionalFields = {};
-  const knownFields = ['zipCode', 'isValid', 'brandCoverage', 'esimAvailable', 'psimAvailable', 
-                       'compatibility4G', 'compatibility4g', 'lteCompatible', 'compatibility5G', 'compatibility5g', 
-                       'volteCompatible', 'wfcCompatible', 'msg', 'signal4g', 'signal5g',
-                       'errorText', 'mode', 'wifiCalling', 'cdmaLess', 'hdVoice', 'lostOrStolen',
-                       'inProgress', 'isLocked', 'filteredDevice', 'compatibleFuture', 'refNumbers',
-                       'preLoadedValid', 'tradeInEnable', 'fiberValid'];
-  
+  const knownFields = ['zipCode', 'isValid', 'brandCoverage', 'esimAvailable', 'psimAvailable',
+    'compatibility4G', 'compatibility4g', 'lteCompatible', 'compatibility5G', 'compatibility5g',
+    'volteCompatible', 'wfcCompatible', 'msg', 'signal4g', 'signal5g',
+    'errorText', 'mode', 'wifiCalling', 'cdmaLess', 'hdVoice', 'lostOrStolen',
+    'inProgress', 'isLocked', 'filteredDevice', 'compatibleFuture', 'refNumbers',
+    'preLoadedValid', 'tradeInEnable', 'fiberValid'];
+
   Object.keys(coverage).forEach(key => {
     if (!knownFields.includes(key) && coverage[key] !== null && coverage[key] !== undefined) {
       // Skip if value is 'NA' or empty string
       if (coverage[key] !== 'NA' && coverage[key] !== '') {
-      additionalFields[key] = coverage[key];
+        additionalFields[key] = coverage[key];
       }
     }
   });
-  
+
   if (Object.keys(additionalFields).length > 0) {
     markdown += `### 📋 Additional Technical Details\n\n`;
     Object.entries(additionalFields).forEach(([key, value]) => {
@@ -401,7 +401,7 @@ export function formatCoverageAsCard(coverage) {
         if (Array.isArray(value) && value.length > 0) {
           markdown += `**${key}:** ${value.join(', ')}\n`;
         } else {
-        markdown += `**${key}:** \`${JSON.stringify(value)}\`\n`;
+          markdown += `**${key}:** \`${JSON.stringify(value)}\`\n`;
         }
       } else {
         markdown += `**${key}:** ${value}\n`;
@@ -409,7 +409,7 @@ export function formatCoverageAsCard(coverage) {
     });
     markdown += `\n`;
   }
-  
+
   // Summary and Action
   markdown += `### 📊 Summary\n\n`;
   if (isValid === true) {
@@ -439,7 +439,7 @@ export function formatCoverageAsCard(coverage) {
     markdown += `• Contact support for coverage verification\n`;
     markdown += `• Proceed with plan selection - coverage may still be available\n`;
   }
-  
+
   return markdown;
 }
 
@@ -450,24 +450,33 @@ export function formatDevicesAsCards(devices) {
     }
 
     let markdown = `## 📱 Available Devices\n\n`;
-    
+
     devices.forEach((device, index) => {
       const name = device.name || device.translated?.name || "Unnamed Device";
       const productNumber = device.productNumber || "N/A";
       const price = device.calculatedPrice?.unitPrice || device.price?.[0]?.gross || 0;
       const stock = device.availableStock || device.stock || 0;
       const description = device.description || device.translated?.description || "";
-      
+
       markdown += `### ${index + 1}. ${name}\n\n`;
+
+      // Add device image with local fallback
+      const imageUrl = device.image || (device.media && device.media[0]?.url) || (device.cover?.media?.url) || null;
+      if (imageUrl) {
+        // Use HTML img tag for fallback support
+        const localFallback = device.localImageUrl || "";
+        markdown += `<img src="${imageUrl}" alt="${name}" style="width: 200px; border-radius: 8px;" onerror="this.onerror=null; this.src='${localFallback}';">\n\n`;
+      }
+
       markdown += `**Product Number:** ${productNumber}\n`;
       markdown += `**Price:** $${price}\n`;
       markdown += `**Stock:** ${stock > 0 ? `✅ In Stock (${stock})` : "❌ Out of Stock"}\n`;
-      
+
       if (description) {
         const shortDesc = description.substring(0, 150);
         markdown += `**Description:** ${shortDesc}${description.length > 150 ? "..." : ""}\n`;
       }
-      
+
       // Add categories if available
       if (device.categories && device.categories.length > 0) {
         const categories = device.categories.map(cat => cat.name || cat.translated?.name).filter(Boolean);
@@ -475,7 +484,7 @@ export function formatDevicesAsCards(devices) {
           markdown += `**Categories:** ${categories.join(", ")}\n`;
         }
       }
-      
+
       markdown += `\n---\n\n`;
     });
 
@@ -493,7 +502,7 @@ export function formatProtectionPlansAsCards(protectionPlans) {
 
     let markdown = `## 🛡️ Eligible States for Device Protection\n\n`;
     markdown += `*Note: This endpoint returns eligible states only. Detailed plan information (pricing, coverage, plan IDs) is not available from this API.*\n\n`;
-    
+
     // Handle array of states/plans
     if (Array.isArray(protectionPlans)) {
       protectionPlans.forEach((item, index) => {
@@ -501,7 +510,7 @@ export function formatProtectionPlansAsCards(protectionPlans) {
         const state = item.state || item.name || item.code || item.abbreviation || item;
         const eligible = item.eligible !== undefined ? item.eligible : true;
         const status = eligible ? "✅ Eligible" : "❌ Not Eligible";
-        
+
         // If item is just a string (state name/code)
         if (typeof item === 'string') {
           markdown += `**${index + 1}. ${item}** - ✅ Eligible\n`;
@@ -509,7 +518,7 @@ export function formatProtectionPlansAsCards(protectionPlans) {
           // If item is an object
           markdown += `**${index + 1}. ${state}**\n`;
           markdown += `Status: ${status}\n`;
-          
+
           // Only show fields that actually exist
           if (item.id) {
             markdown += `ID: ${item.id}\n`;
@@ -526,14 +535,14 @@ export function formatProtectionPlansAsCards(protectionPlans) {
           if (item.coverage) {
             markdown += `Coverage: ${item.coverage}\n`;
           }
-          
+
           markdown += `\n`;
         }
       });
     } else if (typeof protectionPlans === 'object') {
       // If it's a single object
       markdown += `### Protection Plan Information\n\n`;
-      
+
       if (protectionPlans.states && Array.isArray(protectionPlans.states)) {
         protectionPlans.states.forEach((state, index) => {
           if (typeof state === 'string') {
@@ -557,7 +566,7 @@ export function formatProtectionPlansAsCards(protectionPlans) {
           }
         });
       }
-      
+
       markdown += `\n`;
     }
 
@@ -574,12 +583,12 @@ export function formatDeviceAsCard(device) {
   const isValid = device.isValid;
   const status = isValid ? "✅ Compatible" : "❌ Not Compatible";
   const statusColor = isValid ? "🟢" : "🔴";
-  
+
   let markdown = `## 📱 Device Validation\n\n`;
-  
+
   markdown += `### IMEI: ${device.imei || 'N/A'}\n\n`;
   markdown += `${statusColor} **Device Status:** ${status}\n\n`;
-  
+
   if (device.make || device.model) {
     markdown += `**Device Information:**\n`;
     if (device.make) {
@@ -590,7 +599,7 @@ export function formatDeviceAsCard(device) {
     }
     markdown += `\n`;
   }
-  
+
   const features = [];
   if (device.esimAvailable !== undefined) {
     features.push(`📱 eSIM: ${device.esimAvailable ? '✅ Available' : '❌ Not Available'}`);
@@ -604,21 +613,21 @@ export function formatDeviceAsCard(device) {
   if (device.compatibility5G || device.compatibility5g) {
     features.push(`5G: ✅ Compatible`);
   }
-  
+
   if (features.length > 0) {
     markdown += `**Compatibility Features:**\n`;
     features.forEach(feature => {
       markdown += `• ${feature}\n`;
     });
   }
-  
+
   markdown += `\n**Action:**\n`;
   if (isValid) {
     markdown += `✅ **Proceed with Plans** - Your device is compatible!\n`;
   } else {
     markdown += `❌ **Contact Support** - Your device may not be fully compatible.\n`;
   }
-  
+
   return markdown;
 }
 
@@ -629,23 +638,30 @@ export function formatCartAsCard(cart) {
 
   let markdown = `## 🛒 Your Shopping Cart\n\n`;
   markdown += `You have **${cart.items.length}** item${cart.items.length > 1 ? 's' : ''} in your cart:\n\n`;
-  
+
   cart.items.forEach((item, index) => {
     markdown += `### ${index + 1}. ${item.name}\n\n`;
-    
+
+    // Add device image with local fallback
+    if (item.type === 'device' && (item.image || item.localImageUrl)) {
+      const imageUrl = item.image || "";
+      const localFallback = item.localImageUrl || "";
+      markdown += `<img src="${imageUrl}" alt="${item.name}" style="width: 150px; border-radius: 8px;" onerror="this.onerror=null; this.src='${localFallback}';">\n\n`;
+    }
+
     markdown += `**Type:** ${item.type}\n`;
     markdown += `💰 **Price:** **$${item.price}**\n`;
     markdown += `🆔 **ID:** \`${item.id}\`\n`;
-    
+
     markdown += `\n**Actions:** 🗑️ Remove | ✏️ Edit\n\n`;
-    
+
     markdown += `---\n\n`;
   });
-  
+
   markdown += `### 💰 Cart Summary\n\n`;
   markdown += `**Total: $${cart.total}**\n\n`;
   markdown += `**✅ Proceed to Checkout** - Ready to complete your order!\n`;
-  
+
   return markdown;
 }
 
@@ -661,11 +677,11 @@ export function formatFlowStatus(progress, context) {
   }
 
   let markdown = `## 📊 Purchase Flow Status\n\n`;
-  
+
   // Progress bar
   markdown += `**Progress: ${progress.progress}%**\n\n`;
   markdown += `[${'█'.repeat(Math.floor(progress.progress / 5))}${'░'.repeat(20 - Math.floor(progress.progress / 5))}]\n\n`;
-  
+
   // Line count
   if (progress.lineCount > 0) {
     markdown += `**Lines:** ${progress.lineCount} line${progress.lineCount > 1 ? 's' : ''}\n`;
@@ -673,42 +689,42 @@ export function formatFlowStatus(progress, context) {
   } else {
     markdown += `**Status:** Flow not started - Please specify number of lines\n\n`;
   }
-  
+
   // Missing items
   if (progress.missing) {
     const missing = progress.missing;
     let hasMissing = false;
-    
+
     if (missing.plans && missing.plans.length > 0) {
       hasMissing = true;
       markdown += `### ⚠️ Missing Plans\n\n`;
       markdown += `Lines ${missing.plans.join(', ')} need plan selection\n\n`;
     }
-    
+
     if (missing.devices && missing.devices.length > 0) {
       hasMissing = true;
       markdown += `### 📱 Missing Devices\n\n`;
       markdown += `Lines ${missing.devices.join(', ')} need device selection\n\n`;
     }
-    
+
     if (missing.protection && missing.protection.length > 0) {
       hasMissing = true;
       markdown += `### 🛡️ Missing Protection\n\n`;
       markdown += `Lines ${missing.protection.join(', ')} have devices but no protection\n\n`;
     }
-    
+
     if (missing.sim && missing.sim.length > 0) {
       hasMissing = true;
       markdown += `### 📲 Missing SIM Type\n\n`;
       markdown += `Lines ${missing.sim.join(', ')} need SIM type selection\n\n`;
     }
-    
+
     if (!hasMissing && progress.lineCount > 0) {
       markdown += `### ✅ All Complete!\n\n`;
       markdown += `All lines are fully configured. Ready for checkout!\n\n`;
     }
   }
-  
+
   // Next steps
   markdown += `### 🎯 Next Steps\n\n`;
   if (!progress.lineCount || progress.lineCount === 0) {
@@ -725,7 +741,7 @@ export function formatFlowStatus(progress, context) {
     markdown += `1. Review your cart\n`;
     markdown += `2. Proceed to checkout\n`;
   }
-  
+
   return markdown;
 }
 
@@ -742,7 +758,7 @@ export function formatGuidanceMessage(action, context, progress) {
   }
 
   let message = "";
-  
+
   switch (action) {
     case 'coverage':
       message = "✅ Coverage checked! ";
@@ -754,7 +770,7 @@ export function formatGuidanceMessage(action, context, progress) {
         message += "Your coverage looks great! Want to proceed with device selection?";
       }
       break;
-      
+
     case 'plan':
       message = "✅ Plan selected! ";
       if (progress.missing.devices && progress.missing.devices.length > 0) {
@@ -765,7 +781,7 @@ export function formatGuidanceMessage(action, context, progress) {
         message += "Great! Ready to review your cart?";
       }
       break;
-      
+
     case 'device':
       message = "✅ Device added! ";
       if (progress.missing.protection && progress.missing.protection.length > 0) {
@@ -776,7 +792,7 @@ export function formatGuidanceMessage(action, context, progress) {
         message += "Ready to review your cart?";
       }
       break;
-      
+
     case 'protection':
       message = "✅ Protection added! ";
       if (progress.missing.sim && progress.missing.sim.length > 0) {
@@ -785,16 +801,16 @@ export function formatGuidanceMessage(action, context, progress) {
         message += "Ready to review your cart?";
       }
       break;
-      
+
     case 'sim':
       message = "✅ SIM type selected! ";
       message += "Ready to review your cart and proceed to checkout?";
       break;
-      
+
     default:
       message = "What would you like to do next?";
   }
-  
+
   return message;
 }
 
@@ -813,18 +829,18 @@ export function formatMultiLineCartReview(cart, context) {
   const monthlyTotal = cart.lines.reduce((sum, line) => {
     return sum + (line.plan?.price || 0);
   }, 0);
-  
+
   const oneTimeTotal = cart.lines.reduce((sum, line) => {
     return sum + (line.device?.price || 0) + (line.protection?.price || 0) + (line.sim?.price || 0);
   }, 0);
-  
+
   const plansSelected = cart.lines.filter(l => l.plan).length;
   const devicesSelected = cart.lines.filter(l => l.device).length;
   const protectionsSelected = cart.lines.filter(l => l.protection).length;
   const simsSelected = cart.lines.filter(l => l.sim && l.sim.simType).length;
 
   let markdown = `## 🛒 Complete Cart Review\n\n`;
-  
+
   // Summary section
   markdown += `### 📊 Order Summary\n\n`;
   markdown += `**Total Lines:** ${cart.lines.length}\n`;
@@ -833,21 +849,21 @@ export function formatMultiLineCartReview(cart, context) {
     markdown += `**One-Time Charges:** $${oneTimeTotal.toFixed(2)}\n`;
   }
   markdown += `**Grand Total:** $${cart.total.toFixed(2)}\n\n`;
-  
+
   markdown += `**Items Selected:**\n`;
   markdown += `• Plans: ${plansSelected}/${cart.lines.length} line${cart.lines.length > 1 ? 's' : ''}\n`;
   markdown += `• Devices: ${devicesSelected} (optional)\n`;
   markdown += `• Protection: ${protectionsSelected} (optional)\n`;
   markdown += `• SIM Types: ${simsSelected}/${cart.lines.length} line${cart.lines.length > 1 ? 's' : ''}\n\n`;
-  
+
   markdown += `---\n\n`;
-  
+
   // Detailed line-by-line breakdown
   markdown += `### 📋 Line-by-Line Details\n\n`;
-  
+
   cart.lines.forEach((line, index) => {
     markdown += `#### 📱 Line ${line.lineNumber || (index + 1)}\n\n`;
-    
+
     // Plan details
     if (line.plan) {
       markdown += `**📱 Mobile Plan:**\n`;
@@ -863,10 +879,19 @@ export function formatMultiLineCartReview(cart, context) {
     } else {
       markdown += `**⚠️ Plan:** Not selected (required)\n\n`;
     }
-    
+
     // Device details
     if (line.device) {
       markdown += `**📱 Device:**\n`;
+
+      // Add device image with local fallback
+      if (line.device.image || line.device.localImageUrl) {
+        const imageUrl = line.device.image || "";
+        const localFallback = line.device.localImageUrl || "";
+        const deviceName = line.device.name || (line.device.brand + ' ' + line.device.model);
+        markdown += `   <img src="${imageUrl}" alt="${deviceName}" style="width: 150px; border-radius: 8px;" onerror="this.onerror=null; this.src='${localFallback}';">\n\n`;
+      }
+
       markdown += `   • Name: ${line.device.name || line.device.brand + ' ' + line.device.model}\n`;
       if (line.device.brand) {
         markdown += `   • Brand: ${line.device.brand}\n`;
@@ -882,7 +907,7 @@ export function formatMultiLineCartReview(cart, context) {
     } else {
       markdown += `**📱 Device:** None (optional - you can add later)\n\n`;
     }
-    
+
     // Protection details
     if (line.protection) {
       markdown += `**🛡️ Device Protection:**\n`;
@@ -897,7 +922,7 @@ export function formatMultiLineCartReview(cart, context) {
     } else {
       markdown += `**🛡️ Protection:** N/A (no device selected)\n\n`;
     }
-    
+
     // SIM details
     if (line.sim && line.sim.simType) {
       markdown += `**📲 SIM Type:**\n`;
@@ -914,12 +939,12 @@ export function formatMultiLineCartReview(cart, context) {
     } else {
       markdown += `**⚠️ SIM Type:** Not selected (required for activation)\n\n`;
     }
-    
+
     // Line total
     const lineMonthly = line.plan?.price || 0;
     const lineOneTime = (line.device?.price || 0) + (line.protection?.price || 0) + (line.sim?.price || 0);
     const lineTotal = lineMonthly + lineOneTime;
-    
+
     markdown += `**💰 Line ${line.lineNumber || (index + 1)} Totals:**\n`;
     if (lineMonthly > 0) {
       markdown += `   • Monthly: $${lineMonthly.toFixed(2)}/month\n`;
@@ -928,16 +953,16 @@ export function formatMultiLineCartReview(cart, context) {
       markdown += `   • One-time: $${lineOneTime.toFixed(2)}\n`;
     }
     markdown += `   • **Total: $${lineTotal.toFixed(2)}**\n\n`;
-    
+
     markdown += `---\n\n`;
   });
-  
+
   // Validation and status
   markdown += `### ✅ Order Status\n\n`;
-  
+
   const missingPlans = cart.lines.filter(l => !l.plan).length;
   const missingSims = cart.lines.filter(l => !l.sim || !l.sim.simType).length;
-  
+
   if (missingPlans === 0 && missingSims === 0) {
     markdown += `✅ **Ready for Checkout!**\n\n`;
     markdown += `All required items are selected:\n`;
@@ -954,13 +979,13 @@ export function formatMultiLineCartReview(cart, context) {
     }
     markdown += `\nPlease complete the missing items before proceeding to checkout.\n\n`;
   }
-  
+
   // Payment summary
   markdown += `### 💳 Payment Summary\n\n`;
   markdown += `**Due Today:** $${oneTimeTotal.toFixed(2)}\n`;
   markdown += `**Monthly Recurring:** $${monthlyTotal.toFixed(2)}/month\n`;
   markdown += `**First Month Total:** $${(oneTimeTotal + monthlyTotal).toFixed(2)}\n\n`;
-  
+
   // Next actions
   markdown += `### 🎯 Next Actions\n\n`;
   if (missingPlans === 0 && missingSims === 0) {
@@ -972,7 +997,7 @@ export function formatMultiLineCartReview(cart, context) {
   markdown += `   • Say: "Edit cart" or "Change plan for line 1"\n\n`;
   markdown += `➕ **Add More** - Add devices or protection\n`;
   markdown += `   • Say: "Add device" or "Show me devices"\n`;
-  
+
   return markdown;
 }
 
@@ -1000,11 +1025,11 @@ export function formatButtonSuggestions(context, progress, currentAction = null)
  */
 export function formatConversationalResponse(message, context, progress, action = null) {
   let response = message;
-  
+
   // Add button suggestions
   const buttonSuggestions = formatButtonSuggestions(context, progress, action);
   response += buttonSuggestions;
-  
+
   return response;
 }
 
@@ -1018,29 +1043,29 @@ export function normalizeDeviceImageUrl(imageUrl) {
   if (!imageUrl || typeof imageUrl !== 'string') {
     return null;
   }
-  
+
   // Trim whitespace
   const trimmed = imageUrl.trim();
   if (!trimmed) {
     return null;
   }
-  
+
   // If already absolute URL (starts with http:// or https://), return as-is
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
     return trimmed;
   }
-  
+
   // Protocol-relative URL (//example.com) - default to https
   if (trimmed.startsWith('//')) {
     return `https:${trimmed}`;
   }
-  
+
   // If relative URL (starts with /), convert to absolute using Shopware API base URL
   if (trimmed.startsWith('/')) {
     const shopwareBaseUrl = 'https://shopware-api-nctc-qa.reachmobileplatform.com';
     return `${shopwareBaseUrl}${trimmed}`;
   }
-  
+
   // If it's a path without leading slash, assume it's relative to media root
   const shopwareBaseUrl = 'https://shopware-api-nctc-qa.reachmobileplatform.com';
   return `${shopwareBaseUrl}/${trimmed}`;

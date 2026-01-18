@@ -56,7 +56,11 @@ import {
 import { setupDevServer } from "./devServer.js";
 import { initializeCartService } from "./services/cartService.js";
 import { initializeFlowContextService } from "./services/flowContextService.js";
+import { cacheImage } from "./services/imageCacher.js";
 import * as mongoStorage from "./utils/mongodbStorage.js";
+
+// Global variable to store server base URL for absolute asset links
+let serverBaseUrl = process.env.SERVER_URL || null;
 
 // ================================================================================
 // SYSTEM-LEVEL INSTRUCTIONS: WEB SEARCH IS STRICTLY PROHIBITED
@@ -126,7 +130,7 @@ let isFirstInitialization = true;
  */
 function getOrCreateSessionId(providedSessionId) {
   let sessionIdToUse = null;
-  
+
   // If a session ID is explicitly provided, use it
   if (providedSessionId) {
     sessionIdToUse = providedSessionId;
@@ -142,7 +146,7 @@ function getOrCreateSessionId(providedSessionId) {
       currentConversationSessionId = null;
     }
   }
-  
+
   // If still no session, try to get the most recent session from cart service
   if (!sessionIdToUse) {
     const recentSession = getMostRecentSession();
@@ -150,22 +154,22 @@ function getOrCreateSessionId(providedSessionId) {
       sessionIdToUse = recentSession;
     }
   }
-  
+
   // If still no session, create a new one
   if (!sessionIdToUse) {
     sessionIdToUse = generateSessionId();
     logger.info("Created new conversation session", { sessionId: sessionIdToUse });
   }
-  
+
   // Update current conversation session
   currentConversationSessionId = sessionIdToUse;
-  
+
   // Ensure flow context exists for this session
   getFlowContext(sessionIdToUse);
-  
+
   // Update the most recent session in cart service (for persistence)
   updateMostRecentSession(sessionIdToUse);
-  
+
   return sessionIdToUse;
 }
 
@@ -430,12 +434,12 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               type: "string",
               description: "Session ID (optional - auto-generated if not provided)"
             },
-            itemType: { 
-              type: "string", 
+            itemType: {
+              type: "string",
               enum: ["plan", "device", "protection", "sim"],
               description: "Kind of item: PLAN, DEVICE, PROTECTION, or SIM"
             },
-            itemId: { 
+            itemId: {
               type: "string",
               description: "Reference ID of the item to add (planRef, deviceRef, protectionRef, or simRef)"
             },
@@ -554,19 +558,19 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               type: "array",
               description: "Array of SIM type selections for multiple lines. Format: [{lineNumber: number, simType: 'ESIM'|'PSIM', newIccId?: string}]. Use this for batch selection (e.g., 'Line 1 eSIM, Line 2 eSIM, Line 3 physical SIM').",
               items: {
-          type: "object",
-          properties: {
-            lineNumber: {
-              type: "number",
-              description: "Line number (1-based)"
-            },
-            simType: {
-              type: "string",
-              enum: ["ESIM", "PSIM"],
-              description: "SIM type: ESIM or PSIM"
-            },
-            newIccId: {
-              type: "string",
+                type: "object",
+                properties: {
+                  lineNumber: {
+                    type: "number",
+                    description: "Line number (1-based)"
+                  },
+                  simType: {
+                    type: "string",
+                    enum: ["ESIM", "PSIM"],
+                    description: "SIM type: ESIM or PSIM"
+                  },
+                  newIccId: {
+                    type: "string",
                     description: "New ICCID for PSIM swap (optional)"
                   }
                 },
@@ -943,13 +947,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
 
   // System-level enforcement: Log that web search is disabled (DEBUG level to reduce noise)
-    logger.debug(`🔧 Tool called: ${name}`, {
-      args,
+  logger.debug(`🔧 Tool called: ${name}`, {
+    args,
     fullRequest: JSON.stringify(request.params, null, 2),
     webSearchDisabled: SYSTEM_INSTRUCTIONS.WEB_SEARCH_DISABLED,
     allowedDataSources: SYSTEM_INSTRUCTIONS.ALLOWED_DATA_SOURCES,
     note: "WEB SEARCH IS STRICTLY PROHIBITED - Use ONLY Reach Mobile API and tool responses"
-    });
+  });
 
   try {
 
@@ -961,23 +965,23 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     // FIRST INITIALIZATION: Always create a fresh auth token on first tool call
     // This ensures token is created and ready for all subsequent tools
     const tenant = "reach";
-    
+
     // On first initialization, always create a fresh token
     if (isFirstInitialization) {
       try {
-        logger.info("First initialization detected - creating fresh auth token", { 
+        logger.info("First initialization detected - creating fresh auth token", {
           tool: name,
-          tenant 
+          tenant
         });
         // Force create a fresh token on first initialization
         await getAuthToken(tenant, true); // forceRefresh = true to ensure fresh token
-        logger.info("Fresh auth token created successfully on first initialization", { 
+        logger.info("Fresh auth token created successfully on first initialization", {
           tenant,
-          tool: name 
+          tool: name
         });
         isFirstInitialization = false; // Mark as initialized
       } catch (error) {
-        logger.error("Failed to create auth token on first initialization", { 
+        logger.error("Failed to create auth token on first initialization", {
           tool: name,
           error: error.message,
           errorType: error.errorType || error.name,
@@ -987,27 +991,36 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         throw error;
       }
     }
-    
+
     // Define which tools need Reach API authentication
     // Tools that use callReachAPI() need auth token
     const TOOLS_REQUIRING_AUTH = [
       "get_plans",
-      "get_offers", 
+      "get_offers",
       "get_services",
       "check_coverage",
-      "validate_device",  // Uses callReachAPI - NEEDS AUTH
+      "validate_device",
       "add_to_cart",
       "get_cart",
       "edit_cart",
+      "edit_cart_item",
+      "clear_cart",
       "swap_sim",
       "initialize_session",
-      "start_session"
+      "start_session",
+      "select_sim_type",
+      "update_line_count"
     ];
 
     // Tools that use different APIs (no Reach auth needed)
     const TOOLS_WITHOUT_REACH_AUTH = [
-      "get_devices",      // Uses Shopware API (different auth - sw-access-key)
-      // Note: Protection plans use hardcoded token, not Reach auth
+      "get_devices",         // Uses Shopware API
+      "get_protection_plan",  // Uses hardcoded token
+      "hello_widget",        // Test tool, no API
+      "detect_intent",       // Local logic
+      "get_next_step",       // Local logic
+      "get_flow_status",     // Local logic
+      "get_global_context"   // Local logic
     ];
 
     // Auth generation on each tool call - ensures token exists and is valid
@@ -1043,50 +1056,27 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const userPrompt = args.userPrompt || "";
       const providedLineCount = args.lineCount;
       const providedSessionId = args.sessionId;
-      
+
       // Get or create session ID FIRST to check if it's a new session
       const sessionId = providedSessionId || generateSessionId();
-      
+
       // Initialize cart (empty cart if new session)
       const cart = getCartMultiLine(sessionId);
-      
+
       // Get or create flow context
       const context = getFlowContext(sessionId);
       const isNewSession = !context.lastUpdated || (Date.now() - context.lastUpdated) > 60000; // 1 minute threshold
-      
-      // Generate fresh auth token every time start_session is called (blocking)
-      // CRITICAL: Always create fresh token on every session API call
-      const tenant = "reach";
-      try {
-        await getAuthToken(tenant, true); // forceRefresh = true to generate fresh token every time
-        logger.info("Authentication token generated for start_session", { 
-          tenant,
-          sessionId,
-          isNewSession,
-          note: "Fresh token generated on every start_session call"
-        });
-        isFirstInitialization = false; // Mark as initialized
-      } catch (error) {
-        logger.error("Failed to generate auth token on session start", { 
-          error: error.message,
-          errorType: error.errorType || error.name,
-          sessionId,
-          isNewSession
-        });
-        // Re-throw to prevent session creation without authentication
-        throw error;
-      }
-      
-      // Detect intent from user prompt if provided
+
+      // Update flow context
       let intent = INTENT_TYPES.OTHER;
       let entities = {};
       let suggestedTool = null;
       let finalLineCount = providedLineCount;
-      
+
       if (userPrompt) {
         // Check if user response is off-track from current question
         const redirectCheck = checkAndRedirect(userPrompt, sessionId);
-        
+
         // If user went off-track, return redirect message
         if (redirectCheck.shouldRedirect) {
           return {
@@ -1104,18 +1094,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             }
           };
         }
-        
+
         const intentResult = detectIntent(userPrompt);
         intent = intentResult.intent;
         entities = intentResult.entities || {};
-        
+
         // Extract lineCount from entities if not explicitly provided
         if (!finalLineCount && entities.lineCount) {
           finalLineCount = entities.lineCount;
           // Clear question since it was answered
           clearCurrentQuestion(sessionId);
         }
-        
+
         // Map intent to suggested tool
         const intentToolMap = {
           [INTENT_TYPES.PLAN]: "get_plans",
@@ -1125,7 +1115,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           [INTENT_TYPES.PROTECTION]: "get_protection_plan",
           [INTENT_TYPES.CHECKOUT]: "review_cart"
         };
-        
+
         // Special handling for device intent
         if (intent === INTENT_TYPES.DEVICE) {
           const buyBrowsePatterns = [
@@ -1142,7 +1132,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           ];
           const wantsToBuyDevices = buyBrowsePatterns.some(pattern => pattern.test(userPrompt));
           const wantsCompatibility = /compatible|compatibility|imei|check.*device|validate.*device/i.test(userPrompt);
-          
+
           if (wantsCompatibility || /imei/i.test(userPrompt)) {
             suggestedTool = 'validate_device';
           } else if (wantsToBuyDevices) {
@@ -1156,7 +1146,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           suggestedTool = intentToolMap[intent] || null;
         }
       }
-      
+
       // Check if we're in a plan flow context BEFORE updating context
       // This needs to be checked using the existing context before we update it
       // We're in a plan flow if:
@@ -1164,25 +1154,25 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       // 2. Current question is LINE_COUNT (which was set when asking for plans)
       const currentQuestion = context?.currentQuestion;
       const previousLastIntent = context?.lastIntent;
-      const isPlanFlow = previousLastIntent === INTENT_TYPES.PLAN || 
-                        currentQuestion?.type === QUESTION_TYPES.LINE_COUNT;
-      
+      const isPlanFlow = previousLastIntent === INTENT_TYPES.PLAN ||
+        currentQuestion?.type === QUESTION_TYPES.LINE_COUNT;
+
       // Update flow context
       const contextUpdates = {
         flowStage: finalLineCount && finalLineCount > 0 ? 'planning' : 'initial',
         lastIntent: intent,
         coverageChecked: context.coverageChecked || false
       };
-      
+
       // Handle line count setup
       if (finalLineCount && finalLineCount > 0) {
         const currentLineCount = context.lineCount || 0;
-        
+
         if (currentLineCount > 0 && currentLineCount !== finalLineCount) {
           // Preserve existing selections when line count changes
           const existingLines = context.lines || [];
           const newLines = [];
-          
+
           for (let i = 0; i < finalLineCount; i++) {
             if (i < existingLines.length) {
               newLines.push(existingLines[i]);
@@ -1196,7 +1186,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               });
             }
           }
-          
+
           contextUpdates.lineCount = finalLineCount;
           contextUpdates.lines = newLines;
         } else {
@@ -1208,10 +1198,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         contextUpdates.lineCount = null;
         contextUpdates.lines = [];
       }
-      
+
       updateFlowContext(sessionId, contextUpdates);
       updateMostRecentSession(sessionId);
-      
+
       logger.info("Session started", {
         sessionId,
         intent,
@@ -1219,45 +1209,45 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         isNewSession,
         entities
       });
-      
+
       // Generate contextual response
       let responseText = "";
       let suggestions = "";
       let nextSteps = "";
-      
+
       // If lineCount is set, show purchase flow status
       if (finalLineCount && finalLineCount > 0) {
         const existingCart = getCartMultiLine(sessionId);
         const progress = getFlowProgress(sessionId);
-        
+
         // Check if we're resuming from device selection
         const resumeStep = getResumeStep(sessionId);
         const isDeviceResume = resumeStep === 'device_selection';
-        
+
         // If we're in a plan flow context, automatically fetch and show plans
         if (isPlanFlow) {
           // Clear the current question since line count was provided
           clearCurrentQuestion(sessionId);
-          
+
           // Automatically fetch plans for the specified line count
           let plans;
           try {
             plans = await getPlans(null, tenant);
-            
+
             // Format plans as cards
             const plansCards = formatPlansAsCards(plans, finalLineCount, sessionId);
-            
+
             // Generate plan display text
             let planIntro = `Great 👍 thanks!\n\n`;
             planIntro += `You want ${finalLineCount} line${finalLineCount > 1 ? 's' : ''}. Here are the types of plans you can choose from for ${finalLineCount} line${finalLineCount > 1 ? 's' : ''} with Reach Mobile 📱:\n\n`;
-            
+
             // Categorize plans
             const unlimitedPlans = plans.filter(p => p.unlimited || p.dataUnit === 'Unlimited' || p.name?.toLowerCase().includes('unlimited'));
             const sharedPlans = plans.filter(p => !p.unlimited && p.maxLines && p.maxLines > 1);
             const individualPlans = plans.filter(p => !p.unlimited && (!p.maxLines || p.maxLines === 1));
-            
+
             let planCategories = "";
-            
+
             if (unlimitedPlans.length > 0) {
               planCategories += `🔹 **Unlimited Plans** (Most Popular)\n\n`;
               planCategories += `Perfect if all ${finalLineCount} user${finalLineCount > 1 ? 's' : ''} stream, browse, and use apps heavily.\n\n`;
@@ -1267,7 +1257,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               planCategories += `• Mobile hotspot included\n`;
               planCategories += `• Pricing gets cheaper per line when you take ${finalLineCount} line${finalLineCount > 1 ? 's' : ''}\n\n`;
             }
-            
+
             if (sharedPlans.length > 0) {
               planCategories += `🔹 **Shared Data Plans**\n\n`;
               planCategories += `Good if usage is moderate and you want to save money.\n\n`;
@@ -1275,7 +1265,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               planCategories += `• Unlimited talk & text\n`;
               planCategories += `• Best for families with Wi-Fi at home/work\n\n`;
             }
-            
+
             if (individualPlans.length > 0) {
               planCategories += `🔹 **Individual Line Plans**\n\n`;
               planCategories += `Each line can have a different plan.\n\n`;
@@ -1285,9 +1275,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               planCategories += `• Line 3: Basic plan\n\n`;
               planCategories += `This is useful if all ${finalLineCount} people have different usage needs.\n\n`;
             }
-            
+
             planCategories += `👉 **Next step:** Browse the plans below and select the ones you want to add to your cart. You can choose the same plan for all lines, or mix & match different plans.\n\n`;
-            
+
             return {
               content: [
                 {
@@ -1316,27 +1306,27 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             // Continue with regular response below
           }
         }
-        
+
         // If we're resuming from device selection, automatically show devices
         if (isDeviceResume) {
           // Clear the current question and resume step since line count was provided
           clearCurrentQuestion(sessionId);
           setResumeStep(sessionId, null); // Clear resume step after resuming
-          
+
           // Automatically fetch devices for the specified line count
           let devices;
           try {
             devices = await fetchDevices(20, null, tenant); // Fetch up to 20 devices
-            
+
             // Format devices as cards
             const devicesCards = formatDevicesAsCards(devices, sessionId);
-            
+
             // Generate device display text
             let deviceIntro = `Perfect! 👍 You've set up ${finalLineCount} line${finalLineCount > 1 ? 's' : ''}.\n\n`;
             deviceIntro += `Now you can add devices to your cart. Here are the available devices:\n\n`;
             deviceIntro += `**Select a device** for each line. Each line can have its own device, or you can choose the same device for multiple lines.\n\n`;
             deviceIntro += `👉 **Click "Add to Cart"** on any device to add it to your cart. The device will be assigned to the appropriate line.\n\n`;
-            
+
             return {
               content: [
                 {
@@ -1365,28 +1355,28 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             // Continue with regular response below
           }
         }
-        
+
         // Regular response when not in plan/device flow or fetch failed
         responseText = `## ✅ Session Started\n\n`;
         responseText += `**Lines Configured:** ${finalLineCount} line${finalLineCount > 1 ? 's' : ''}\n\n`;
-        
+
         if (existingCart && existingCart.lines && existingCart.lines.length > 0) {
-          const itemsInCart = existingCart.lines.filter(line => 
+          const itemsInCart = existingCart.lines.filter(line =>
             line.plan || line.device || line.protection || line.sim
           ).length;
-          
+
           if (itemsInCart > 0) {
             responseText += `**📦 Items Already in Cart:** ${itemsInCart} line${itemsInCart > 1 ? 's' : ''} with selections\n\n`;
           }
         }
-        
+
         const missingPlans = progress.missing?.plans || [];
         const missingSims = progress.missing?.sim || [];
-        
+
         suggestions = `**Current Status:**\n`;
         suggestions += `• Plans: ${finalLineCount - missingPlans.length}/${finalLineCount} line${finalLineCount > 1 ? 's' : ''}\n`;
         suggestions += `• SIM Types: ${finalLineCount - missingSims.length}/${finalLineCount} line${finalLineCount > 1 ? 's' : ''}\n\n`;
-        
+
         nextSteps = `**→ Next Steps:**\n`;
         if (missingPlans.length > 0) {
           nextSteps += `1. **Select Plans** - Required for ${missingPlans.length} line${missingPlans.length > 1 ? 's' : ''} (say "Show me plans")\n`;
@@ -1397,7 +1387,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         nextSteps += `• **Add Devices** - Optional (say "Show me devices")\n`;
         nextSteps += `• **Add Protection** - Optional, requires device\n`;
         nextSteps += `• **Review Cart** - Check everything before checkout\n\n`;
-      } 
+      }
       // If userPrompt provided, show intent-based guidance
       else if (userPrompt) {
         if (intent === INTENT_TYPES.PLAN) {
@@ -1464,7 +1454,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           ];
           const wantsToBuyDevices = buyBrowsePatterns.some(pattern => pattern.test(userPrompt));
           const wantsCompatibility = /compatible|compatibility|imei|check.*device|validate.*device/i.test(userPrompt);
-          
+
           if (wantsToBuyDevices) {
             responseText = `# 📱 Welcome to Reach Mobile!\n\n`;
             responseText += `I'd be happy to help you find the perfect device! I can show you our available phones and devices.\n\n`;
@@ -1490,7 +1480,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           responseText += `- 📲 **Browse devices** - Explore available phones and devices\n\n`;
           suggestions = "What would you like to do today?";
         }
-        
+
         nextSteps = `**Getting Started:** Tell me how many lines you need, or ask about plans, coverage, or devices.`;
       }
       // No userPrompt and no lineCount - generic welcome
@@ -1505,9 +1495,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           setCurrentQuestion(sessionId, QUESTION_TYPES.LINE_COUNT, "How many lines would you like to set up?", { lineCount: true });
         }
       }
-      
+
       const finalResponse = formatThreeSectionResponse(responseText, suggestions, nextSteps);
-      
+
       return {
         content: [
           {
@@ -1526,35 +1516,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
 
     if (name === "get_plans") {
-      // Generate fresh auth token every time plans tool is called (blocking)
-      // This ensures a fresh token is created on each plans tool invocation
-      const tenant = "reach";
-      try {
-        let refreshedToken = await getAuthToken(tenant, true); // forceRefresh = true to generate fresh token every time
-        logger.info("Authentication token generated for plans tool", { 
-          tenant,
-          maxPrice: args.maxPrice,
-          note: "Fresh token generated on every plans tool call"
-        });
-      } catch (error) {
-        logger.error("Failed to generate auth token when fetching plans", { 
-          error: error.message,
-          errorType: error.errorType || error.name,
-          maxPrice: args.maxPrice
-        });
-        // Re-throw to prevent operation without authentication
-        throw error;
-      }
-      
       // Check flow context FIRST to see if line is selected
       const sessionId = getOrCreateSessionId(args.sessionId || null);
       const context = getFlowContext(sessionId);
       const progress = getFlowProgress(sessionId);
-      
+
       // CRITICAL CHECK: If lineCount is not set or is 0/null, return TEXT ONLY (no widgets)
       // If lineCount is already set (lines were selected previously), show plans directly without asking
       const hasLineCount = context && context.lineCount !== null && context.lineCount > 0;
-      
+
       // MANDATORY: If no line is configured, return TEXT ONLY - NO WIDGETS/CARDS
       // If lines are already configured, show plans directly (don't ask for lines again)
       if (!hasLineCount) {
@@ -1581,7 +1551,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           }
         };
       }
-      
+
       // LINE IS SELECTED - Fetch plans and show cards
       let plans;
       try {
@@ -1591,7 +1561,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const errorMessage = planError.message || String(planError);
         const statusCode = planError.statusCode || (planError.name === 'APIError' ? planError.statusCode : null);
         const errorType = planError.errorType || (planError.name === 'APIError' ? planError.errorType : null);
-        
+
         logger.error("Failed to fetch plans in get_plans tool", {
           sessionId,
           error: errorMessage,
@@ -1599,7 +1569,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           statusCode: statusCode,
           hasLineSelected: true
         });
-        
+
         // Handle 403/permissions errors FIRST (most specific)
         if (statusCode === 403 || errorMessage.includes('explicit deny') || errorMessage.includes('access denied') || errorMessage.includes('403') || errorMessage.includes('forbidden') || errorMessage.includes('not authorized')) {
           let errorResponse = `## ⚠️ Plans API Access Unavailable\n\n`;
@@ -1611,13 +1581,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           errorResponse += `2. **Verify API permissions** — Confirm that your API credentials have the necessary permissions\n`;
           errorResponse += `3. **Try again** — Sometimes this is a temporary issue, so retrying might work\n\n`;
           errorResponse += `Sorry about the inconvenience. This is an account configuration issue that needs to be resolved with Reach support.\n\n`;
-          
+
           // If there's a resume step, mention it
           const resumeStep = context ? getResumeStep(sessionId) : null;
           if (resumeStep && context) {
             errorResponse += `💡 *You can continue with your previous step (${resumeStep}) or contact support about API permissions.*`;
           }
-          
+
           return {
             content: [
               {
@@ -1633,7 +1603,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             }
           };
         }
-        
+
         // Handle server errors (500, 502, 503, 504)
         if (statusCode >= 500 || errorType === 'SERVER_ERROR' || errorMessage.includes('500') || errorMessage.includes('502') || errorMessage.includes('503') || errorMessage.includes('504') || errorMessage.includes('Server error')) {
           let errorResponse = `## ⚠️ Plans Service Temporarily Unavailable\n\n`;
@@ -1643,13 +1613,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           errorResponse += `🔁 **Retry** — Simply say "Show me plans" again, and I'll try to fetch them.\n\n`;
           errorResponse += `📞 **Contact support** — If the issue persists, there may be a backend problem that needs to be resolved.\n\n`;
           errorResponse += `Sorry about the inconvenience. I'll keep trying to load the plans for you.\n\n`;
-          
+
           // If there's a resume step, mention it
           const resumeStep = context ? getResumeStep(sessionId) : null;
           if (resumeStep && context) {
             errorResponse += `💡 *You can continue with your previous step (${resumeStep}) or try loading plans again.*`;
           }
-          
+
           return {
             content: [
               {
@@ -1665,7 +1635,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             }
           };
         }
-        
+
         // Provide specific guidance based on error type
         if (errorMessage.includes('modifiedDate') || errorMessage.includes('unconvert') || errorMessage.includes('ReachPlanDTO')) {
           let errorResponse = `## ⚠️ Plans API Server Bug\n\n`;
@@ -1676,13 +1646,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           errorResponse += `🔁 **Retry** — Simply say "Show me plans" again, and I'll try to fetch them.\n\n`;
           errorResponse += `📞 **Contact Reach support** — This is a server-side bug that needs to be fixed by Reach support.\n\n`;
           errorResponse += `Sorry about the inconvenience.\n\n`;
-          
+
           // If there's a resume step, mention it
           const resumeStep = context ? getResumeStep(sessionId) : null;
           if (resumeStep && context) {
             errorResponse += `💡 *You can continue with your previous step (${resumeStep}) or try loading plans again.*`;
           }
-          
+
           return {
             content: [
               {
@@ -1703,13 +1673,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           errorResponse += `**What you can do:**\n\n`;
           errorResponse += `⏳ **Try again later** — Plans may be temporarily unavailable.\n\n`;
           errorResponse += `📞 **Contact support** — If you need immediate assistance, please reach out to our support team.\n\n`;
-          
+
           // If there's a resume step, mention it
           const resumeStep = context ? getResumeStep(sessionId) : null;
           if (resumeStep && context) {
             errorResponse += `💡 *You can continue with your previous step (${resumeStep}).*`;
           }
-          
+
           return {
             content: [
               {
@@ -1730,13 +1700,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           errorResponse += `**What you can do:**\n\n`;
           errorResponse += `🔁 **Try again** — Simply say "Show me plans" again, and I'll retry.\n\n`;
           errorResponse += `📶 **Check your connection** — A slow connection might be causing the timeout.\n\n`;
-          
+
           // If there's a resume step, mention it
           const resumeStep = context ? getResumeStep(sessionId) : null;
           if (resumeStep && context) {
             errorResponse += `💡 *You can continue with your previous step (${resumeStep}) or try loading plans again.*`;
           }
-          
+
           return {
             content: [
               {
@@ -1757,13 +1727,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           errorResponse += `**What you can do:**\n\n`;
           errorResponse += `🔁 **Try again** — Simply say "Show me plans" again, and I'll retry.\n\n`;
           errorResponse += `📶 **Check your connection** — Ensure you have a stable internet connection.\n\n`;
-          
+
           // If there's a resume step, mention it
           const resumeStep = context ? getResumeStep(sessionId) : null;
           if (resumeStep && context) {
             errorResponse += `💡 *You can continue with your previous step (${resumeStep}) or try loading plans again.*`;
           }
-          
+
           return {
             content: [
               {
@@ -1788,13 +1758,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           errorResponse += `🔁 **Retry** — Simply say "Show me plans" again, and I'll try to fetch them.\n\n`;
           errorResponse += `📞 **Contact support** — If the issue persists, please reach out for assistance.\n\n`;
           errorResponse += `Sorry about the inconvenience. I'll keep trying to load the plans for you.\n\n`;
-          
+
           // If there's a resume step, mention it
           const resumeStep = context ? getResumeStep(sessionId) : null;
           if (resumeStep && context) {
             errorResponse += `💡 *You can continue with your previous step (${resumeStep}) or try loading plans again.*`;
           }
-          
+
           return {
             content: [
               {
@@ -1811,7 +1781,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           };
         }
       }
-      
+
       if (!plans || plans.length === 0) {
         return {
           content: [
@@ -1826,7 +1796,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           }
         };
       }
-      
+
       // Set resume step for conversational flow
       if (context && sessionId) {
         setResumeStep(sessionId, 'plan_selection');
@@ -1837,14 +1807,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           data: { planCount: plans.length }
         });
       }
-      
+
       // Build three-section response: Response | Suggestions | Next Steps
       // SECTION 1: RESPONSE
       let mainResponse = `Showing ${plans.length} available plan${plans.length > 1 ? 's' : ''}. All prices in USD for USA.\n\nSee plan cards below with pricing, data, and features.`;
-      
+
       let suggestions = "";
       let nextSteps = "";
-      
+
       if (context && progress) {
         // Section 2: Suggestions about the response
         if (progress.missing.plans && progress.missing.plans.length > 0) {
@@ -1856,15 +1826,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         } else {
           suggestions = "All plans have been selected for your lines. You can still add more plans or modify your selections.";
         }
-        
+
         // Section 3: Next Steps (flow-aligned)
-          nextSteps = getNextStepsForIntent(context, INTENT_TYPES.PLAN);
+        nextSteps = getNextStepsForIntent(context, INTENT_TYPES.PLAN);
       } else {
         // Fallback (shouldn't happen if line is selected, but just in case)
         suggestions = "Select a plan from the cards below to add it to your cart.";
         nextSteps = `**→ Next:** Choose a plan and click "Add to Cart"`;
       }
-      
+
       const responseText = formatThreeSectionResponse(mainResponse, suggestions, nextSteps);
 
       // Return structuredContent for Apps SDK widget (ONLY when line is selected)
@@ -1994,39 +1964,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
 
     if (name === "check_coverage") {
-      // Generate auth token when checking coverage (blocking)
-      // This ensures token is created and ready before checking coverage
-      const tenant = "reach";
-      try {
-        await ensureTokenOnToolCall(tenant);
-        logger.info("Authentication token created/verified when checking coverage", { 
-          tenant,
-          zipCode: args.zipCode 
-        });
-      } catch (error) {
-        logger.error("Failed to generate auth token when checking coverage", { 
-          error: error.message,
-          errorType: error.errorType || error.name,
-          zipCode: args.zipCode
-        });
-        // Re-throw to prevent operation without authentication
-        throw error;
-      }
-      
       const zipCode = args.zipCode;
       if (!zipCode) {
         throw new Error("ZIP code is required");
       }
-      
+
       const sessionId = getOrCreateSessionId(args.sessionId || null);
       const context = getFlowContext(sessionId);
-      
+
       // Coverage is non-blocking - preserve resume step
       const resumeStep = context ? getResumeStep(sessionId) : null;
-      
+
       try {
         const result = await checkCoverage(zipCode, tenant);
-        
+
         // Update context with coverage info (non-blocking)
         if (context && sessionId) {
           updateFlowContext(sessionId, {
@@ -2045,16 +1996,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             setResumeStep(sessionId, resumeStep);
           }
         }
-      
-      if (isAppsSDK) {
-        return {
-          content: [{ type: "text", text: JSON.stringify({ success: true, ...result }) }],
-        };
-      }
-      
+
+        if (isAppsSDK) {
+          return {
+            content: [{ type: "text", text: JSON.stringify({ success: true, ...result }) }],
+          };
+        }
+
         // Build three-section response
         const mainResponse = formatCoverageAsCard(result);
-      
+
         let suggestions = "";
         if (result.isValid === true) {
           const signal = result.signal4g || result.signal5g || 'good';
@@ -2068,24 +2019,24 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         } else {
           suggestions = "Coverage information for this ZIP code. Check the details above for signal strength and compatibility.";
         }
-        
+
         const nextSteps = getNextStepsForIntent(context, INTENT_TYPES.COVERAGE);
         const guidanceText = formatThreeSectionResponse(mainResponse, suggestions, nextSteps);
-      
-      return {
-        content: [
-          {
-            type: "text",
+
+        return {
+          content: [
+            {
+              type: "text",
               text: guidanceText,
-          },
-        ],
-      };
+            },
+          ],
+        };
       } catch (coverageError) {
         // Handle coverage API errors gracefully
         const errorMessage = coverageError.message || String(coverageError);
         const statusCode = coverageError.statusCode || (coverageError.name === 'APIError' ? coverageError.statusCode : null);
         const errorType = coverageError.errorType || (coverageError.name === 'APIError' ? coverageError.errorType : null);
-        
+
         logger.error("Coverage check error caught in tool handler", {
           zipCode,
           sessionId,
@@ -2094,7 +2045,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           errorType,
           errorName: coverageError.name
         });
-        
+
         // Handle 403/permissions errors
         if (statusCode === 403 || errorMessage.includes('explicit deny') || errorMessage.includes('access denied') || errorMessage.includes('403')) {
           let errorResponse = `## ⚠️ Coverage Check Unavailable\n\n`;
@@ -2105,12 +2056,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           errorResponse += `2. Proceed with plan selection - coverage check is optional and not required for purchase\n`;
           errorResponse += `3. Most areas in the US have good coverage, so you can safely continue\n\n`;
           errorResponse += `**Next steps:** Would you like to see available plans instead?`;
-          
+
           // If there's a resume step, mention it
           if (resumeStep && context) {
             errorResponse += `\n\n💡 *You can continue with your previous step (${resumeStep}) or select a plan.*`;
           }
-          
+
           return {
             content: [
               {
@@ -2120,7 +2071,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             ],
           };
         }
-        
+
         // Handle server errors (500, 502, 503, 504)
         if (statusCode >= 500 || errorType === 'SERVER_ERROR' || errorMessage.includes('500') || errorMessage.includes('502') || errorMessage.includes('503') || errorMessage.includes('504') || errorMessage.includes('Server error')) {
           let errorResponse = `## ⚠️ Coverage Service Temporarily Unavailable\n\n`;
@@ -2132,12 +2083,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           errorResponse += `📍 **Try a nearby ZIP code** — If you want, you can also share a nearby ZIP code and I can try that instead.\n\n`;
           errorResponse += `✅ **Continue without coverage check** — Coverage check is optional. You can proceed to select a plan, and most areas in the US have good coverage.\n\n`;
           errorResponse += `Sorry about the hiccup — I've got your ZIP code noted and can recheck as soon as the service is back up.\n\n`;
-          
+
           // If there's a resume step, mention it
           if (resumeStep && context) {
             errorResponse += `💡 *You can continue with your previous step (${resumeStep}) or select a plan.*`;
           }
-          
+
           return {
             content: [
               {
@@ -2147,7 +2098,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             ],
           };
         }
-        
+
         // Handle timeout errors
         if (errorMessage.includes('timeout') || errorMessage.includes('timed out') || errorType === 'TIMEOUT_ERROR' || coverageError.name === 'TimeoutError') {
           let errorResponse = `## ⏱️ Coverage Check Timed Out\n\n`;
@@ -2157,12 +2108,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           errorResponse += `🔁 **Try again** — You can simply reply "check again" or "check coverage for ${zipCode}", and I'll retry.\n\n`;
           errorResponse += `📍 **Try a nearby ZIP code** — If you want, you can also share a nearby ZIP code and I can try that instead.\n\n`;
           errorResponse += `✅ **Continue without coverage check** — Coverage check is optional. You can proceed to select a plan.\n\n`;
-          
+
           // If there's a resume step, mention it
           if (resumeStep && context) {
             errorResponse += `💡 *You can continue with your previous step (${resumeStep}) or select a plan.*`;
           }
-          
+
           return {
             content: [
               {
@@ -2172,7 +2123,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             ],
           };
         }
-        
+
         // Handle network errors
         if (errorMessage.includes('network') || errorMessage.includes('fetch') || errorMessage.includes('ECONNREFUSED') || errorMessage.includes('ENOTFOUND') || coverageError.name === 'NetworkError') {
           let errorResponse = `## 🌐 Network Connection Issue\n\n`;
@@ -2181,12 +2132,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           errorResponse += `**What you can do:**\n\n`;
           errorResponse += `🔁 **Try again** — You can simply reply "check again" or "check coverage for ${zipCode}", and I'll retry.\n\n`;
           errorResponse += `✅ **Continue without coverage check** — Coverage check is optional. You can proceed to select a plan.\n\n`;
-          
+
           // If there's a resume step, mention it
           if (resumeStep && context) {
             errorResponse += `💡 *You can continue with your previous step (${resumeStep}) or select a plan.*`;
           }
-          
+
           return {
             content: [
               {
@@ -2196,7 +2147,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             ],
           };
         }
-        
+
         // Handle all other errors with a generic user-friendly message
         let errorResponse = `## ⚠️ Coverage Check Unavailable\n\n`;
         errorResponse += `Thanks for sharing your ZIP code: **${zipCode}** 👍\n\n`;
@@ -2207,12 +2158,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         errorResponse += `📍 **Try a nearby ZIP code** — If you want, you can also share a nearby ZIP code and I can try that instead.\n\n`;
         errorResponse += `✅ **Continue without coverage check** — Coverage check is optional. You can proceed to select a plan, and most areas in the US have good coverage.\n\n`;
         errorResponse += `Sorry about the hiccup — I've got your ZIP code noted and can recheck as soon as the service is back up.\n\n`;
-        
+
         // If there's a resume step, mention it
         if (resumeStep && context) {
           errorResponse += `💡 *You can continue with your previous step (${resumeStep}) or select a plan.*`;
         }
-        
+
         return {
           content: [
             {
@@ -2225,29 +2176,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
 
     if (name === "validate_device") {
-      // Generate auth token when validating device compatibility (blocking)
-      // This ensures token is created and ready before validating device
-      const tenant = "reach";
-      try {
-        await ensureTokenOnToolCall(tenant);
-        logger.info("Authentication token created/verified when validating device compatibility", { 
-          tenant,
-          imei: args.imei ? `${args.imei.substring(0, 4)}...` : 'N/A' // Only log partial IMEI for privacy
-        });
-      } catch (error) {
-        logger.error("Failed to generate auth token when validating device compatibility", { 
-          error: error.message,
-          errorType: error.errorType || error.name,
-          imei: args.imei ? `${args.imei.substring(0, 4)}...` : 'N/A'
-        });
-        // Re-throw to prevent operation without authentication
-        throw error;
-      }
-      
       // Get session context for error handling and suggestions
       const sessionId = getOrCreateSessionId(args.sessionId || null);
       const context = getFlowContext(sessionId);
-      
+
       try {
         const result = await validateDevice(args.imei, tenant);
         if (isAppsSDK) {
@@ -2255,8 +2187,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             content: [{ type: "text", text: JSON.stringify({ success: true, ...result, imei: args.imei }) }],
           };
         }
-        
-          // Update context and conversation history
+
+        // Update context and conversation history
         if (context && sessionId) {
           updateLastIntent(sessionId, INTENT_TYPES.DEVICE, 'validate_device');
           addConversationHistory(sessionId, {
@@ -2265,10 +2197,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             data: { imei: args.imei ? `${args.imei.substring(0, 4)}...` : 'N/A', isValid: result.isValid }
           });
         }
-        
+
         // Format device compatibility card
         const cardMarkdown = formatDeviceAsCard({ ...result, imei: args.imei });
-        
+
         // Add suggestions to buy devices
         let suggestions = "";
         if (result.isValid) {
@@ -2284,13 +2216,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           suggestions += "• Search by brand: \"Show me iPhones\", \"Show me Samsung phones\", etc.\n";
           suggestions += "• All devices in our catalog are guaranteed to work with Reach Mobile network";
         }
-        
+
         // Get next steps based on context
         const nextSteps = getNextStepsForIntent(context, INTENT_TYPES.DEVICE);
-        
+
         // Format response with three sections
         const responseText = formatThreeSectionResponse(cardMarkdown, suggestions, nextSteps);
-        
+
         return {
           content: [
             {
@@ -2305,14 +2237,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const errorType = deviceError.errorType || 'API_ERROR';
         const errorMessage = deviceError.message || 'Unknown error';
         const imei = args.imei ? `${args.imei.substring(0, 6)}...${args.imei.substring(args.imei.length - 4)}` : 'provided';
-        
+
         logger.error("Device validation error", {
           imei: args.imei ? `${args.imei.substring(0, 4)}...` : 'N/A',
           statusCode,
           errorType,
           errorMessage: errorMessage.substring(0, 200)
         });
-        
+
         // Handle server errors (500, 502, 503, 504)
         if (statusCode >= 500 || statusCode === 503 || errorMessage.includes('503') || errorMessage.includes('Service Unavailable')) {
           let errorResponse = `## ⚠️ Issue While Checking Compatibility\n\n`;
@@ -2328,7 +2260,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           errorResponse += `🔁 **Retry** — You can ask me to "check compatibility again" or "validate device again" with your IMEI\n\n`;
           errorResponse += `✅ **Continue without validation** — You can still proceed to select plans and devices. Device validation is optional.\n\n`;
           errorResponse += `Sorry about the hiccup — I've noted your IMEI and can recheck as soon as the service is back up.\n\n`;
-          
+
           return {
             content: [
               {
@@ -2338,7 +2270,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             ],
           };
         }
-        
+
         // Handle timeout errors
         if (errorMessage.includes('timeout') || errorMessage.includes('timed out') || errorType === 'TIMEOUT_ERROR' || deviceError.name === 'TimeoutError') {
           let errorResponse = `## ⏱️ Device Validation Timed Out\n\n`;
@@ -2346,7 +2278,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           errorResponse += `**What you can do:**\n\n`;
           errorResponse += `🔁 **Try again** — You can ask me to "check compatibility again" or "validate device again"\n\n`;
           errorResponse += `✅ **Continue without validation** — Device validation is optional. You can proceed to select plans and devices.\n\n`;
-          
+
           return {
             content: [
               {
@@ -2356,7 +2288,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             ],
           };
         }
-        
+
         // Handle authentication errors (401, 403)
         if (statusCode === 401 || statusCode === 403 || errorMessage.includes('401') || errorMessage.includes('403') || errorMessage.includes('Unauthorized') || errorMessage.includes('Forbidden')) {
           let errorResponse = `## 🔒 Authentication Issue\n\n`;
@@ -2368,7 +2300,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           errorResponse += `🔁 **Try again** — The system will automatically retry with fresh authentication\n\n`;
           errorResponse += `✅ **Continue without validation** — You can proceed to select plans and devices\n\n`;
           errorResponse += `If this persists, please contact support.\n\n`;
-          
+
           return {
             content: [
               {
@@ -2378,7 +2310,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             ],
           };
         }
-        
+
         // Handle other errors
         let errorResponse = `## ❌ Device Validation Failed\n\n`;
         errorResponse += `I tried to validate your device using the IMEI **${imei}**, but encountered an error.\n\n`;
@@ -2387,7 +2319,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         errorResponse += `🔍 **Check your IMEI** — Make sure you provided the correct 15-digit IMEI number\n\n`;
         errorResponse += `🔁 **Try again** — You can ask me to "check compatibility again"\n\n`;
         errorResponse += `✅ **Continue without validation** — Device validation is optional. You can proceed to browse devices and select plans.\n\n`;
-        
+
         return {
           content: [
             {
@@ -2406,7 +2338,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const context = getFlowContext(sessionId);
       const globalFlags = getGlobalContextFlags(sessionId);
       const hasPlans = globalFlags.planSelected;
-      
+
       const limit = args.limit || 8;
       const brand = args.brand || null;
       let devices = await fetchDevices(limit * 2, brand, tenant); // Fetch more to account for filtering
@@ -2415,13 +2347,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       if (brand && devices && devices.length > 0) {
         const brandLower = brand.toLowerCase();
         const normalizedBrand = brandLower.includes('iphone') || brandLower.includes('apple') ? 'apple' :
-                               brandLower.includes('samsung') || brandLower.includes('galaxy') ? 'samsung' :
-                               brandLower.includes('pixel') || brandLower.includes('google') ? 'google' : brandLower;
-        
+          brandLower.includes('samsung') || brandLower.includes('galaxy') ? 'samsung' :
+            brandLower.includes('pixel') || brandLower.includes('google') ? 'google' : brandLower;
+
         devices = devices.filter(device => {
           const deviceName = (device.name || device.translated?.name || '').toLowerCase();
           const deviceBrand = (device.manufacturer?.name || device.brand || device.translated?.manufacturer?.name || '').toLowerCase();
-          
+
           if (normalizedBrand === 'apple') {
             return deviceName.includes('iphone') || deviceBrand.includes('apple');
           } else if (normalizedBrand === 'samsung') {
@@ -2436,6 +2368,34 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       // Limit results after filtering
       devices = devices.slice(0, limit);
+
+      // Async background caching for device images
+      if (devices && devices.length > 0) {
+        devices.forEach(device => {
+          const rawImageUrl = device.cover?.media?.url ||
+            (device.media && device.media[0]?.media?.url) ||
+            device.image ||
+            device.coverImage ||
+            device.thumbnail ||
+            null;
+
+          if (rawImageUrl) {
+            // Extract extension or default to png
+            const extension = rawImageUrl.split('.').pop().split(/[?#]/)[0] || 'png';
+            const filename = `${device.id || device.productNumber}.${extension}`;
+
+            // Trigger cache without awaiting to avoid blocking the response
+            cacheImage(rawImageUrl, filename).catch(err => {
+              logger.error(`Background image caching failed for ${device.id}: ${err.message}`);
+            });
+
+            // Add local fallback URL to the device object for the formatter/widget
+            // Use absolute URL if base URL is detected, otherwise relative
+            const localPath = `/public/images/devices/${filename}`;
+            device.localImageUrl = serverBaseUrl ? `${serverBaseUrl}${localPath}` : localPath;
+          }
+        });
+      }
 
       if (!devices || devices.length === 0) {
         return {
@@ -2461,21 +2421,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       // Check if there's a device cart but no lines configured
       const cart = sessionId ? getCartMultiLine(sessionId) : null;
-      const hasDeviceCart = cart && cart.lines && cart.lines.length > 0 && 
-                           cart.lines.some(line => line.device !== null && line.device !== undefined);
+      const hasDeviceCart = cart && cart.lines && cart.lines.length > 0 &&
+        cart.lines.some(line => line.device !== null && line.device !== undefined);
       const hasNoLinesConfigured = !context || !context.lineCount || context.lineCount === 0;
 
       // Check flow context for guidance
       const progress = sessionId ? getFlowProgress(sessionId) : null;
-      
+
       // Build three-section response
       // SECTION 1: RESPONSE
-      let mainResponse = brand ? 
+      let mainResponse = brand ?
         `Showing ${devices.length} ${brand} device${devices.length > 1 ? 's' : ''} available for purchase.` :
         `Showing ${devices.length} device${devices.length > 1 ? 's' : ''} from our catalog.`;
-      
+
       let suggestions = "";
-      
+
       // Special case: Device cart loaded but lines not added
       if (hasDeviceCart && hasNoLinesConfigured) {
         suggestions = "**⚠️ Lines Required First:**\n\n";
@@ -2489,10 +2449,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       } else if (hasPlans && context) {
         suggestions = "**Device Selection:** Click \"Add to Cart\" on any device below to add it to your cart.\n\n";
         suggestions += "**Optional:** Devices are optional. You can proceed without devices or add protection after selecting a device.";
-          } else {
+      } else {
         suggestions = "Browse our device catalog. To purchase, you'll need to set up your lines and select plans first.";
       }
-      
+
       const nextSteps = getNextStepsForIntent(context, INTENT_TYPES.DEVICE);
       const responseText = formatThreeSectionResponse(mainResponse, suggestions, nextSteps);
 
@@ -2501,31 +2461,31 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const structuredData = {
         devices: devices.map(device => {
           // Normalize cover media URL if present
-          const normalizedCoverMediaUrl = device.cover?.media?.url 
-            ? normalizeDeviceImageUrl(device.cover.media.url) 
+          const normalizedCoverMediaUrl = device.cover?.media?.url
+            ? normalizeDeviceImageUrl(device.cover.media.url)
             : null;
-          
+
           // Normalize media array URLs if present
           const normalizedMedia = device.media && Array.isArray(device.media)
             ? device.media.map(m => ({
-                ...m,
-                media: m.media ? {
-                  ...m.media,
-                  url: m.media.url ? normalizeDeviceImageUrl(m.media.url) : m.media.url
-                } : m.media,
-                url: m.url ? normalizeDeviceImageUrl(m.url) : m.url
-              }))
+              ...m,
+              media: m.media ? {
+                ...m.media,
+                url: m.media.url ? normalizeDeviceImageUrl(m.media.url) : m.media.url
+              } : m.media,
+              url: m.url ? normalizeDeviceImageUrl(m.url) : m.url
+            }))
             : device.media;
-          
+
           // Normalize main image URL
           const normalizedImageUrl = normalizeDeviceImageUrl(
             device.cover?.media?.url || device.media?.[0]?.media?.url || null
           );
-          
+
           return {
             // Spread all original device data so widget has access to everything
             ...device,
-            
+
             // Override cover and media with normalized URLs
             cover: device.cover ? {
               ...device.cover,
@@ -2535,7 +2495,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               } : device.cover.media
             } : device.cover,
             media: normalizedMedia,
-            
+
             // Normalized fields the widget expects
             id: device.id || device.productNumber || device.ean,
             name: device.name || device.translated?.name,
@@ -2601,7 +2561,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const lineNumber = args.lineNumber || null;
       let context = sessionId ? getFlowContext(sessionId) : null;
       let progress = sessionId ? getFlowProgress(sessionId) : null;
-      
+
       // If no flow context exists, auto-initialize with 1 line to allow SIM selection
       if (!context || !context.lineCount) {
         logger.info('Auto-initializing purchase flow for SIM type selection', { sessionId });
@@ -2623,7 +2583,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         context = getFlowContext(sessionId);
         progress = getFlowProgress(sessionId);
       }
-      
+
       // Get lines that need SIM types if context exists
       let linesNeedingSim = [];
       if (context && context.lines) {
@@ -2632,7 +2592,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           .filter(({ line }) => !line.simType)
           .map(({ index }) => index);
       }
-      
+
       // Build three-section response
       // SECTION 1: RESPONSE
       let mainResponse = "";
@@ -2643,21 +2603,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       } else {
         mainResponse = `Choose your SIM type. See options below.`;
       }
-      
+
       let suggestions = "";
       suggestions += "**eSIM (Digital):** Best for modern phones. Instant activation, no physical card needed. Works with iPhone XS and newer, Google Pixel 3 and newer, Samsung Galaxy S20 and newer.\n\n";
       suggestions += "**Physical SIM:** Traditional SIM card delivered to you. Works with all phones. Takes 3-6 business days for delivery.\n\n";
       suggestions += "**How to select:** Click \"Add to Cart\" on your preferred SIM type below.";
-      
+
       // Add note about plan requirement if no plan selected
       const hasPlan = context && context.lines && context.lines.some(l => l && l.planSelected);
       if (!hasPlan) {
         suggestions += `\n\n**Note:** You'll need to select a plan before checkout. After choosing your SIM type, say "Show me plans" to continue.`;
       }
-      
+
       const nextSteps = getNextStepsForIntent(context, INTENT_TYPES.SIM);
       const responseText = formatThreeSectionResponse(mainResponse, suggestions, nextSteps);
-      
+
       // Return structuredContent for Apps SDK widget
       const structuredData = {
         simTypes: [
@@ -2732,7 +2692,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       // Check prerequisites
       const sessionId = getOrCreateSessionId(args.sessionId || null);
       const prerequisites = sessionId ? checkPrerequisites(sessionId, 'add_protection') : { allowed: true };
-      
+
       if (!prerequisites.allowed) {
         return {
           content: [
@@ -2744,7 +2704,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           ]
         };
       }
-      
+
       const protectionPlans = await fetchProtectionPlans(tenant);
 
       if (isAppsSDK) {
@@ -2754,10 +2714,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       const cardMarkdown = formatProtectionPlansAsCards(protectionPlans);
-      
+
       // Add conversational guidance with button suggestions
       let responseText = cardMarkdown;
-      
+
       if (sessionId) {
         const flowContext = getFlowContext(sessionId);
         const progress = getFlowProgress(sessionId);
@@ -2773,14 +2733,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             }
             responseText += `\n\nOnce I have that, I can add the protection item to your cart and move you closer to checkout.`;
           }
-          
+
           // Add button suggestions
           responseText += formatButtonSuggestions(flowContext, progress, 'protection');
         }
       } else {
         responseText += `\n\n**Note:** Device protection is available in eligible states. Add a device to your cart first, then we can add protection.`;
       }
-      
+
       return {
         content: [
           {
@@ -2792,39 +2752,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
 
     if (name === "add_to_cart") {
-      // Generate auth token when adding item to a line (blocking)
-      // This ensures token is created and ready before line selection
-      const tenant = "reach";
-      try {
-        await ensureTokenOnToolCall(tenant);
-        logger.info("Authentication token created/verified when adding item to line", { 
-          tenant, 
-          itemType: args.itemType,
-          lineNumber: args.lineNumber 
-        });
-      } catch (error) {
-        logger.error("Failed to generate auth token when adding item to line", { 
-          error: error.message,
-          errorType: error.errorType || error.name,
-          itemType: args.itemType,
-          lineNumber: args.lineNumber
-        });
-        // Re-throw to prevent operation without authentication
-        throw error;
-      }
-      
       const itemType = args.itemType || 'plan';
       const lineNumber = args.lineNumber || null;
       const sessionId = getOrCreateSessionId(args.sessionId || null);
-      
+
       let item;
-      
+
       // Fetch item based on type
       if (itemType === 'plan') {
         const plans = await getPlans(null, tenant);
         // Search by id (transformed) or uniqueIdentifier (original API field)
-        item = plans.find((p) => 
-          p.id === args.itemId || 
+        item = plans.find((p) =>
+          p.id === args.itemId ||
           p.uniqueIdentifier === args.itemId ||
           (p.id && p.id.toString() === args.itemId.toString()) ||
           (p.uniqueIdentifier && p.uniqueIdentifier.toString() === args.itemId.toString())
@@ -2844,7 +2783,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       } else if (itemType === 'device') {
         // Fetch devices - use maximum allowed limit (100) and no brand filter first
         let devices = await fetchDevices(100, null, tenant);
-        
+
         // If no devices found, log warning but continue
         if (!devices || devices.length === 0) {
           logger.warn("No devices found when trying to add to cart", {
@@ -2853,7 +2792,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           });
           throw new Error(`Unable to fetch devices from the catalog. Please try again or browse devices first.`);
         }
-        
+
         // Try to find device by multiple criteria:
         // 1. Exact match on id, productNumber, or ean
         // 2. Exact match on name (case-insensitive)
@@ -2862,23 +2801,23 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         item = devices.find((d) => {
           const id = d.id || d.productNumber || d.ean || '';
           const name = (d.name || d.translated?.name || '').toLowerCase();
-          
+
           // Exact ID match
           if (id && id.toLowerCase() === itemIdLower) return true;
-          
+
           // Exact name match
           if (name && name === itemIdLower) return true;
-          
+
           // Partial name match (device name contains the search term)
           if (name && name.includes(itemIdLower)) return true;
-          
+
           // Reverse partial match (search term contains key parts of device name)
           const nameWords = name.split(/\s+/).filter(w => w.length > 3); // Words longer than 3 chars
           if (nameWords.some(word => itemIdLower.includes(word))) return true;
-          
+
           return false;
         });
-        
+
         if (!item) {
           // Log available device names for debugging
           const availableNames = devices.slice(0, 5).map(d => d.name || d.translated?.name || d.id || 'Unknown').join(', ');
@@ -2890,19 +2829,28 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           });
           throw new Error(`Device "${args.itemId}" not found in the catalog. Please browse available devices first or check the device name.`);
         }
-        
+
         // Extract device image from multiple sources and normalize URL
-        const rawImageUrl = item.cover?.media?.url || 
-                           (item.media && item.media[0]?.media?.url) || 
-                           item.image || 
-                           item.coverImage || 
-                           item.thumbnail ||
-                           null;
+        const rawImageUrl = item.cover?.media?.url ||
+          (item.media && item.media[0]?.media?.url) ||
+          item.image ||
+          item.coverImage ||
+          item.thumbnail ||
+          null;
         const deviceImage = normalizeDeviceImageUrl(rawImageUrl);
-        
+
         // Extract device properties for specs
         const properties = item.properties || [];
-        
+
+        // Determine local image path for fallback
+        let localImageUrl = null;
+        if (rawImageUrl) {
+          const extension = rawImageUrl.split('.').pop().split(/[?#]/)[0] || 'png';
+          const localPath = `/public/images/devices/${item.id || item.productNumber}.${extension}`;
+          // Use absolute URL if base URL is detected, otherwise relative
+          localImageUrl = serverBaseUrl ? `${serverBaseUrl}${localPath}` : localPath;
+        }
+
         item = {
           type: 'device',
           id: item.id || item.productNumber || item.ean,
@@ -2910,6 +2858,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           brand: item.manufacturer?.name || item.brand || item.translated?.manufacturer?.name || '',
           price: item.calculatedPrice?.unitPrice || item.calculatedPrice?.totalPrice || item.price?.[0]?.gross || 0,
           image: deviceImage,
+          localImageUrl: localImageUrl,
           properties: properties,
           customFields: item.customFields || {},
           translated: item.translated || {},
@@ -2947,18 +2896,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       // Ensure flow context exists first to check lineCount
       const sessionIdForContext = getOrCreateSessionId(sessionId || null);
       let flowContext = getFlowContext(sessionIdForContext);
-      
+
       // For devices: Check if line count is set, if not, ask for it and resume device selection
       if (itemType === 'device' && (!flowContext || !flowContext.lineCount || flowContext.lineCount === 0)) {
         // Set resume step to device selection so we can continue after line count is provided
         setResumeStep(sessionIdForContext, 'device_selection');
         // Set current question to ask for line count
-        setCurrentQuestion(sessionIdForContext, QUESTION_TYPES.LINE_COUNT, 
-          "How many lines do you need? (Each line can have a device)", 
+        setCurrentQuestion(sessionIdForContext, QUESTION_TYPES.LINE_COUNT,
+          "How many lines do you need? (Each line can have a device)",
           { lineCount: true });
         // Update last intent to remember we're in device flow
         updateLastIntent(sessionIdForContext, INTENT_TYPES.DEVICE, 'add_to_cart');
-        
+
         return {
           content: [{
             type: "text",
@@ -2981,17 +2930,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           }
         };
       }
-        
-        // If this is a new session and we're adding a plan, initialize lineCount if not set
+
+      // If this is a new session and we're adding a plan, initialize lineCount if not set
       if (itemType === 'plan' && flowContext && !flowContext.lineCount) {
         updateFlowContext(sessionIdForContext, {
-            lineCount: 1,
-            flowStage: 'planning'
-          });
-          // Refresh context after update
+          lineCount: 1,
+          flowStage: 'planning'
+        });
+        // Refresh context after update
         flowContext = getFlowContext(sessionIdForContext);
-        }
-        
+      }
+
       // Determine target line number using smart assignment
       let targetLineNumber = lineNumber;
       let assignmentSuggestion = null;
@@ -3001,7 +2950,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         try {
           // Use smart line assignment
           const assignment = determineOptimalLineAssignment(flowContext, itemType, lineNumber);
-          
+
           // Handle case where assignment fails (e.g., protection without device)
           if (assignment.targetLineNumber === null) {
             return {
@@ -3012,11 +2961,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               isError: true
             };
           }
-          
+
           targetLineNumber = assignment.targetLineNumber;
           assignmentSuggestion = assignment.suggestion;
           assignmentReason = assignment.reason;
-          
+
           // Validate line number doesn't exceed lineCount (safety check)
           if (targetLineNumber > flowContext.lineCount) {
             logger.warn('Line number exceeds lineCount, correcting', {
@@ -3027,7 +2976,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             targetLineNumber = flowContext.lineCount;
             assignmentSuggestion = `I'll add this to Line ${targetLineNumber} (your last line).`;
           }
-          
+
           // Ensure line exists (but only up to lineCount)
           const maxLines = flowContext.lineCount || targetLineNumber;
           while (flowContext.lines.length < targetLineNumber && flowContext.lines.length < maxLines) {
@@ -3043,7 +2992,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               simIccId: null
             });
           }
-          
+
           // Update line state
           const line = flowContext.lines[targetLineNumber - 1];
           if (line) {
@@ -3061,12 +3010,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               line.simIccId = item.iccId || null;
             }
           }
-          
+
           // Trim lines array to match lineCount (safety)
           if (flowContext.lineCount && flowContext.lines.length > flowContext.lineCount) {
             flowContext.lines = flowContext.lines.slice(0, flowContext.lineCount);
           }
-          
+
           updateFlowContext(sessionIdForContext, {
             lines: flowContext.lines,
             flowStage: 'configuring'
@@ -3087,7 +3036,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       if (!targetLineNumber || targetLineNumber < 1) {
         targetLineNumber = 1;
       }
-      
+
       // Now add to cart with validated line number
       let cart, finalSessionId;
       try {
@@ -3120,7 +3069,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           action: 'add_to_cart',
           data: { itemType, itemId: item.id, lineNumber: targetLineNumber || lineNumber }
         });
-        
+
         // Set appropriate resume step
         if (itemType === 'plan') {
           setResumeStep(finalSessionId, 'plan_selection');
@@ -3132,11 +3081,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           setResumeStep(finalSessionId, 'sim_selection');
         }
       }
-      
+
       // Build three-section response
       const finalContext = finalSessionId ? getFlowContext(finalSessionId) : null;
       const progress = finalSessionId ? getFlowProgress(finalSessionId) : null;
-      
+
       // SECTION 1: RESPONSE
       let mainResponse = `✅ **${item.name}** has been added to your cart!\n\n`;
       mainResponse += `**Item:** ${item.name}\n`;
@@ -3146,15 +3095,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       mainResponse += `**Type:** ${itemType.charAt(0).toUpperCase() + itemType.slice(1)}\n`;
       mainResponse += `**Price:** $${item.price}${itemType === 'plan' ? '/month' : ''}\n`;
       mainResponse += `**Cart Total:** $${cart.total}`;
-      
+
       // Include assignment suggestion if available and not user-specified
       if (assignmentSuggestion && assignmentReason !== 'user_specified') {
         mainResponse += `\n\n${assignmentSuggestion}`;
       }
-      
+
       // SECTION 2: SUGGESTIONS
       let suggestions = "";
-        if (finalContext && progress) {
+      if (finalContext && progress) {
         const intentMap = {
           'plan': INTENT_TYPES.PLAN,
           'device': INTENT_TYPES.DEVICE,
@@ -3162,7 +3111,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           'sim': INTENT_TYPES.SIM
         };
         const intent = intentMap[itemType] || INTENT_TYPES.OTHER;
-        
+
         if (itemType === 'plan') {
           const missingPlans = progress.missing?.plans || [];
           if (missingPlans.length > 0) {
@@ -3178,9 +3127,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         } else if (itemType === 'device') {
           const linesWithDevices = (finalContext.lines || []).filter(l => l.deviceSelected).length;
           const missingPlans = progress.missing?.plans || [];
-          
+
           suggestions = `✅ Device added to line ${lineNumber || targetLineNumber}. You now have ${linesWithDevices} device${linesWithDevices > 1 ? 's' : ''} in your cart.\n\n`;
-          
+
           // CRITICALLY emphasize plans requirement if missing
           if (missingPlans.length > 0) {
             suggestions += `⚠️ **CRITICAL: PLANS REQUIRED BEFORE CHECKOUT**\n\n`;
@@ -3212,10 +3161,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       } else {
         suggestions = `Item added successfully. Continue building your cart or review your selections.`;
       }
-      
+
       // SECTION 3: NEXT STEPS
       const nextSteps = finalContext ? getNextStepsForIntent(finalContext, itemType) : getNextStepsForIntent(null, null);
-      
+
       const responseText = formatThreeSectionResponse(mainResponse, suggestions, nextSteps);
 
       // Determine suggested tool based on what was added and what's missing
@@ -3231,7 +3180,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       return {
         content: [
           {
-          type: "text",
+            type: "text",
             text: responseText,
           },
         ],
@@ -3251,7 +3200,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       let cartMultiLine = getCartMultiLine(sessionId);
       const context = sessionId ? getFlowContext(sessionId) : null;
       const progress = sessionId ? getFlowProgress(sessionId) : null;
-      
+
       // CRITICAL: Filter out lines beyond configured lineCount
       if (context && context.lineCount && cartMultiLine && cartMultiLine.lines) {
         const originalLineCount = cartMultiLine.lines.length;
@@ -3259,17 +3208,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const lineNum = line.lineNumber || (idx + 1);
           return lineNum <= context.lineCount;
         });
-        
+
         // Recalculate total after filtering
         if (cartMultiLine.lines.length !== originalLineCount) {
           cartMultiLine.total = cartMultiLine.lines.reduce((sum, l) => {
-            return sum + 
+            return sum +
               (l.plan?.price || 0) +
               (l.device?.price || 0) +
               (l.protection?.price || 0) +
               (l.sim?.price || 0);
           }, 0);
-          
+
           logger.info('Filtered cart lines beyond lineCount', {
             sessionId,
             lineCount: context.lineCount,
@@ -3282,7 +3231,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       // Use multi-line structure if available, otherwise fall back to old structure
       let structuredData;
       let headerText;
-      
+
       if (cartMultiLine.lines && cartMultiLine.lines.length > 0) {
         // Multi-line structure
         structuredData = {
@@ -3292,20 +3241,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           },
           sessionId: cartMultiLine.sessionId || "default"
         };
-        
+
         // Generate conversational cart display with button suggestions
         if (progress && progress.missing) {
           const missing = progress.missing;
-          
+
           // If SIM is missing, show detailed cart format like user's example
           if (missing.sim && missing.sim.length > 0 && missing.sim.length === 1) {
             headerText = `Here's your cart (Session: ${cartMultiLine.sessionId || 'default'}):\n\n`;
-            
+
             // Show detailed cart summary for each line
             cartMultiLine.lines.forEach((line, idx) => {
               const lineNum = line.lineNumber || (idx + 1);
               headerText += `**Line ${lineNum}**\n\n`;
-              
+
               if (line.plan) {
                 headerText += `Plan: ${line.plan.name} — $${line.plan.price}/mo`;
                 if (line.plan.data) {
@@ -3313,28 +3262,28 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 }
                 headerText += `\n\n`;
               }
-              
+
               if (line.device) {
                 const deviceName = line.device.brand ? `${line.device.brand} ${line.device.name}` : line.device.name;
                 headerText += `Device: ${deviceName} — $${line.device.price}\n\n`;
               }
-              
+
               if (line.protection) {
                 headerText += `Protection: ${line.protection.name} — $${line.protection.price}\n\n`;
               } else if (line.device) {
                 headerText += `Protection: Not added\n\n`;
               }
-              
+
               if (line.sim && line.sim.simType) {
                 headerText += `SIM: ${line.sim.simType === 'ESIM' ? 'eSIM' : 'Physical SIM'}\n\n`;
               } else {
                 headerText += `SIM: Not selected yet\n\n`;
               }
-              
+
               const lineTotal = (line.plan?.price || 0) + (line.device?.price || 0) + (line.protection?.price || 0);
               headerText += `Total: $${lineTotal.toFixed(2)}\n\n`;
             });
-            
+
             headerText += `Want eSIM or physical SIM (pSIM) for Line ${missing.sim[0]}?`;
           } else {
             // For other missing items, show summary
@@ -3351,7 +3300,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             if (missing.sim && missing.sim.length > 1) {
               missingItems.push(`SIM types for lines ${missing.sim.join(', ')}`);
             }
-            
+
             if (missingItems.length > 0) {
               headerText = `Here's your cart. **Still need:** ${missingItems.join(', ')}.`;
             } else {
@@ -3361,7 +3310,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         } else {
           headerText = "Here's your shopping cart. Proceed to checkout when ready.";
         }
-        
+
         // Add button suggestions
         if (progress && context) {
           headerText += formatButtonSuggestions(context, progress);
@@ -3410,7 +3359,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         structuredContent: { message: `Hello, ${args.name || "World"}!` },
         content: [
           {
-          type: "text",
+            type: "text",
             text: `Greeting ${args.name || "World"} in a widget.`
           }
         ],
@@ -3424,7 +3373,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const context = getFlowContext(sessionId);
       const progress = getFlowProgress(sessionId);
       const globalFlags = getGlobalContextFlags(sessionId);
-      
+
       if (!context || !globalFlags.linesConfigured) {
         return {
           content: [
@@ -3439,9 +3388,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           ]
         };
       }
-      
+
       const statusText = formatFlowStatus(progress, context);
-      
+
       // Include global flags in response (already declared above)
       const flagsSummary = `\n\n---\n\n**Global Context Flags:**\n` +
         `• Lines Configured: ${globalFlags.linesConfigured ? '✅' : '❌'}\n` +
@@ -3450,7 +3399,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         `• Protection Selected: ${globalFlags.protectionSelected ? '✅' : '❌'}\n` +
         `• SIM Selected: ${globalFlags.simSelected ? '✅' : '❌'}\n` +
         `• Coverage Checked: ${globalFlags.coverageChecked ? '✅' : '❌'}`;
-      
+
       return {
         content: [
           {
@@ -3468,7 +3417,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const sessionId = getOrCreateSessionId(args.sessionId || null);
       const context = getFlowContext(sessionId);
       const globalFlags = getGlobalContextFlags(sessionId);
-      
+
       if (!context) {
         return {
           content: [
@@ -3479,7 +3428,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           ]
         };
       }
-      
+
       const flagsText = `# 📊 Global Context (System Memory)\n\n` +
         `**Session ID:** ${sessionId}\n\n` +
         `## Context Flags\n\n` +
@@ -3497,7 +3446,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         `- **Last Intent:** ${context.lastIntent || 'none'}\n` +
         `- **Last Action:** ${context.lastAction || 'none'}\n` +
         (globalFlags.coverageChecked ? `- **Coverage ZIP:** ${context.coverageZipCode || 'N/A'}\n` : '');
-      
+
       return {
         content: [
           {
@@ -3513,35 +3462,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
 
     if (name === "update_line_count") {
-      // Generate auth token when updating line count (blocking)
-      // This ensures token is created and ready when lines are configured
-      const tenant = "reach";
-      try {
-        await ensureTokenOnToolCall(tenant);
-        logger.info("Authentication token created/verified when updating line count", { 
-          tenant, 
-          newLineCount: args.lineCount 
-        });
-      } catch (error) {
-        logger.error("Failed to generate auth token when updating line count", { 
-          error: error.message,
-          errorType: error.errorType || error.name,
-          newLineCount: args.lineCount
-        });
-        // Re-throw to prevent operation without authentication
-        throw error;
-      }
-      
       const sessionId = getOrCreateSessionId(args.sessionId || null);
       const newLineCount = args.lineCount;
-      
+
       if (!newLineCount || newLineCount < 1) {
         throw new Error('Line count must be at least 1');
       }
-      
+
       const context = getFlowContext(sessionId);
       const cart = getCartMultiLine(sessionId);
-      
+
       // If reducing line count, check if there are items in lines that will be removed
       if (context && context.lineCount && newLineCount < context.lineCount) {
         const linesToRemove = [];
@@ -3563,7 +3493,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             }
           }
         }
-        
+
         if (linesToRemove.length > 0) {
           return {
             content: [
@@ -3581,7 +3511,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           };
         }
       }
-      
+
       if (!context) {
         // Create new context
         const finalSessionId = sessionId || getOrCreateSessionId(null);
@@ -3593,7 +3523,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         // Update existing context and trim lines array
         const currentLines = context.lines || [];
         const trimmedLines = currentLines.slice(0, newLineCount);
-        
+
         // Ensure we have enough lines
         while (trimmedLines.length < newLineCount) {
           trimmedLines.push({
@@ -3608,31 +3538,31 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             simIccId: null
           });
         }
-        
+
         updateFlowContext(sessionId, {
           lineCount: newLineCount,
           lines: trimmedLines
         });
       }
-      
+
       // Clean up cart - remove lines beyond newLineCount
       if (cart && cart.lines && cart.lines.length > newLineCount) {
         const trimmedCartLines = cart.lines.slice(0, newLineCount);
         const newTotal = trimmedCartLines.reduce((sum, l) => {
-          return sum + 
+          return sum +
             (l.plan?.price || 0) +
             (l.device?.price || 0) +
             (l.protection?.price || 0) +
             (l.sim?.price || 0);
         }, 0);
-        
+
         // Update cart with trimmed lines
         const updatedCart = {
           ...cart,
           lines: trimmedCartLines,
           total: newTotal
         };
-        
+
         // Save updated cart
         const carts = require('./services/cartService.js');
         // We need to access the carts Map directly - for now, just update via addToCart pattern
@@ -3645,17 +3575,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           removedLines: cart.lines.slice(newLineCount).map(l => l.lineNumber)
         });
       }
-      
+
       const updatedContext = getFlowContext(sessionId);
       const progress = getFlowProgress(sessionId);
-      
+
       let responseText = `✅ Line count updated to ${newLineCount}!\n\n`;
       if (context && context.lineCount && newLineCount < context.lineCount) {
         responseText += `**Note:** Lines beyond ${newLineCount} have been removed from your configuration.\n\n`;
       }
       responseText += formatFlowStatus(progress, updatedContext) +
         `\n\n**Next:** Select plans for your ${newLineCount} line${newLineCount > 1 ? 's' : ''}.`;
-      
+
       return {
         content: [
           {
@@ -3667,34 +3597,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
 
     if (name === "select_sim_type") {
-      // Generate auth token when selecting SIM type for a line (blocking)
-      // This ensures token is created and ready when line SIM is selected
-      const tenant = "reach";
-      try {
-        await ensureTokenOnToolCall(tenant);
-        logger.info("Authentication token created/verified when selecting SIM type for line", { 
-          tenant, 
-          lineNumber: args.lineNumber,
-          selections: args.selections 
-        });
-      } catch (error) {
-        logger.error("Failed to generate auth token when selecting SIM type for line", { 
-          error: error.message,
-          errorType: error.errorType || error.name,
-          lineNumber: args.lineNumber,
-          selections: args.selections
-        });
-        // Re-throw to prevent operation without authentication
-        throw error;
-      }
-      
       const sessionId = getOrCreateSessionId(args.sessionId || null);
       const selections = args.selections; // Batch selection array
       const customerId = args.customerId;
-      
+
       // Check if batch selection or single selection
       let simSelections = [];
-      
+
       if (selections && Array.isArray(selections) && selections.length > 0) {
         // Batch selection mode
         simSelections = selections.map(sel => ({
@@ -3702,7 +3611,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           simType: sel.simType?.toUpperCase(),
           newIccId: sel.newIccId || null
         }));
-        
+
         // Validate all selections
         for (const sel of simSelections) {
           if (!sel.lineNumber || sel.lineNumber < 1) {
@@ -3714,39 +3623,39 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
       } else {
         // Single selection mode (backward compatible)
-      const lineNumber = args.lineNumber;
-      const simType = args.simType?.toUpperCase();
-      const newIccId = args.newIccId;
-      
-      if (!lineNumber || lineNumber < 1) {
-        throw new Error('Line number must be at least 1');
-      }
-      
-      if (!simType || !['ESIM', 'PSIM'].includes(simType)) {
-        throw new Error('SIM type must be ESIM or PSIM');
+        const lineNumber = args.lineNumber;
+        const simType = args.simType?.toUpperCase();
+        const newIccId = args.newIccId;
+
+        if (!lineNumber || lineNumber < 1) {
+          throw new Error('Line number must be at least 1');
         }
-        
+
+        if (!simType || !['ESIM', 'PSIM'].includes(simType)) {
+          throw new Error('SIM type must be ESIM or PSIM');
+        }
+
         simSelections = [{
           lineNumber,
           simType,
           newIccId: newIccId || null
         }];
       }
-      
+
       let context = getFlowContext(sessionId);
-      
+
       // Determine max line number needed
       const maxLineNumber = Math.max(...simSelections.map(s => s.lineNumber));
-      
+
       // If no flow context exists, try to initialize from existing cart
       if (!context || !context.lineCount) {
         const cart = getCartMultiLine(sessionId);
-        
+
         // If cart has lines, auto-initialize flow context
         if (cart && cart.lines && cart.lines.length > 0) {
           const inferredLineCount = Math.max(cart.lines.length, maxLineNumber);
           logger.info('Auto-initializing flow context from cart', { sessionId, inferredLineCount });
-          
+
           // Create flow context from cart
           const lines = cart.lines.map((line, index) => ({
             lineNumber: line.lineNumber || (index + 1),
@@ -3759,13 +3668,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             simType: line.sim?.simType || null,
             simIccId: line.sim?.iccId || null
           }));
-          
+
           updateFlowContext(sessionId, {
             lineCount: inferredLineCount,
             lines: lines,
             flowStage: 'configuring'
           });
-          
+
           context = getFlowContext(sessionId);
         } else {
           // No cart either - auto-initialize with max line number needed
@@ -3783,18 +3692,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               simType: null,
               simIccId: null
             });
-      }
-      
+          }
+
           updateFlowContext(sessionId, {
             lineCount: maxLineNumber,
             flowStage: 'planning',
             lines: initialLines
           });
-          
+
           context = getFlowContext(sessionId);
         }
       }
-      
+
       // Ensure all needed lines exist
       while (context.lines.length < maxLineNumber) {
         context.lines.push({
@@ -3809,42 +3718,42 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           simIccId: null
         });
       }
-      
+
       // Update lineCount if needed
       if (maxLineNumber > context.lineCount) {
-      updateFlowContext(sessionId, {
+        updateFlowContext(sessionId, {
           lineCount: maxLineNumber
         });
         context = getFlowContext(sessionId);
       }
-      
+
       // Process all SIM selections
       const results = [];
       const swapResults = [];
-      
+
       for (const sel of simSelections) {
         const { lineNumber, simType, newIccId } = sel;
-        
+
         // Update flow context
         const line = context.lines[lineNumber - 1];
         if (line) {
           line.simType = simType;
           if (newIccId) {
             line.simIccId = newIccId;
+          }
         }
-      }
-      
-      // Update cart with SIM selection
-      const simItem = {
-        type: 'sim',
-        simType: simType,
-        iccId: newIccId || null,
+
+        // Update cart with SIM selection
+        const simItem = {
+          type: 'sim',
+          simType: simType,
+          iccId: newIccId || null,
           price: 0,
-        lineNumber: lineNumber
-      };
-      
-      addToCartLine(sessionId, lineNumber, simItem);
-      
+          lineNumber: lineNumber
+        };
+
+        addToCartLine(sessionId, lineNumber, simItem);
+
         // Perform SIM swap if needed
         if (customerId && newIccId && simType === 'PSIM') {
           try {
@@ -3855,42 +3764,42 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             swapResults.push({ lineNumber, success: false, error: error.message });
           }
         }
-        
+
         results.push({
           lineNumber,
           simType,
           newIccId
         });
       }
-      
+
       // Update flow context with all changes
       updateFlowContext(sessionId, {
         lines: context.lines
       });
-      
+
       // Build response text
       let responseText = "";
-      
+
       if (simSelections.length === 1) {
         // Single selection response
         const sel = simSelections[0];
         responseText = `✅ **SIM type selected for Line ${sel.lineNumber}!**\n\n` +
           `**SIM Type:** ${sel.simType === 'ESIM' ? 'eSIM' : 'Physical SIM (pSIM)'}\n`;
-      
+
         if (sel.newIccId) {
           responseText += `**ICCID:** ${sel.newIccId}\n`;
-      }
-      
+        }
+
         const swapResult = swapResults.find(sr => sr.lineNumber === sel.lineNumber);
-      if (swapResult && swapResult.success) {
-        responseText += `\n✅ SIM swap completed successfully!\n`;
+        if (swapResult && swapResult.success) {
+          responseText += `\n✅ SIM swap completed successfully!\n`;
         } else if (customerId && sel.newIccId && sel.simType === 'PSIM') {
-        responseText += `\n⚠️ SIM swap was not performed. Please contact support if needed.\n`;
+          responseText += `\n⚠️ SIM swap was not performed. Please contact support if needed.\n`;
         }
       } else {
         // Batch selection response
         responseText = `✅ **SIM types selected for ${simSelections.length} line${simSelections.length > 1 ? 's' : ''}!**\n\n`;
-        
+
         for (const sel of simSelections) {
           const simTypeName = sel.simType === 'ESIM' ? 'eSIM' : 'Physical SIM';
           responseText += `**Line ${sel.lineNumber}:** ${simTypeName}`;
@@ -3899,22 +3808,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           }
           responseText += `\n`;
         }
-        
+
         // Check for swap results
         const successfulSwaps = swapResults.filter(sr => sr.success);
         if (successfulSwaps.length > 0) {
           responseText += `\n✅ SIM swap${successfulSwaps.length > 1 ? 's' : ''} completed successfully for line${successfulSwaps.length > 1 ? 's' : ''} ${successfulSwaps.map(sr => sr.lineNumber).join(', ')}!\n`;
         }
       }
-      
+
       const progress = getFlowProgress(sessionId);
       const flowContext = getFlowContext(sessionId);
-      
+
       // Use improved guidance service for next steps
       if (flowContext) {
         const intent = INTENT_TYPES.SIM;
-        const guidance = generateConversationalResponse("", flowContext, intent, { 
-          itemType: 'sim', 
+        const guidance = generateConversationalResponse("", flowContext, intent, {
+          itemType: 'sim',
           lineNumber: simSelections.length === 1 ? simSelections[0].lineNumber : null,
           simType: simSelections.length === 1 ? simSelections[0].simType : null
         });
@@ -3922,24 +3831,24 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           responseText += `\n\n${guidance}`;
         }
       }
-      
+
       // Check if plan is needed (required for checkout)
       const hasPlan = flowContext && flowContext.lines && flowContext.lines.some(l => l && l.planSelected);
-      
+
       if (!hasPlan && !responseText.includes("plan")) {
         responseText += `\n\n📱 **Next Step:** Select mobile plan${simSelections.length > 1 ? 's' : ''} to continue.\n`;
         responseText += `Say **"Show me plans"** to browse and select plan${simSelections.length > 1 ? 's' : ''} for your line${simSelections.length > 1 ? 's' : ''}. Plans are required before checkout.`;
       }
-      
+
       // Fallback to old format if guidance service doesn't provide enough info
-      const allComplete = progress.lineCount > 0 && 
-                         (!progress.missing.sim || progress.missing.sim.length === 0) &&
-                         (!progress.missing.plans || progress.missing.plans.length === 0);
-      
+      const allComplete = progress.lineCount > 0 &&
+        (!progress.missing.sim || progress.missing.sim.length === 0) &&
+        (!progress.missing.plans || progress.missing.plans.length === 0);
+
       if (allComplete && !responseText.includes("Ready for checkout")) {
         responseText += `\n\n🎉 **All lines are configured!** Ready to proceed to checkout.`;
       }
-      
+
       return {
         content: [
           {
@@ -3955,16 +3864,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const context = getFlowContext(sessionId);
       const cart = getCartMultiLine(sessionId);
       const progress = getFlowProgress(sessionId);
-      
+
       // Check prerequisites
       const prerequisites = checkPrerequisites(sessionId, 'checkout');
       const checkoutGuidance = getCheckoutGuidance(context);
-      
+
       // Build three-section response
       let mainResponse = "";
       let suggestions = "";
       let nextSteps = "";
-      
+
       // Prepare structuredContent for cart widget (same as get_cart)
       let structuredData;
       if (cart && cart.lines && cart.lines.length > 0) {
@@ -3986,21 +3895,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           sessionId: cartResult.sessionId || sessionId || "default"
         };
       }
-      
+
       if (!prerequisites.allowed || !checkoutGuidance.ready) {
         // SECTION 1: RESPONSE - Cart not ready
         mainResponse = formatMultiLineCartReview(cart, context);
-        
+
         // SECTION 2: SUGGESTIONS - What's missing
         updateMissingPrerequisites(sessionId, checkoutGuidance.missing);
         suggestions = `**⚠️ Cannot proceed to checkout yet.**\n\n`;
         suggestions += checkoutGuidance.guidance || prerequisites.reason;
-        
+
         // SECTION 3: NEXT STEPS - What to do
         nextSteps = getNextStepsForIntent(context, INTENT_TYPES.CHECKOUT);
-        
+
         const responseText = formatThreeSectionResponse(mainResponse, suggestions, nextSteps);
-        
+
         return {
           structuredContent: structuredData,
           content: [
@@ -4014,35 +3923,35 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           }
         };
       }
-      
+
       // Cart is ready for checkout
       // SECTION 1: RESPONSE - Cart summary
       mainResponse = formatMultiLineCartReview(cart, context);
-      
+
       // SECTION 2: SUGGESTIONS - What's included
       const globalFlags = getGlobalContextFlags(sessionId);
       const lineCount = progress.lineCount || 0;
       suggestions = `**Your order includes:**\n`;
       suggestions += `• ${lineCount} line${lineCount > 1 ? 's' : ''} with plans\n`;
-      
+
       // Use global flags instead of filtering
       if (globalFlags.deviceSelected) {
-      const linesWithDevices = (context.lines || []).filter(l => l.deviceSelected).length;
-      if (linesWithDevices > 0) {
-        suggestions += `• ${linesWithDevices} device${linesWithDevices > 1 ? 's' : ''}\n`;
+        const linesWithDevices = (context.lines || []).filter(l => l.deviceSelected).length;
+        if (linesWithDevices > 0) {
+          suggestions += `• ${linesWithDevices} device${linesWithDevices > 1 ? 's' : ''}\n`;
         }
       }
-      
+
       if (globalFlags.protectionSelected) {
-      const linesWithProtection = (context.lines || []).filter(l => l.protectionSelected).length;
-      if (linesWithProtection > 0) {
-        suggestions += `• ${linesWithProtection} device protection plan${linesWithProtection > 1 ? 's' : ''}\n`;
+        const linesWithProtection = (context.lines || []).filter(l => l.protectionSelected).length;
+        if (linesWithProtection > 0) {
+          suggestions += `• ${linesWithProtection} device protection plan${linesWithProtection > 1 ? 's' : ''}\n`;
         }
       }
-      
+
       suggestions += `• SIM types selected for all lines\n\n`;
       suggestions += `All required items are complete. You're ready to proceed with checkout!`;
-      
+
       // SECTION 3: NEXT STEPS - How to checkout
       nextSteps = `**→ To Complete Purchase:**\n`;
       nextSteps += `   • Say "Proceed to checkout" or "Checkout"\n`;
@@ -4052,9 +3961,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       nextSteps += `   • Say "Edit cart" to modify items\n`;
       nextSteps += `   • Say "Add device" to add more devices\n`;
       nextSteps += `   • Say "Change plan" to modify plan selections`;
-      
+
       const responseText = formatThreeSectionResponse(mainResponse, suggestions, nextSteps);
-      
+
       return {
         structuredContent: structuredData,
         content: [
@@ -4073,7 +3982,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const userMessage = args.userMessage;
       const sessionId = getOrCreateSessionId(args.sessionId || null);
       const context = getFlowContext(sessionId);
-      
+
       if (!userMessage) {
         throw new Error('userMessage is required');
       }
@@ -4081,7 +3990,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       // Detect intent and extract entities
       const intentResult = detectIntent(userMessage, context || {});
       const routing = routeIntent(intentResult.intent, intentResult.entities, context);
-      
+
       // Update context with last intent
       if (context && sessionId) {
         updateLastIntent(sessionId, intentResult.intent, routing.action);
@@ -4116,7 +4025,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const sessionId = getOrCreateSessionId(args.sessionId || null);
       const context = getFlowContext(sessionId);
       const currentStep = args.currentStep || null;
-      
+
       if (!context) {
         return {
           content: [
@@ -4133,10 +4042,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       const nextStep = getNextStepFromRouter(context, currentStep);
       const suggestions = getNextStepSuggestions(context);
-      
+
       // Check resume step
       const resumeStep = getResumeStep(sessionId);
-      
+
       let guidanceText = `## Next Step\n\n`;
       if (resumeStep) {
         guidanceText += `**Resume Step:** ${resumeStep}\n`;
@@ -4144,7 +4053,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       guidanceText += `**Next Step:** ${nextStep.step}\n` +
         `**Action:** ${nextStep.action}\n` +
         `**Guidance:** ${nextStep.guidance}`;
-      
+
       if (suggestions.suggestions && suggestions.suggestions.length > 0) {
         guidanceText += `\n\n**Suggestions:**\n`;
         suggestions.suggestions.forEach((suggestion, index) => {
@@ -4170,7 +4079,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const oldItemId = args.oldItemId;
       const newItemId = args.newItemId;
       const newSimType = args.newSimType;
-      
+
       if (!action || !itemType || !lineNumber) {
         throw new Error('action, itemType, and lineNumber are required');
       }
@@ -4257,15 +4166,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (action === 'remove') {
           removeFromCartLine(sessionId, lineNumber, itemType);
         }
-        
+
         // Update flow context to match cart
         updateFlowContext(sessionId, {
           lines: context.lines
         });
-        
+
         const progress = getFlowProgress(sessionId);
         responseText += `\n` + formatFlowStatus(progress, context);
-        
+
         // Add guidance
         const suggestions = getNextStepSuggestions(context);
         if (suggestions.suggestions && suggestions.suggestions.length > 0) {
@@ -4291,17 +4200,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     if (name === "clear_cart") {
       const sessionId = getOrCreateSessionId(args.sessionId || null);
       const resetFlowContextFlag = args.resetFlowContext !== false; // Default to true
-      
+
       // Clear cart storage
       removeAllFromCart(sessionId);
-      
+
       // Also clear cart from storage (in case there's old structure)
       clearCart(sessionId);
-      
+
       // Reset flow context if requested
       if (resetFlowContextFlag) {
         resetFlowContext(sessionId);
-        
+
         return {
           content: [
             {
@@ -4343,7 +4252,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             line.simType = null;
             line.simIccId = null;
           });
-          
+
           updateFlowContext(sessionId, {
             lines: context.lines,
             planSelected: false,
@@ -4352,7 +4261,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             simSelected: false
           });
         }
-        
+
         return {
           content: [
             {
@@ -4383,7 +4292,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     return {
       content: [
         {
-        type: "text",
+          type: "text",
           text: JSON.stringify(
             { success: false, error: error.message },
             null,
@@ -4409,23 +4318,23 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
  */
 function formatThreeSectionResponse(mainResponse, suggestions, nextSteps) {
   let formatted = "";
-  
+
   // SECTION 1: RESPONSE
   formatted += "### 1️⃣ Response\n\n";
   formatted += mainResponse.trim();
-  
+
   // SECTION 2: SUGGESTIONS
   if (suggestions && suggestions.trim().length > 0) {
     formatted += "\n\n---\n\n### 2️⃣ Suggestions\n\n";
     formatted += suggestions.trim();
   }
-  
+
   // SECTION 3: NEXT STEPS
   if (nextSteps && nextSteps.trim().length > 0) {
     formatted += "\n\n---\n\n### 3️⃣ Next Steps\n\n";
     formatted += nextSteps.trim();
   }
-  
+
   return formatted;
 }
 
@@ -4437,16 +4346,16 @@ function formatThreeSectionResponse(mainResponse, suggestions, nextSteps) {
  */
 function getNextStepsForIntent(context, intent) {
   const progress = context?.sessionId ? getFlowProgress(context.sessionId) : null;
-  
+
   // No context - provide initial flow overview
   if (!context || !progress) {
     return `**Step 1:** Tell me how many lines you need (e.g., "I need 2 lines")\n` +
-           `**Step 2:** Select plans for each line (required for checkout)\n` +
-           `**Step 3:** Choose SIM types (eSIM or Physical) per line\n` +
-           `**Step 4 (Optional):** Add devices and device protection\n` +
-           `**Step 5:** Review cart and checkout`;
+      `**Step 2:** Select plans for each line (required for checkout)\n` +
+      `**Step 3:** Choose SIM types (eSIM or Physical) per line\n` +
+      `**Step 4 (Optional):** Add devices and device protection\n` +
+      `**Step 5:** Review cart and checkout`;
   }
-  
+
   // Check prerequisites and missing items using global flags
   const globalFlags = context?.sessionId ? getGlobalContextFlags(context.sessionId) : {
     deviceSelected: false,
@@ -4459,9 +4368,9 @@ function getNextStepsForIntent(context, intent) {
   // Use global flags for quick checks, then get counts if needed
   const linesWithDevices = globalFlags.deviceSelected ? (context.lines || []).filter(l => l.deviceSelected).length : 0;
   const linesWithProtection = globalFlags.protectionSelected ? (context.lines || []).filter(l => l.protectionSelected).length : 0;
-  
+
   let steps = "";
-  
+
   // LINE COUNT CHECK (mandatory first step)
   if (lineCount === 0) {
     steps += `**→ Required First:** Tell me how many lines you need\n`;
@@ -4469,12 +4378,12 @@ function getNextStepsForIntent(context, intent) {
     steps += `**→ Then:** Select plans → Choose SIM types → (Optional) Add devices → Checkout\n`;
     return steps;
   }
-  
+
   // PLAN CHECK (mandatory for checkout)
   if (missingPlans.length > 0) {
     // Special emphasis when device was just added
     const isDeviceIntent = intent === 'device' || intent === INTENT_TYPES.DEVICE;
-    
+
     if (isDeviceIntent) {
       steps += `⚠️ **CRITICAL: PLANS REQUIRED BEFORE CHECKOUT**\n\n`;
       steps += `**You have added a device, but plans are MANDATORY for checkout.**\n\n`;
@@ -4490,16 +4399,16 @@ function getNextStepsForIntent(context, intent) {
       }
       steps += `**→ After selecting plans:** Choose SIM types → Complete checkout\n`;
     } else {
-    steps += `**→ Required Now:** Select plans for ${missingPlans.length} line${missingPlans.length > 1 ? 's' : ''}\n`;
-    steps += `   Say: "Show me plans" or click "Add to Cart" on a plan card\n\n`;
-    if (missingPlans.length > 1) {
-      steps += `**→ You can:** Apply same plan to all or mix & match different plans\n\n`;
-    }
-    steps += `**→ After plans:** Choose SIM types → (Optional) Add devices → Checkout\n`;
+      steps += `**→ Required Now:** Select plans for ${missingPlans.length} line${missingPlans.length > 1 ? 's' : ''}\n`;
+      steps += `   Say: "Show me plans" or click "Add to Cart" on a plan card\n\n`;
+      if (missingPlans.length > 1) {
+        steps += `**→ You can:** Apply same plan to all or mix & match different plans\n\n`;
+      }
+      steps += `**→ After plans:** Choose SIM types → (Optional) Add devices → Checkout\n`;
     }
     return steps;
   }
-  
+
   // SIM CHECK (required for most checkout scenarios)
   if (missingSims.length > 0) {
     steps += `**→ Required Next:** Select SIM types for ${missingSims.length} line${missingSims.length > 1 ? 's' : ''}\n`;
@@ -4508,30 +4417,30 @@ function getNextStepsForIntent(context, intent) {
     steps += `**→ Then:** Review cart and checkout\n`;
     return steps;
   }
-  
+
   // ALL REQUIRED ITEMS COMPLETE
   steps += `**✅ All Required Items Complete!**\n\n`;
   steps += `**→ Ready to Checkout:**\n`;
   steps += `   • ${lineCount} line${lineCount > 1 ? 's' : ''} configured\n`;
   steps += `   • Plans selected for all lines\n`;
   steps += `   • SIM types selected for all lines\n\n`;
-  
+
   // Optional suggestions
   const devicesAvailable = lineCount - linesWithDevices;
   if (devicesAvailable > 0) {
     steps += `**→ Optional:** Add devices for ${devicesAvailable} line${devicesAvailable > 1 ? 's' : ''}\n`;
     steps += `   Say: "Show me devices" or "I want an iPhone"\n\n`;
   }
-  
+
   if (linesWithDevices > linesWithProtection) {
     steps += `**→ Optional:** Add device protection for ${linesWithDevices - linesWithProtection} device${(linesWithDevices - linesWithProtection) > 1 ? 's' : ''}\n`;
     steps += `   Say: "I want device protection"\n\n`;
   }
-  
+
   steps += `**→ To Proceed:**\n`;
   steps += `   • Say "Review my cart" for final summary\n`;
   steps += `   • Say "Checkout" or "Proceed" to complete purchase\n`;
-  
+
   return steps;
 }
 
@@ -4567,37 +4476,38 @@ async function main() {
     const __dirname = path.dirname(__filename);
     const publicPath = path.join(__dirname, "public");
     const assetsPath = path.join(publicPath, "assets");
-    
+
     // Verify assets directory exists
     if (!fs.existsSync(assetsPath)) {
       logger.warn("Assets directory not found, creating it", { assetsPath });
       fs.mkdirSync(assetsPath, { recursive: true });
     }
-    
+
     // Serve static assets with proper MIME types
     app.use("/assets", express.static(assetsPath, {
-      maxAge: "1y",
-      etag: true,
-      setHeaders: (res, filePath) => {
-        if (filePath.endsWith('.svg')) {
-          res.setHeader('Content-Type', 'image/svg+xml');
+      setHeaders: (res, path) => {
+        if (path.endsWith('.html')) {
+          res.setHeader('Cache-Control', 'no-cache');
         }
       }
     }));
-    
+
+    // Serve public directory for cached images
+    app.use("/public", express.static(path.join(__dirname, "public")));
+
     // Health check endpoint for ALB/ECS
     app.get("/health", async (req, res) => {
       try {
         const mongoHealthy = mongoStorage.isMongoConnected();
-        res.status(200).json({ 
+        res.status(200).json({
           status: 'healthy',
           timestamp: new Date().toISOString(),
           mongodb: mongoHealthy ? 'connected' : 'disconnected'
         });
       } catch (error) {
-        res.status(503).json({ 
+        res.status(503).json({
           status: 'unhealthy',
-          error: error.message 
+          error: error.message
         });
       }
     });
@@ -4614,9 +4524,9 @@ async function main() {
         assetsPathExists: fs.existsSync(assetsPath)
       });
     });
-    
-    logger.info("Static assets configured", { 
-      assetsPath, 
+
+    logger.info("Static assets configured", {
+      assetsPath,
       exists: fs.existsSync(assetsPath),
       files: fs.existsSync(assetsPath) ? fs.readdirSync(assetsPath) : []
     });
@@ -4704,13 +4614,13 @@ async function main() {
         mcp: "/mcp",
         templates: "/templates/:name"
       };
-      
+
       // Add dev server endpoints if enabled
       if (process.env.ENABLE_DEV_SERVER === "true") {
         endpoints.dev = "/dev";
         endpoints.devTemplates = "/dev/templates/:name";
       }
-      
+
       res.json({
         status: "ok",
         service: "reach-mobile-mcp-server",
@@ -4750,6 +4660,15 @@ async function main() {
         const acceptHeader = req.headers.accept || '';
         // Always set Accept to include text/event-stream for SSE mode
         req.headers.accept = 'text/event-stream, application/json';
+
+        // Capture server base URL dynamically from request if not set via ENV
+        if (!process.env.SERVER_URL) {
+          const protocol = req.protocol || 'https';
+          const host = req.get('host');
+          if (host) {
+            serverBaseUrl = `${protocol}://${host}`;
+          }
+        }
         if (acceptHeader !== req.headers.accept) {
           logger.info("Accept header set for SSE", {
             original: acceptHeader || '(missing)',
@@ -4894,6 +4813,15 @@ async function main() {
         // Fix Accept header for StreamableHTTPServerTransport
         const acceptHeader = req.headers.accept || '';
         req.headers.accept = 'text/event-stream, application/json';
+
+        // Capture server base URL dynamically from request if not set via ENV
+        if (!process.env.SERVER_URL) {
+          const protocol = req.protocol || 'https';
+          const host = req.get('host');
+          if (host) {
+            serverBaseUrl = `${protocol}://${host}`;
+          }
+        }
         if (acceptHeader !== req.headers.accept) {
           logger.info("Accept header set for SSE (root /)", {
             original: acceptHeader || '(missing)',
@@ -5062,10 +4990,10 @@ async function main() {
   } else {
     // STDIO mode - for Claude Desktop / stdio MCP clients
     const tenant = "reach";
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
+    const transport = new StdioServerTransport();
+    await server.connect(transport);
     // No console.log here – stdout is part of the protocol
-    
+
     // Initialize token refresh: on-demand when tools are called (no periodic cron)
     // Token will be checked/fetched when user initiates conversation via tool calls
     setAuthTokensAccessor(getAuthTokensMap);
