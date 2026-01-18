@@ -2391,7 +2391,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
             // Add local fallback URL to the device object for the formatter/widget
             // Use absolute URL if base URL is detected, otherwise relative
-            const localPath = `/public/images/devices/${filename}`;
+            const localPath = `/public/assets/${filename}`;
             device.localImageUrl = serverBaseUrl ? `${serverBaseUrl}${localPath}` : localPath;
           }
         });
@@ -2846,7 +2846,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         let localImageUrl = null;
         if (rawImageUrl) {
           const extension = rawImageUrl.split('.').pop().split(/[?#]/)[0] || 'png';
-          const localPath = `/public/images/devices/${item.id || item.productNumber}.${extension}`;
+          const localPath = `/public/assets/${item.id || item.productNumber}.${extension}`;
           // Use absolute URL if base URL is detected, otherwise relative
           localImageUrl = serverBaseUrl ? `${serverBaseUrl}${localPath}` : localPath;
         }
