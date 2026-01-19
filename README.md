@@ -14,6 +14,18 @@ npm install
 npm start
 ```
 
+## Chatgpt connection 
+
+```bash
+npm run start:https
+```
+
+```bash
+./run-ngrok.sh
+```
+
+Use url to config chat gpt web app
+
 ## Available Tools
 
 - `get_plans` - Get available mobile plans
