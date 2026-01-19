@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,7 +11,7 @@
       padding: 0;
       box-sizing: border-box;
     }
-    
+
     :root {
       --primary-green: #30ba95;
       --primary-green-hover: #269678;
@@ -26,7 +27,7 @@
       padding: 24px;
       background: #f3f4f6;
     }
-    
+
     .plans-container {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
@@ -34,7 +35,7 @@
       max-width: 1400px;
       margin: 0 auto;
     }
-    
+
     .plan-card {
       border: 1px solid #e0e0e0;
       border-radius: var(--card-radius);
@@ -45,73 +46,73 @@
       display: flex;
       flex-direction: column;
     }
-    
+
     .plan-card:hover {
       box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
       transform: translateY(-4px);
       border-color: #d0d0d0;
     }
-    
+
     .plan-header {
       margin-bottom: 20px;
     }
-    
+
     .plan-name {
       font-size: 24px;
       font-weight: 600;
       color: #111827;
       margin-bottom: 8px;
     }
-    
+
     .plan-data {
       font-size: 32px;
       font-weight: 700;
       color: #111827;
       line-height: 1.2;
     }
-    
+
     .plan-pricing {
       margin-bottom: 16px;
     }
-    
+
     .price-row {
       display: flex;
       align-items: baseline;
       gap: 8px;
       margin-bottom: 4px;
     }
-    
+
     .original-price {
       font-size: 20px;
       color: #999;
       text-decoration: line-through;
     }
-    
+
     .current-price {
       font-size: 24px;
       font-weight: 700;
       color: #111827;
     }
-    
+
     .price-unit {
       font-size: 18px;
       font-weight: 500;
       color: #6b7280;
     }
-    
+
     .taxes-note {
       font-size: 14px;
       color: #6b7280;
       margin-top: 4px;
     }
-    
+
     .promotion-pills {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
       margin-bottom: 20px;
     }
-    
+
     .promotion-pill {
       display: inline-flex;
       align-items: center;
@@ -124,12 +125,12 @@
       text-transform: uppercase;
       letter-spacing: 0.02em;
     }
-    
+
     .plan-features {
       margin-bottom: 20px;
       flex-grow: 1;
     }
-    
+
     .feature {
       display: flex;
       align-items: flex-start;
@@ -138,14 +139,14 @@
       color: #111827;
       line-height: 1.5;
     }
-    
+
     .feature-icon {
       margin-right: 10px;
       font-size: 18px;
       flex-shrink: 0;
       margin-top: 2px;
     }
-    
+
     .select-button {
       width: 100%;
       background: var(--cta-bg);
@@ -159,27 +160,27 @@
       transition: all 0.2s ease;
       margin-bottom: 12px;
     }
-    
+
     .select-button:hover {
       background: var(--cta-bg-hover);
       transform: translateY(-1px);
       box-shadow: 0 10px 20px rgba(0, 0, 0, 0.25);
     }
-    
+
     .select-button:active {
       transform: translateY(0);
       box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
     }
-    
+
     .select-button--selected {
       background: var(--primary-green);
     }
-    
+
     .select-button--selected:hover {
       background: var(--primary-green-hover);
       box-shadow: 0 10px 20px rgba(48, 186, 149, 0.35);
     }
-    
+
     .broadband-facts-button {
       width: 100%;
       background: #f5f5f5;
@@ -196,12 +197,12 @@
       justify-content: center;
       gap: 6px;
     }
-    
+
     .broadband-facts-button:hover {
       background: #e5e5e5;
       border-color: #d0d0d0;
     }
-    
+
     .broadband-facts-content {
       margin-top: 16px;
       padding: 16px;
@@ -211,15 +212,15 @@
       color: #666;
       display: none;
     }
-    
+
     .broadband-facts-content.show {
       display: block;
     }
-    
+
     .broadband-facts-content p {
       margin-bottom: 8px;
     }
-    
+
     .broadband-facts-content code {
       background: #e5e7eb;
       padding: 2px 6px;
@@ -227,7 +228,7 @@
       font-family: monospace;
       font-size: 11px;
     }
-    
+
     .line-selection-section {
       margin-top: 16px;
       padding: 16px;
@@ -237,24 +238,24 @@
       position: relative;
       z-index: 10;
     }
-    
+
     .line-selection-section.show {
       display: block;
     }
-    
+
     .line-selection-title {
       font-size: 14px;
       font-weight: 600;
       color: #111827;
       margin-bottom: 12px;
     }
-    
+
     .line-checkboxes {
       display: flex;
       flex-direction: column;
       gap: 10px;
     }
-    
+
     .line-checkbox-item {
       display: flex;
       align-items: center;
@@ -264,27 +265,27 @@
       border-radius: 8px;
       transition: background 0.2s ease;
     }
-    
+
     .line-checkbox-item:hover {
       background: #f3f4f6;
     }
-    
+
     .line-checkbox-item.disabled {
       opacity: 0.5;
       cursor: not-allowed;
     }
-    
+
     .line-checkbox-item.disabled:hover {
       background: transparent;
     }
-    
+
     .line-checkbox {
       position: relative;
       width: 24px;
       height: 24px;
       flex-shrink: 0;
     }
-    
+
     .line-checkbox input[type="checkbox"] {
       position: absolute;
       opacity: 0;
@@ -293,7 +294,7 @@
       height: 100%;
       margin: 0;
     }
-    
+
     .line-checkbox-custom {
       width: 24px;
       height: 24px;
@@ -305,32 +306,32 @@
       justify-content: center;
       transition: all 0.2s ease;
     }
-    
-    .line-checkbox input[type="checkbox"]:checked + .line-checkbox-custom {
+
+    .line-checkbox input[type="checkbox"]:checked+.line-checkbox-custom {
       background: var(--primary-green);
       border-color: var(--primary-green);
     }
-    
-    .line-checkbox input[type="checkbox"]:checked + .line-checkbox-custom::after {
+
+    .line-checkbox input[type="checkbox"]:checked+.line-checkbox-custom::after {
       content: '✓';
       color: white;
       font-size: 14px;
       font-weight: bold;
     }
-    
-    .line-checkbox input[type="checkbox"]:disabled + .line-checkbox-custom {
+
+    .line-checkbox input[type="checkbox"]:disabled+.line-checkbox-custom {
       background: #e5e7eb;
       border-color: #d1d5db;
       cursor: not-allowed;
     }
-    
+
     .line-label {
       font-size: 14px;
       color: #111827;
       font-weight: 500;
     }
-    
-    
+
+
     .global-confirm-section {
       position: fixed;
       bottom: 0;
@@ -344,11 +345,11 @@
       display: none;
       transition: transform 0.3s ease;
     }
-    
+
     .global-confirm-section.show {
       display: block;
     }
-    
+
     .global-confirm-content {
       max-width: 1400px;
       margin: 0 auto;
@@ -357,23 +358,23 @@
       justify-content: space-between;
       gap: 20px;
     }
-    
+
     .global-confirm-summary {
       flex: 1;
       font-size: 14px;
       color: #111827;
     }
-    
+
     .global-confirm-summary-title {
       font-weight: 600;
       margin-bottom: 4px;
     }
-    
+
     .global-confirm-summary-details {
       color: #6b7280;
       font-size: 13px;
     }
-    
+
     .global-confirm-button {
       background: var(--primary-green);
       color: white;
@@ -386,29 +387,30 @@
       transition: all 0.2s ease;
       white-space: nowrap;
     }
-    
+
     .global-confirm-button:hover:enabled {
       background: var(--primary-green-hover);
       transform: translateY(-1px);
       box-shadow: 0 10px 20px rgba(48, 186, 149, 0.35);
     }
-    
+
     .global-confirm-button:disabled {
       background: #d1d5db;
       color: #9ca3af;
       cursor: not-allowed;
       opacity: 0.6;
     }
-    
+
     body {
       padding-bottom: 120px;
     }
-    
+
     .plans-container {
       margin-bottom: 120px;
     }
   </style>
 </head>
+
 <body>
   <div class="plans-container" id="plans-container">
     <div style="padding: 40px; text-align: center; color: #666;">
@@ -416,12 +418,13 @@
       <div style="font-size: 14px; color: #999;">Please wait while we fetch the latest plans</div>
     </div>
   </div>
-  
+
   <div class="global-confirm-section" id="global-confirm-section">
     <div class="global-confirm-content">
       <div class="global-confirm-summary">
         <div class="global-confirm-summary-title" id="global-confirm-title">Ready to confirm</div>
-        <div class="global-confirm-summary-details" id="global-confirm-details">Select plans for all lines to continue</div>
+        <div class="global-confirm-summary-details" id="global-confirm-details">Select plans for all lines to continue
+        </div>
       </div>
       <button class="global-confirm-button" id="global-confirm-button" onclick="confirmAllSelections()" disabled>
         Confirm All Selections
@@ -437,7 +440,7 @@
     // ============================================================================
     var DUMMY_LINES = [];
     window.DUMMY_LINES = DUMMY_LINES;
-    
+
     // Additional safety: Ensure it's always available even if something tries to delete it
     Object.defineProperty(window, 'DUMMY_LINES', {
       value: DUMMY_LINES,
@@ -445,7 +448,7 @@
       configurable: false, // Prevent deletion
       enumerable: true
     });
-    
+
     // Immediate diagnostic check
     console.log('🔍 Plans widget initializing...', {
       hasOpenAI: typeof window.openai !== 'undefined',
@@ -456,25 +459,27 @@
 
     // Track selected plans
     const selectedPlans = new Set();
-    
+
     // Track line-to-plan assignments: { lineId: planId }
     const linePlanAssignments = {};
-    
+
     // Track plan names: { planId: planName }
     const planNames = {};
-    
+
     // Track which plans have been selected (for showing checkboxes)
     const plansWithSelection = new Set();
-    
+
     // Initialize currentLines - will be populated from toolOutput
     // Always ensure it's an array to prevent errors
     let currentLines = [];
-    
+    // Track lines that already have plans in cart
+    let linesWithPlans = [];
+
     // Function to extract lines from toolOutput
     // Also populates DUMMY_LINES with API data for compatibility with cached code
     function extractLines() {
       let extractedLines = [];
-      
+
       if (!window.openai) {
         console.log('❌ window.openai not available for lines');
         // Sync DUMMY_LINES with empty array
@@ -482,7 +487,7 @@
         window.DUMMY_LINES = DUMMY_LINES;
         return [];
       }
-      
+
       let toolOutput = window.openai.toolOutput;
       console.log('🔍 Checking toolOutput for lines:', {
         exists: !!toolOutput,
@@ -490,7 +495,7 @@
         type: typeof toolOutput,
         keys: toolOutput ? Object.keys(toolOutput) : []
       });
-      
+
       if (toolOutput && toolOutput !== null && typeof toolOutput === 'object') {
         // Check structuredContent first (this is where server.js puts the data)
         if (toolOutput.structuredContent) {
@@ -519,7 +524,7 @@
             }
           }
         }
-        
+
         // Check for lines directly (if not found in structuredContent)
         if (extractedLines.length === 0 && toolOutput.lines && Array.isArray(toolOutput.lines) && toolOutput.lines.length > 0) {
           console.log('✅ Found lines in toolOutput.lines:', toolOutput.lines.length);
@@ -532,7 +537,7 @@
             planId: line.planId || null
           }));
         }
-        
+
         // Check for flowContext with lines (if not found yet)
         if (extractedLines.length === 0 && toolOutput.flowContext && toolOutput.flowContext.lines && Array.isArray(toolOutput.flowContext.lines)) {
           console.log('✅ Found lines in toolOutput.flowContext.lines:', toolOutput.flowContext.lines.length);
@@ -545,7 +550,7 @@
             planId: line.planId || null
           }));
         }
-        
+
         // Check for lineCount and create lines from it (if not found yet)
         if (extractedLines.length === 0 && toolOutput.lineCount && toolOutput.lineCount > 0) {
           console.log('✅ Found lineCount in toolOutput, creating lines:', toolOutput.lineCount);
@@ -562,7 +567,7 @@
           }
         }
       }
-      
+
       // Check metadata if still no lines found
       if (extractedLines.length === 0) {
         const metadata = window.openai.toolResponseMetadata;
@@ -593,17 +598,24 @@
           }
         }
       }
-      
+
       // CRITICAL: Populate DUMMY_LINES with API data for compatibility with cached code
       // This ensures old cached code that references DUMMY_LINES will get the actual API data
       DUMMY_LINES = Array.isArray(extractedLines) ? extractedLines : [];
       window.DUMMY_LINES = DUMMY_LINES;
       console.log('✅ DUMMY_LINES synced with API data:', DUMMY_LINES.length, 'lines');
-      
+
       if (extractedLines.length === 0) {
         console.log('❌ No lines found in any location');
       }
-      
+
+      if (toolOutput && toolOutput.structuredContent && toolOutput.structuredContent.linesWithPlans) {
+        linesWithPlans = toolOutput.structuredContent.linesWithPlans;
+        console.log('✅ Found linesWithPlans:', linesWithPlans);
+      } else {
+        linesWithPlans = [];
+      }
+
       return extractedLines;
     }
 
@@ -616,14 +628,14 @@
       const dataUnit = plan.dataUnit || 'GB';
       const discountPctg = plan.discountPctg || 0;
       const isSelected = selectedPlans.has(planId);
-      
+
       let originalPrice = null;
       let discountAmount = 0;
       if (discountPctg > 0) {
         originalPrice = Math.round(price / (1 - discountPctg / 100));
         discountAmount = Math.round(originalPrice - price);
       }
-      
+
       // Build promotion pills
       const promotions = [];
       if (discountAmount > 0) {
@@ -633,14 +645,14 @@
         const overageGB = (plan.overageAllowedData / 1024).toFixed(0);
         promotions.push(`${overageGB}GB additional data`);
       }
-      
+
       // Build features list (only essential ones)
       const features = [];
       if (plan.isUnlimited || plan.unlimited || plan.talktime === 'Unlimited') {
         features.push({ icon: '📞', text: 'Unlimited Talk & Text' });
       }
       if (data > 0) {
-        const dataText = data >= 1 
+        const dataText = data >= 1
           ? `${data}${dataUnit} high-speed data${plan.addThrottle ? ' (reduced speeds thereafter)' : ''}`
           : `${data * 1024}MB high-speed data${plan.addThrottle ? ' (reduced speeds thereafter)' : ''}`;
         features.push({ icon: '💾', text: dataText });
@@ -654,7 +666,7 @@
       if (plan.hdVideo || plan.videoStreaming) {
         features.push({ icon: '▶️', text: 'HD video streaming' });
       }
-      
+
       return `
         <div class="plan-card">
           <div class="plan-header">
@@ -695,10 +707,12 @@
             <div class="line-selection-title">Select lines for this plan:</div>
             <div class="line-checkboxes">
               ${(Array.isArray(currentLines) ? currentLines : []).map(line => {
-                const lineIdStr = String(line.id);
-                const isLineAssigned = linePlanAssignments[lineIdStr] && linePlanAssignments[lineIdStr] !== planId;
-                const isChecked = linePlanAssignments[lineIdStr] === planId;
-                return `
+        const lineIdStr = String(line.id);
+        const hasPlanInCart = linesWithPlans.includes(line.id);
+        const isLineAssigned = (linePlanAssignments[lineIdStr] && linePlanAssignments[lineIdStr] !== planId) || hasPlanInCart;
+        const isChecked = linePlanAssignments[lineIdStr] === planId;
+
+        return `
                   <label class="line-checkbox-item ${isLineAssigned ? 'disabled' : ''}" ${isLineAssigned ? 'onclick="return false;"' : ''}>
                     <div class="line-checkbox">
                       <input type="checkbox" 
@@ -708,10 +722,13 @@
                              onchange="toggleLineAssignment(${line.id}, '${planId}', '${name.replace(/'/g, "\\'")}')">
                       <span class="line-checkbox-custom"></span>
                     </div>
-                    <span class="line-label">${line.name} ${line.phoneNumber ? `(${line.phoneNumber})` : ''}</span>
+                    <span class="line-label">
+                      ${line.name} ${line.phoneNumber ? `(${line.phoneNumber})` : ''}
+                      ${hasPlanInCart ? '<span style="font-size: 12px; color: #30ba95; margin-left: 6px;">(Plan in cart)</span>' : ''}
+                    </span>
                   </label>
                 `;
-              }).join('')}
+      }).join('')}
             </div>
           </div>
           
@@ -729,23 +746,23 @@
               <p>Throttle: ${plan.addThrottle ? 'Enabled' : 'Disabled'}${plan.throttleSpeed ? ` @ ${plan.throttleSpeed}${plan.throttleSpeedUnit || 'Kbps'}` : ''}</p>
               <p>Data Cut Off: ${plan.addDataCutOff ? 'Enabled' : 'Disabled'}</p>
               ${Array.isArray(plan.upGradableTo) && plan.upGradableTo.length
-                ? `<p>Upgradable To: ${plan.upGradableTo.join(', ')}</p>` : ''}
+          ? `<p>Upgradable To: ${plan.upGradableTo.join(', ')}</p>` : ''}
               ${Array.isArray(plan.downGradableTo) && plan.downGradableTo.length
-                ? `<p>Downgradable To: ${plan.downGradableTo.join(', ')}</p>` : ''}
+          ? `<p>Downgradable To: ${plan.downGradableTo.join(', ')}</p>` : ''}
             </div>
         </div>
       `;
     }
-    
+
     // Shared helper function to populate chat input with prompt
     function sendPrompt(message) {
       if (!message) {
         console.error('sendPrompt called without message');
         return;
       }
-      
+
       console.log('sendPrompt called with:', message);
-      
+
       // Try openPromptInput first (populates input field)
       if (window.openai?.openPromptInput) {
         try {
@@ -755,8 +772,8 @@
         } catch (e) {
           console.error('Error with openPromptInput:', e);
         }
-      } 
-      
+      }
+
       // Fallback to sendFollowUpMessage (sends immediately)
       if (window.openai?.sendFollowUpMessage) {
         try {
@@ -775,30 +792,30 @@
             console.error('Error with sendFollowUpMessage (both formats):', e, e2);
           }
         }
-      } 
-      
+      }
+
       console.error('No prompt API available. Available keys:', window.openai ? Object.keys(window.openai) : 'window.openai not found');
       alert(`Action: ${message}\n\nPlease type this in the chat and press Enter.`);
     }
-    
+
     // Make functions available globally
     window.sendPrompt = sendPrompt;
     window.selectPlan = selectPlan;
     window.toggleLineAssignment = toggleLineAssignment;
     window.confirmAllSelections = confirmAllSelections;
     window.toggleBroadbandFacts = toggleBroadbandFacts;
-    
+
     function selectPlan(planId, planName, buttonEl) {
       const isSelected = selectedPlans.has(planId);
-      
+
       if (isSelected) {
         // Deselect
         selectedPlans.delete(planId);
         plansWithSelection.delete(planId);
-        
+
         // Remove plan name
         delete planNames[planId];
-        
+
         // Remove all line assignments for this plan
         Object.keys(linePlanAssignments).forEach(lineId => {
           if (linePlanAssignments[lineId] === planId) {
@@ -810,56 +827,56 @@
             }
           }
         });
-        
+
         if (buttonEl) {
           buttonEl.classList.remove('select-button--selected');
           buttonEl.textContent = 'Select Plan';
         }
-        
+
         // Hide line selection section
         const lineSection = document.getElementById(`line-selection-${planId}`);
         if (lineSection) {
           lineSection.classList.remove('show');
         }
-        
+
         // Re-render all plans to update disabled states
         renderAllPlans();
       } else {
         // Select
         selectedPlans.add(planId);
         plansWithSelection.add(planId);
-        
+
         // Store plan name for later use
         planNames[planId] = planName;
-        
+
         if (buttonEl) {
           buttonEl.classList.add('select-button--selected');
           buttonEl.textContent = '✓ Selected';
         }
-        
+
         // Show line selection section
         const lineSection = document.getElementById(`line-selection-${planId}`);
         if (lineSection) {
           lineSection.classList.add('show');
         }
-        
+
         // Re-render all plans to update disabled states
         renderAllPlans();
       }
-      
+
       updateConfirmButtons();
     }
-    
+
     function toggleLineAssignment(lineId, planId, planName) {
       // Ensure lineId is a string for consistent key usage
       const lineIdStr = String(lineId);
       const checkbox = document.getElementById(`line-${lineId}-plan-${planId}`);
       if (!checkbox) return;
-      
+
       const isChecked = checkbox.checked;
-      
+
       console.log('🔄 toggleLineAssignment:', { lineId, lineIdStr, planId, isChecked, currentAssignments: Object.assign({}, linePlanAssignments) });
-      
+
       if (isChecked) {
         // If this line already has a plan assigned, remove it first
         if (linePlanAssignments[lineIdStr] && linePlanAssignments[lineIdStr] !== planId) {
@@ -870,7 +887,7 @@
             oldCheckbox.checked = false;
           }
         }
-        
+
         // Assign this plan to this line
         linePlanAssignments[lineIdStr] = planId;
       } else {
@@ -879,14 +896,14 @@
           delete linePlanAssignments[lineIdStr];
         }
       }
-      
+
       console.log('✅ toggleLineAssignment complete:', { linePlanAssignments: Object.assign({}, linePlanAssignments) });
-      
+
       // Re-render all plans to update disabled states
       renderAllPlans();
       updateConfirmButtons();
     }
-    
+
     function updateConfirmButtons() {
       // DEFENSIVE: Ensure DUMMY_LINES exists (for cached code compatibility)
       // This handles cases where cached/old code might reference DUMMY_LINES
@@ -900,28 +917,30 @@
           DUMMY_LINES = window.DUMMY_LINES;
         }
       }
-      
+
       // Update current lines from toolOutput - ALWAYS update, even if empty
       const extractedLines = extractLines();
       // Always assign to ensure currentLines is in sync with toolOutput
       currentLines = Array.isArray(extractedLines) ? extractedLines : [];
       console.log('✅ updateConfirmButtons: Lines updated:', currentLines.length, currentLines);
-      
+
       // Ensure currentLines is always an array (never undefined or null)
       if (!Array.isArray(currentLines)) {
         currentLines = [];
       }
-      
+
       // Check if all lines have plans assigned (convert line.id to string for consistent comparison)
       const allLinesAssigned = currentLines.length > 0 && currentLines.every(line => {
         const lineIdStr = String(line.id);
         const hasAssignment = !!linePlanAssignments[lineIdStr];
-        if (!hasAssignment) {
+        const hasPlanInCart = linesWithPlans.includes(line.id);
+
+        if (!hasAssignment && !hasPlanInCart) {
           console.log('❌ Line missing assignment:', { lineId: line.id, lineIdStr, lineName: line.name });
         }
-        return hasAssignment;
+        return hasAssignment || hasPlanInCart;
       });
-      
+
       // Get all plan-to-line assignments
       const assignments = [];
       currentLines.forEach(line => {
@@ -934,7 +953,7 @@
           });
         }
       });
-      
+
       console.log('✅ updateConfirmButtons: State check', {
         totalLines: currentLines.length,
         assignedLines: assignments.length,
@@ -942,22 +961,22 @@
         linePlanAssignments: Object.assign({}, linePlanAssignments),
         currentLinesIds: currentLines.map(l => String(l.id))
       });
-      
+
       // Update global confirm section
       const globalConfirmSection = document.getElementById('global-confirm-section');
       const globalConfirmButton = document.getElementById('global-confirm-button');
       const globalConfirmTitle = document.getElementById('global-confirm-title');
       const globalConfirmDetails = document.getElementById('global-confirm-details');
-      
+
       if (globalConfirmSection && globalConfirmButton && globalConfirmTitle && globalConfirmDetails) {
         // Show section if there are any assignments
         if (assignments.length > 0) {
           globalConfirmSection.classList.add('show');
-          
+
           // Update summary
           const assignedLinesCount = assignments.length;
           const totalLinesCount = currentLines.length;
-          
+
           if (allLinesAssigned && totalLinesCount > 0) {
             globalConfirmTitle.textContent = `All ${totalLinesCount} lines have plans selected`;
             globalConfirmDetails.textContent = `Ready to add all plans to cart`;
@@ -971,7 +990,7 @@
           globalConfirmSection.classList.remove('show');
           globalConfirmButton.disabled = true;
         }
-        
+
         // Adjust container padding based on confirm section visibility
         const container = document.getElementById('plans-container');
         if (container) {
@@ -983,21 +1002,21 @@
         }
       }
     }
-    
+
     function confirmAllSelections() {
       // Update current lines from toolOutput
       const extractedLines = extractLines();
       currentLines = Array.isArray(extractedLines) ? extractedLines : [];
-      
+
       // Get all plan-to-line assignments from all cards
       const allAssignments = [];
-      
+
       currentLines.forEach(line => {
         const lineIdStr = String(line.id);
         if (linePlanAssignments[lineIdStr]) {
           const planId = linePlanAssignments[lineIdStr];
           const planName = planNames[planId] || `Plan ${planId}`;
-          
+
           allAssignments.push({
             lineId: line.id,
             lineNumber: line.lineNumber || line.id,
@@ -1007,37 +1026,51 @@
           });
         }
       });
-      
+
       if (allAssignments.length === 0) {
+        // If we have plans in cart (and all lines are satisfied), allow user to proceed
+        const hasPlansInCart = linesWithPlans.length > 0;
+
+        // Check if all lines really have plans (assigned or in cart)
+        const allSatisfied = currentLines.every(line => {
+          const lineIdStr = String(line.id);
+          return !!linePlanAssignments[lineIdStr] || linesWithPlans.includes(line.id);
+        });
+
+        if (allSatisfied && hasPlansInCart) {
+          sendPrompt("I have confirmed my plan selections.");
+          return;
+        }
+
         alert('Please select at least one plan for a line.');
         return;
       }
-      
+
       // Check if all lines have plans (convert line.id to string for consistent comparison)
       const allLinesAssigned = currentLines.length > 0 && currentLines.every(line => {
         const lineIdStr = String(line.id);
-        return !!linePlanAssignments[lineIdStr];
+        return !!linePlanAssignments[lineIdStr] || linesWithPlans.includes(line.id);
       });
       if (!allLinesAssigned) {
         alert('Please select plans for all lines before confirming.');
         return;
       }
-      
+
       // Build individual add_to_cart commands for each plan-line combination
       // Format: "Add [plan name] plan (ID: [planId]) to line [lineNumber]"
       const commands = allAssignments.map(a => {
         return `Add ${a.planName} plan (ID: ${a.planId}) to line ${a.lineNumber}`;
       });
-      
+
       // Send all commands as a single message - AI will parse and execute multiple add_to_cart calls
       const message = `Please add the following plans to my cart:\n\n${commands.join('\n')}\n\nUse the add_to_cart tool with itemType="plan", itemId for each plan, and the corresponding lineNumber for each line.`;
       sendPrompt(message);
-      
+
       console.log('✅ Confirmed selections, sending to cart:', {
         assignments: allAssignments,
         commands: commands
       });
-      
+
       // Optionally clear selections after confirmation
       // Uncomment if you want to reset after adding to cart
       // currentLines.forEach(line => {
@@ -1048,11 +1081,11 @@
       // planNames = {};
       // renderAllPlans();
     }
-    
+
     function toggleBroadbandFacts(planId) {
       const content = document.getElementById(`facts-${planId}`);
       const icon = document.getElementById(`facts-icon-${planId}`);
-      
+
       if (content && icon) {
         const isShowing = content.classList.contains('show');
         if (isShowing) {
@@ -1064,39 +1097,39 @@
         }
       }
     }
-    
+
     // Function to check if toolOutput has valid data
     function hasValidToolOutput() {
       if (!window.openai) return false;
-      
+
       const toolOutput = window.openai.toolOutput;
       if (toolOutput && toolOutput !== null && typeof toolOutput === 'object') {
         if (toolOutput.plans && Array.isArray(toolOutput.plans) && toolOutput.plans.length > 0) {
           return true;
         }
-        if (toolOutput.structuredContent && toolOutput.structuredContent.plans && 
-            Array.isArray(toolOutput.structuredContent.plans) && toolOutput.structuredContent.plans.length > 0) {
+        if (toolOutput.structuredContent && toolOutput.structuredContent.plans &&
+          Array.isArray(toolOutput.structuredContent.plans) && toolOutput.structuredContent.plans.length > 0) {
           return true;
         }
       }
-      
+
       const metadata = window.openai.toolResponseMetadata;
       if (metadata && metadata !== null && typeof metadata === 'object') {
         if (metadata.plans && Array.isArray(metadata.plans) && metadata.plans.length > 0) {
           return true;
         }
       }
-      
+
       return false;
     }
-    
+
     // Function to extract plans from toolOutput
     function extractPlans() {
       if (!window.openai) {
         console.log('❌ window.openai not available');
         return [];
       }
-      
+
       let toolOutput = window.openai.toolOutput;
       console.log('🔍 Checking toolOutput:', {
         exists: !!toolOutput,
@@ -1104,7 +1137,7 @@
         type: typeof toolOutput,
         keys: toolOutput ? Object.keys(toolOutput) : []
       });
-      
+
       if (toolOutput && toolOutput !== null && typeof toolOutput === 'object') {
         if (toolOutput.plans && Array.isArray(toolOutput.plans)) {
           console.log('✅ Found plans in toolOutput.plans:', toolOutput.plans.length);
@@ -1115,7 +1148,7 @@
           return toolOutput.structuredContent.plans;
         }
       }
-      
+
       const metadata = window.openai.toolResponseMetadata;
       if (metadata && metadata !== null && typeof metadata === 'object') {
         console.log('🔍 Checking toolResponseMetadata:', Object.keys(metadata));
@@ -1124,11 +1157,11 @@
           return metadata.plans;
         }
       }
-      
+
       console.log('❌ No plans found in any location');
       return [];
     }
-    
+
     // Function to render all plans
     function renderAllPlans() {
       const container = document.getElementById('plans-container');
@@ -1136,20 +1169,20 @@
         console.error('Plans container not found');
         return false;
       }
-      
+
       const plans = extractPlans();
-      
+
       // Update current lines from toolOutput - ALWAYS update, even if empty
       const extractedLines = extractLines();
       // Always assign to ensure currentLines is in sync with toolOutput
       currentLines = Array.isArray(extractedLines) ? extractedLines : [];
       console.log('✅ Lines updated:', currentLines.length, 'lines');
-      
+
       // Ensure currentLines is always an array (never undefined or null)
       if (!Array.isArray(currentLines)) {
         currentLines = [];
       }
-      
+
       if (plans.length === 0) {
         if (container.innerHTML.includes('Loading plans')) {
           // Keep the loading message
@@ -1158,16 +1191,16 @@
       } else {
         const plansHtml = plans.map(renderPlan).join('');
         container.innerHTML = plansHtml;
-        
+
         // Update confirm buttons after rendering
         setTimeout(() => {
           updateConfirmButtons();
         }, 10);
-        
+
         return true;
       }
     }
-    
+
     // Permanent solution: Watch for toolOutput changing from null to data
     let rendered = false;
     let lastToolOutputValue = null;
@@ -1177,11 +1210,11 @@
     const maxChecks = 1000;
     const minChecksBeforeError = 800;
     const minTimeBeforeError = 20000;
-    
+
     function watchForToolOutputChange() {
       checkCount++;
       const elapsedTime = Date.now() - startTime;
-      
+
       // Check if lines data has changed
       const extractedLines = extractLines();
       const linesChanged = extractedLines.length !== lastLinesCount;
@@ -1196,7 +1229,7 @@
           rendered = true;
         }
       }
-      
+
       if (!rendered) {
         if (hasValidToolOutput()) {
           const success = renderAllPlans();
@@ -1206,11 +1239,11 @@
             return;
           }
         }
-        
+
         const currentValue = window.openai?.toolOutput;
         if (currentValue !== lastToolOutputValue) {
           lastToolOutputValue = currentValue;
-          
+
           if (currentValue !== null && currentValue !== undefined) {
             console.log('toolOutput changed from null to:', typeof currentValue);
             const success = renderAllPlans();
@@ -1222,7 +1255,7 @@
           }
         }
       }
-      
+
       if (checkCount < maxChecks) {
         setTimeout(watchForToolOutputChange, 25);
       } else if (!rendered && checkCount >= maxChecks) {
@@ -1246,30 +1279,30 @@
         }
       }
     }
-    
+
     function setupToolOutputWatcher() {
       if (!window.openai) {
         setTimeout(setupToolOutputWatcher, 100);
         return;
       }
-      
+
       try {
         let currentValue = window.openai.toolOutput;
-        
+
         Object.defineProperty(window.openai, 'toolOutput', {
-          get: function() {
+          get: function () {
             return currentValue;
           },
-          set: function(newValue) {
+          set: function (newValue) {
             const oldValue = currentValue;
             currentValue = newValue;
-            
-            if ((oldValue === null || oldValue === undefined || oldValue === 'null') && 
-                newValue !== null && newValue !== undefined && newValue !== 'null' && 
-                typeof newValue === 'object') {
-              
+
+            if ((oldValue === null || oldValue === undefined || oldValue === 'null') &&
+              newValue !== null && newValue !== undefined && newValue !== 'null' &&
+              typeof newValue === 'object') {
+
               console.log('✅ toolOutput changed from null to data!', newValue);
-              
+
               setTimeout(() => {
                 if (!rendered) {
                   const success = renderAllPlans();
@@ -1284,13 +1317,13 @@
           configurable: true,
           enumerable: true
         });
-        
+
         console.log('✅ Set up toolOutput property watcher');
       } catch (e) {
         console.warn('Could not set up property watcher (this is OK, using polling instead):', e.message);
       }
     }
-    
+
     // Try immediate render first
     console.log('🚀 Attempting immediate render...');
     if (hasValidToolOutput()) {
@@ -1300,11 +1333,11 @@
         console.log('✅ Plans rendered immediately!');
       }
     }
-    
+
     // Start the permanent solution immediately
     setupToolOutputWatcher();
     watchForToolOutputChange();
-    
+
     // Also try rendering after delays
     setTimeout(() => {
       if (!rendered && hasValidToolOutput()) {
@@ -1315,7 +1348,7 @@
         }
       }
     }, 100);
-    
+
     setTimeout(() => {
       if (!rendered && hasValidToolOutput()) {
         const success = renderAllPlans();
@@ -1325,7 +1358,7 @@
         }
       }
     }, 500);
-    
+
     setTimeout(() => {
       if (!rendered && hasValidToolOutput()) {
         const success = renderAllPlans();
@@ -1335,7 +1368,7 @@
         }
       }
     }, 1000);
-    
+
     window.addEventListener("load", () => {
       console.log('📥 Load event fired, attempting to render plans');
       if (!rendered) {
@@ -1346,7 +1379,7 @@
         }
       }
     });
-    
+
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', () => {
         console.log('📥 DOMContentLoaded fired, attempting to render plans');
@@ -1370,4 +1403,5 @@
     }
   </script>
 </body>
+
 </html>

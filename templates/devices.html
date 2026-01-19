@@ -921,9 +921,24 @@
 
     // Initialize currentLines - will be populated from toolOutput
     let currentLines = [];
+    // Track lines that already have devices in cart
+    let linesWithDevices = [];
+
+    // Wrapper to extract lines and also get linesWithDevices
+    function extractLines() {
+      const toolOutput = window.openai ? window.openai.toolOutput : null;
+      if (toolOutput && toolOutput.structuredContent && toolOutput.structuredContent.linesWithDevices) {
+        linesWithDevices = toolOutput.structuredContent.linesWithDevices;
+        console.log('✅ Found linesWithDevices:', linesWithDevices);
+      } else {
+        linesWithDevices = [];
+      }
+
+      return extractLinesInternal();
+    }
 
     // Function to extract lines from toolOutput
-    function extractLines() {
+    function extractLinesInternal() {
       if (!window.openai) {
         console.log('❌ window.openai not available for lines');
         return [];
@@ -1238,11 +1253,12 @@
             <div class="line-checkboxes">
               ${currentLines.map(line => {
           const lineIdStr = String(line.id);
+          const hasDeviceInCart = linesWithDevices.includes(line.id);
           const isChecked = lineDeviceAssignments[lineIdStr] === deviceId;
           // Line is assigned to another device in this widget session
           const isLineAssignedToOther = lineDeviceAssignments[lineIdStr] && !isChecked;
           // Line already has a device assigned in the cart (from tool data)
-          const isLineOccupiedInCart = line.deviceSelected === true;
+          const isLineOccupiedInCart = line.deviceSelected === true || hasDeviceInCart;
 
           const isDisabled = isLineAssignedToOther || isLineOccupiedInCart;
 
@@ -1258,7 +1274,7 @@
                     </div>
                     <span class="line-label ${isLineOccupiedInCart ? 'occupied' : ''}">
                       ${line.name} ${line.phoneNumber ? `(${line.phoneNumber})` : ''}
-                      ${isLineOccupiedInCart ? ' (Occupied)' : ''}
+                      ${isLineOccupiedInCart ? ' (Device in cart)' : ''}
                     </span>
                   </label>
                 `;
@@ -1457,11 +1473,22 @@
       const assignments = [];
       currentLines.forEach(line => {
         const lineIdStr = String(line.id);
+        const hasDeviceInCart = linesWithDevices.includes(line.id);
+
         if (lineDeviceAssignments[lineIdStr]) {
           assignments.push({
             lineId: line.id,
             lineName: line.name,
             deviceId: lineDeviceAssignments[lineIdStr]
+          });
+        } else if (hasDeviceInCart) {
+          // Count lines with devices in cart as "assigned" for visual/logic purposes 
+          // (though we don't need to add them to cart again)
+          assignments.push({
+            lineId: line.id,
+            lineName: line.name,
+            deviceId: 'IN_CART',
+            inCart: true
           });
         }
       });
@@ -1530,6 +1557,11 @@
       });
 
       if (allAssignments.length === 0) {
+        // If we have devices in cart but no new selections, allow user to proceed/continue
+        if (linesWithDevices.length > 0) {
+          sendPrompt("I have completed my device selections.");
+          return;
+        }
         alert('Please select at least one device for a line.');
         return;
       }

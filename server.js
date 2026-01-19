@@ -1505,6 +1505,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
 
     if (name === "get_plans") {
+      // User Requested: Force explicit token refresh on every get_plans call to avoid 403s
+      logger.info("Forcing auth token refresh for get_plans tool", { tenant });
+      await getAuthToken(tenant, true);
+
       // Check flow context FIRST to see if line is selected
       const sessionId = getOrCreateSessionId(args.sessionId || null);
       let context = getFlowContext(sessionId);
@@ -1835,9 +1839,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       const responseText = formatThreeSectionResponse(mainResponse, suggestions, nextSteps);
 
+      // Fetch cart to check for existing lines with plans
+      const cart = sessionId ? getCartMultiLine(sessionId) : null;
+
       // Return structuredContent for Apps SDK widget (ONLY when line is selected)
       // The widget will read this via window.openai.toolOutput
       const structuredData = {
+        linesWithPlans: cart ? (cart.lines || [])
+          .filter(l => l.plan && l.plan.id)
+          .map(l => l.lineNumber) : [],
         plans: plans.map(plan => ({
           // Spread original plan so widget sees all API fields
           ...plan,
@@ -2594,6 +2604,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       const structuredData = {
+        linesWithDevices: cart ? (cart.lines || [])
+          .filter(l => l.device && l.device.id)
+          .map(l => l.lineNumber) : [],
         devices: structuredDevices,
         // Include flowContext data for line selection
         lineCount: context ? (context.lineCount || 0) : 0,

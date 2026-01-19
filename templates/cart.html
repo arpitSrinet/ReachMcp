@@ -1,16 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Shopping Cart</title>
+  <meta http-equiv="Content-Security-Policy"
+    content="img-src 'self' data: https://shopware-api-nctc-qa.reachmobileplatform.com https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://unpkg.com https://*.oaiusercontent.com https://threejs.org;">
   <style>
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
     }
-    
+
     :root {
       --primary-green: #30ba95;
       --primary-green-hover: #269678;
@@ -23,7 +26,7 @@
       padding: 16px;
       background: #f5f5f5;
     }
-    
+
     .cart-header {
       font-size: 24px;
       font-weight: bold;
@@ -31,7 +34,7 @@
       color: #023d1a;
       text-align: center;
     }
-    
+
     .lines-container {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
@@ -39,7 +42,7 @@
       max-width: 1400px;
       margin: 0 auto 32px;
     }
-    
+
     .line-card {
       border: 2px solid #e0e0e0;
       border-radius: 12px;
@@ -48,12 +51,12 @@
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
       transition: all 0.3s ease;
     }
-    
+
     .line-card:hover {
       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
       transform: translateY(-2px);
     }
-    
+
     .line-header {
       font-size: 20px;
       font-weight: bold;
@@ -62,18 +65,18 @@
       padding-bottom: 12px;
       border-bottom: 2px solid #30ba95;
     }
-    
+
     .item-section {
       margin-bottom: 16px;
       padding-bottom: 16px;
       border-bottom: 1px solid #e0e0e0;
     }
-    
+
     .item-section:last-child {
       border-bottom: none;
       margin-bottom: 0;
     }
-    
+
     .item-label {
       font-size: 12px;
       color: #666;
@@ -82,7 +85,7 @@
       margin-bottom: 8px;
       font-weight: 600;
     }
-    
+
     .item-content {
       display: flex;
       justify-content: space-between;
@@ -90,20 +93,20 @@
       gap: 16px;
       flex-wrap: nowrap;
     }
-    
+
     @media (max-width: 600px) {
       .item-content {
         flex-wrap: wrap;
       }
     }
-    
+
     .item-name {
       font-size: 16px;
       font-weight: 600;
       color: #333;
       flex: 1;
     }
-    
+
     .item-price {
       font-size: 18px;
       font-weight: bold;
@@ -112,17 +115,17 @@
       text-align: right;
       min-width: 80px;
     }
-    
+
     .item-missing {
       color: #ff9800;
       font-weight: 600;
     }
-    
+
     .item-optional {
       color: #999;
       font-style: italic;
     }
-    
+
     .item-details {
       font-size: 13px;
       color: #666;
@@ -130,7 +133,7 @@
       line-height: 1.5;
       word-wrap: break-word;
     }
-    
+
     .sim-badge {
       display: inline-block;
       padding: 6px 12px;
@@ -141,13 +144,13 @@
       color: #30ba95;
       border: 1px solid #30ba95;
     }
-    
+
     .sim-badge.missing {
       background: #fff3e0;
       color: #ff9800;
       border-color: #ff9800;
     }
-    
+
     .line-total {
       margin-top: 20px;
       padding-top: 16px;
@@ -159,7 +162,7 @@
       font-weight: bold;
       color: #023d1a;
     }
-    
+
     .summary-section {
       max-width: 1400px;
       margin: 0 auto;
@@ -169,7 +172,7 @@
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
       border: 2px solid #e0e0e0;
     }
-    
+
     .summary-title {
       font-size: 20px;
       font-weight: bold;
@@ -178,7 +181,7 @@
       padding-bottom: 12px;
       border-bottom: 2px solid #30ba95;
     }
-    
+
     .summary-row {
       display: flex;
       justify-content: space-between;
@@ -187,20 +190,20 @@
       font-size: 16px;
       border-bottom: 1px solid #e0e0e0;
     }
-    
+
     .summary-row:last-child {
       border-bottom: none;
     }
-    
+
     .summary-label {
       color: #666;
     }
-    
+
     .summary-value {
       font-weight: 600;
       color: #333;
     }
-    
+
     .summary-total {
       margin-top: 16px;
       padding-top: 16px;
@@ -209,14 +212,14 @@
       font-weight: bold;
       color: #023d1a;
     }
-    
+
     .tax-note {
       font-size: 12px;
       color: #999;
       font-style: italic;
       margin-top: 8px;
     }
-    
+
     .checkout-button {
       width: 100%;
       background: var(--primary-green);
@@ -230,33 +233,34 @@
       transition: background 0.3s ease;
       margin-top: 24px;
     }
-    
+
     .checkout-button:hover {
       background: var(--primary-green-hover);
     }
-    
+
     .empty-cart {
       text-align: center;
       padding: 60px 20px;
       color: #666;
     }
-    
+
     .empty-cart-icon {
       font-size: 64px;
       margin-bottom: 16px;
     }
-    
+
     .empty-cart-text {
       font-size: 18px;
       margin-bottom: 8px;
     }
-    
+
     .empty-cart-subtext {
       font-size: 14px;
       color: #999;
     }
   </style>
 </head>
+
 <body>
   <div id="cart-container">
     <div style="padding: 40px; text-align: center; color: #666; font-size: 18px;">
@@ -272,12 +276,12 @@
       let monthlyTotal = 0;
       let deviceTotal = 0;
       let protectionTotal = 0;
-      
+
       // Plan section - Show all API fields if available
       let planHtml = '';
       if (line.plan) {
         monthlyTotal += line.plan.price || 0;
-        
+
         // Get all available API fields
         const planName = line.plan.name || line.plan.displayName || line.plan.displayNameWeb || 'Plan';
         const planPrice = line.plan.price || line.plan.baseLinePrice || 0;
@@ -291,7 +295,7 @@
         const planCharging = line.plan.planCharging;
         const serviceCode = line.plan.serviceCode;
         const description = line.plan.description;
-        
+
         // Only add details that have actual values
         let planDetails = [];
         if (isUnlimited) planDetails.push('Unlimited data');
@@ -302,7 +306,7 @@
         if (discountPctg && discountPctg > 0) planDetails.push(`${discountPctg}% discount`);
         if (planCharging && planCharging.trim() !== '') planDetails.push(`Charging: ${planCharging}`);
         if (serviceCode && serviceCode.trim() !== '') planDetails.push(`Service: ${serviceCode}`);
-        
+
         planHtml = `
           <div class="item-section">
             <div class="item-label">📱 Mobile Plan</div>
@@ -327,12 +331,12 @@
           </div>
         `;
       }
-      
+
       // Device section - Show all API fields if available (only show if device data exists)
       let deviceHtml = '';
       if (line.device && (line.device.id || line.device.name || line.device.price !== undefined)) {
         deviceTotal += line.device.price || 0;
-        
+
         // Get all available API fields
         const deviceName = line.device.name || line.device.translated?.name || 'Device';
         const deviceBrand = line.device.brand || line.device.manufacturer?.name || line.device.translated?.manufacturer?.name || line.device.customFields?.brand || '';
@@ -340,25 +344,25 @@
         const deviceImage = line.device.image || line.device.cover?.media?.url || (line.device.media && line.device.media[0]?.media?.url) || line.device.coverImage || line.device.thumbnail;
         const listPrice = line.device.calculatedPrice?.listPrice?.price;
         const available = line.device.available;
-        
+
         // Extract device specs from customFields (preferred) or properties
         const properties = line.device.properties || [];
         const customFields = line.device.customFields || line.device.translated?.customFields || {};
-        
-        const storage = customFields.storage_capacity || 
-                       properties.find(p => p.group?.name === 'Storage' || p.group?.name === 'storage')?.name || '';
-        const color = customFields.design_color || 
-                     properties.find(p => p.group?.name === 'Color' || p.group?.name === 'color')?.name || '';
-        const condition = customFields.condition || 
-                         properties.find(p => p.group?.name === 'Condition' || p.group?.name === 'condition')?.name || 
-                         line.device.condition || '';
-        
+
+        const storage = customFields.storage_capacity ||
+          properties.find(p => p.group?.name === 'Storage' || p.group?.name === 'storage')?.name || '';
+        const color = customFields.design_color ||
+          properties.find(p => p.group?.name === 'Color' || p.group?.name === 'color')?.name || '';
+        const condition = customFields.condition ||
+          properties.find(p => p.group?.name === 'Condition' || p.group?.name === 'condition')?.name ||
+          line.device.condition || '';
+
         // Extract additional specs from customFields
         const ram = customFields.ram_capacity || '';
         const display = customFields.display_type || customFields.display_resolution || '';
         const camera = customFields.back_camera_resolution || customFields.front_camera_resolution || '';
         const battery = customFields.battery_capacity || '';
-        
+
         // Build device specs array (only include non-empty values, NO SKU/ID)
         let deviceSpecs = [];
         if (storage && storage.trim() !== '') deviceSpecs.push(storage);
@@ -372,7 +376,7 @@
         }
         if (battery && battery.trim() !== '') deviceSpecs.push(battery);
         if (condition && condition.trim() !== '' && condition.toLowerCase() !== 'new') deviceSpecs.push(condition);
-        
+
         // Build device name - only include brand if it exists and not already in name
         let displayName = deviceName;
         if (deviceBrand && deviceBrand.trim() !== '') {
@@ -383,7 +387,7 @@
             displayName = `${deviceBrand} ${deviceName}`;
           }
         }
-        
+
         deviceHtml = `
           <div class="item-section">
             <div class="item-label">📱 Device</div>
@@ -414,16 +418,16 @@
           </div>
         `;
       }
-      
+
       // Protection section - Only show if protection data exists (optional field)
       let protectionHtml = '';
-      if (line.protection && 
-          line.protection !== null && 
-          line.protection !== undefined &&
-          typeof line.protection === 'object' &&
-          (line.protection.id || line.protection.name || (line.protection.price !== undefined && line.protection.price !== null))) {
+      if (line.protection &&
+        line.protection !== null &&
+        line.protection !== undefined &&
+        typeof line.protection === 'object' &&
+        (line.protection.id || line.protection.name || (line.protection.price !== undefined && line.protection.price !== null))) {
         protectionTotal += line.protection.price || 0;
-        
+
         // Get all available API fields
         const protectionName = line.protection.name || 'Protection Plan';
         const protectionPrice = line.protection.price || 0;
@@ -432,7 +436,7 @@
         const highlights = line.protection.highlights || [];
         const billingCycle = line.protection.billingCycle;
         const isMonthly = billingCycle === 'monthly' || (billingCycle === undefined && protectionPrice < 100);
-        
+
         // Only add details that have actual values
         let protectionDetails = [];
         if (deductible && deductible !== '' && deductible !== null && deductible !== undefined) protectionDetails.push(`Deductible: $${deductible}`);
@@ -441,7 +445,7 @@
           const validHighlights = highlights.filter(h => h && h.trim() !== '').slice(0, 2);
           if (validHighlights.length > 0) protectionDetails.push(validHighlights.join(', '));
         }
-        
+
         protectionHtml = `
           <div class="item-section">
             <div class="item-label">🛡️ Device Protection</div>
@@ -456,7 +460,7 @@
           </div>
         `;
       }
-      
+
       // SIM section - Show all API fields if available
       let simHtml = '';
       if (line.sim && line.sim.simType) {
@@ -464,7 +468,7 @@
         const simType = line.sim.simType === 'ESIM' ? 'eSIM' : (line.sim.simType === 'PSIM' ? 'Physical SIM' : line.sim.simType);
         const iccId = line.sim.iccId;
         const isEsim = line.sim.simType === 'ESIM';
-        
+
         let simDetails = [];
         if (isEsim) {
           simDetails.push('⚡ Instant activation');
@@ -474,7 +478,7 @@
           simDetails.push('Standard shipping');
         }
         if (iccId && iccId.trim() !== '') simDetails.push(`ICCID: ${iccId}`);
-        
+
         simHtml = `
           <div class="item-section">
             <div class="item-label">📲 SIM Card</div>
@@ -503,10 +507,10 @@
           </div>
         `;
       }
-      
+
       // Calculate line total
       const lineTotal = monthlyTotal + deviceTotal + protectionTotal;
-      
+
       return `
         <div class="line-card">
           <div class="line-header">Line ${lineNumber}</div>
@@ -521,13 +525,13 @@
         </div>
       `;
     }
-    
+
     // Function to render summary section
     function renderSummary(monthlyTotal, deviceTotal, protectionTotal, oneTimeTotal, totalDueToday) {
       const subtotal = deviceTotal + protectionTotal;
       const hasMonthlyCharges = monthlyTotal > 0;
       const hasOneTimeCharges = subtotal > 0 || oneTimeTotal > 0;
-      
+
       return `
         <div class="summary-section">
           <div class="summary-title">💰 Order Summary</div>
@@ -619,7 +623,7 @@
         </div>
       `;
     }
-    
+
     // Function to render cart
     function renderCart(cart, sessionId) {
       const container = document.getElementById('cart-container');
@@ -627,11 +631,11 @@
         console.error('Cart container not found');
         return false;
       }
-      
+
       // Check if cart uses multi-line structure
       const lines = cart.lines || [];
       const items = cart.items || [];
-      
+
       // Show empty cart UI if cart is empty (but only if we have valid data)
       if (lines.length === 0 && items.length === 0) {
         container.innerHTML = `
@@ -643,29 +647,29 @@
         `;
         return true;
       }
-      
+
       // Use multi-line structure if available
       if (lines.length > 0) {
         // Calculate totals
         let monthlyTotal = 0;
         let deviceTotal = 0;
         let protectionTotal = 0;
-        
+
         lines.forEach(line => {
           if (line.plan) monthlyTotal += line.plan.price || 0;
           if (line.device) deviceTotal += line.device.price || 0;
           if (line.protection) protectionTotal += line.protection.price || 0;
         });
-        
+
         const oneTimeTotal = 10.00 + 15.00; // Handling + shipping
         const totalDueToday = deviceTotal + protectionTotal + oneTimeTotal;
-        
+
         // Render line cards
         const linesHtml = lines.map((line, index) => renderLineCard(line, index)).join('');
-        
+
         // Render summary
         const summaryHtml = renderSummary(monthlyTotal, deviceTotal, protectionTotal, oneTimeTotal, totalDueToday);
-        
+
         container.innerHTML = `
           <div class="cart-header">🧾 Your Shopping Cart</div>
           <div class="lines-container">
@@ -673,10 +677,10 @@
           </div>
           ${summaryHtml}
         `;
-        
+
         return true;
       }
-      
+
       // Fall back to old structure (backward compatibility)
       if (items.length === 0) {
         container.innerHTML = `
@@ -688,7 +692,7 @@
         `;
         return true;
       }
-      
+
       // Old structure rendering (simplified)
       container.innerHTML = `
         <div class="cart-header">🧾 Your Shopping Cart</div>
@@ -706,19 +710,19 @@
           </div>
         </div>
       `;
-      
+
       return true;
     }
-    
+
     // Shared helper function to populate chat input with prompt
     function sendPrompt(message) {
       if (!message) {
         console.error('sendPrompt called without message');
         return;
       }
-      
+
       console.log('sendPrompt called with:', message);
-      
+
       // Try openPromptInput first (populates input field)
       if (window.openai?.openPromptInput) {
         try {
@@ -728,8 +732,8 @@
         } catch (e) {
           console.error('Error with openPromptInput:', e);
         }
-      } 
-      
+      }
+
       // Fallback to sendFollowUpMessage (sends immediately)
       if (window.openai?.sendFollowUpMessage) {
         try {
@@ -752,27 +756,27 @@
             console.error('Error with sendFollowUpMessage (both formats):', e, e2);
           }
         }
-      } 
-      
+      }
+
       // Last resort: show alert
       console.error('No prompt API available. Available keys:', window.openai ? Object.keys(window.openai) : 'window.openai not found');
       alert(`Action: ${message}\n\nPlease type this in the chat and press Enter.`);
     }
-    
+
     // Make sendPrompt available globally
     window.sendPrompt = sendPrompt;
-    
+
     function proceedToCheckout() {
       sendPrompt('Review my cart and proceed to checkout');
     }
-    
+
     // Make proceedToCheckout available globally
     window.proceedToCheckout = proceedToCheckout;
-    
+
     // Function to check if toolOutput has valid data (including empty cart)
     function hasValidToolOutput() {
       if (!window.openai) return false;
-      
+
       const toolOutput = window.openai.toolOutput;
       // If toolOutput exists and is an object (even if cart is empty/null), we have valid data
       if (toolOutput && toolOutput !== null && typeof toolOutput === 'object') {
@@ -780,26 +784,26 @@
         // This could be an empty cart response, so we should render it
         return true;
       }
-      
+
       // Also check metadata
       const metadata = window.openai.toolResponseMetadata;
       if (metadata && metadata !== null && typeof metadata === 'object') {
         return true;
       }
-      
+
       return false;
     }
-    
+
     // Function to extract cart data from toolOutput
     function extractCartData() {
       if (!window.openai) {
         console.log('extractCartData: window.openai not available');
         return { cart: { items: [], total: 0 }, sessionId: 'default' };
       }
-      
+
       let toolOutput = window.openai.toolOutput;
       console.log('extractCartData: toolOutput =', toolOutput);
-      
+
       if (toolOutput && toolOutput !== null && typeof toolOutput === 'object') {
         // Check if cart exists (even if empty/null)
         if (toolOutput.cart !== undefined) {
@@ -822,7 +826,7 @@
           }
         }
       }
-      
+
       const metadata = window.openai.toolResponseMetadata;
       if (metadata && metadata !== null && typeof metadata === 'object') {
         if (metadata.cart !== undefined) {
@@ -834,16 +838,16 @@
           };
         }
       }
-      
+
       console.log('extractCartData: No cart data found, returning empty cart');
       return { cart: { lines: [], items: [], total: 0 }, sessionId: 'default' };
     }
-    
+
     // Function to render all cart data
     function renderAllCart() {
       // TEMPORARY: Use dummy data for UI development
       const useDummyData = false; // Set to false to use real data
-      
+
       if (useDummyData) {
         const dummyCart = {
           lines: [
@@ -949,22 +953,22 @@
           items: [],
           total: 0
         };
-        
+
         const success = renderCart(dummyCart, 'dummy-session');
         return success;
       }
-      
+
       // Only render if we have valid toolOutput (to distinguish loading from empty)
       if (!hasValidToolOutput()) {
         console.log('renderAllCart: No valid toolOutput yet, waiting...');
         return false;
       }
-      
+
       const cartData = extractCartData();
       const success = renderCart(cartData.cart, cartData.sessionId);
       return success;
     }
-    
+
     // Robust loading mechanism (same as plans.html)
     let rendered = false;
     let lastToolOutputValue = null;
@@ -972,10 +976,10 @@
     const maxChecks = 800; // 20 seconds at 25ms/check
     const minTimeBeforeError = 20000; // 20 seconds
     const startTime = Date.now();
-    
+
     // Property watcher setup
     let toolOutputProxy = null;
-    
+
     function setupToolOutputWatcher() {
       if (!window.openai || toolOutputProxy) return;
 
@@ -991,16 +995,16 @@
         let currentValue = window.openai.toolOutput;
 
         Object.defineProperty(window.openai, 'toolOutput', {
-          get: function() {
+          get: function () {
             return currentValue;
           },
-          set: function(newValue) {
+          set: function (newValue) {
             const oldValue = currentValue;
             currentValue = newValue;
 
             if ((oldValue === null || oldValue === undefined) &&
-                newValue !== null && newValue !== undefined &&
-                typeof newValue === 'object') {
+              newValue !== null && newValue !== undefined &&
+              typeof newValue === 'object') {
               if (newValue.cart || (newValue.structuredContent && newValue.structuredContent.cart)) {
                 console.log('✅ toolOutput changed from null to data!');
                 setTimeout(() => {
@@ -1030,7 +1034,7 @@
         toolOutputProxy = true;
       }
     }
-    
+
     // Fast polling
     const fastObserver = setInterval(() => {
       if (rendered) {
@@ -1079,7 +1083,7 @@
         }
       }
     }, 25);
-    
+
     // Immediate render attempts
     setTimeout(() => {
       if (!rendered && hasValidToolOutput()) {
@@ -1087,21 +1091,21 @@
         if (success) rendered = true;
       }
     }, 100);
-    
+
     setTimeout(() => {
       if (!rendered && hasValidToolOutput()) {
         const success = renderAllCart();
         if (success) rendered = true;
       }
     }, 500);
-    
+
     setTimeout(() => {
       if (!rendered && hasValidToolOutput()) {
         const success = renderAllCart();
         if (success) rendered = true;
       }
     }, 1000);
-    
+
     // Event listeners
     window.addEventListener("load", () => {
       console.log('Load event fired, attempting to render cart');
@@ -1110,7 +1114,7 @@
         if (success) rendered = true;
       }
     });
-    
+
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', () => {
         console.log('DOMContentLoaded fired, attempting to render cart');
@@ -1128,7 +1132,7 @@
         }
       }, 500);
     }
-    
+
     // Periodic check as last resort
     const intervalId = setInterval(() => {
       if (rendered) {
@@ -1151,4 +1155,5 @@
     }, 20000);
   </script>
 </body>
+
 </html>

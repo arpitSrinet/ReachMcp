@@ -187,15 +187,15 @@
   },
   "session_1768774999148_8ej3lxv": {
     "sessionId": "session_1768774999148_8ej3lxv",
-    "flowStage": "configuring",
-    "resumeStep": "device_selection",
-    "lastIntent": "device",
-    "lastAction": "add_to_cart",
+    "flowStage": "planning",
+    "resumeStep": "plan_selection",
+    "lastIntent": "plan",
+    "lastAction": "get_plans",
     "conversationHistory": [
       {
         "intent": "plan",
         "action": "get_plans",
-        "timestamp": 1768775002582,
+        "timestamp": 1768778452682,
         "data": {
           "planCount": 4
         }
@@ -203,7 +203,7 @@
       {
         "intent": "plan",
         "action": "add_to_cart",
-        "timestamp": 1768775035842,
+        "timestamp": 1768778485877,
         "data": {
           "itemType": "plan",
           "itemId": "M0028122398SHKAEF34A7711A1",
@@ -213,36 +213,43 @@
       {
         "intent": "plan",
         "action": "add_to_cart",
-        "timestamp": 1768775044154,
+        "timestamp": 1768778495209,
         "data": {
           "itemType": "plan",
-          "itemId": "M0028122398SHKE98BC3295A88",
+          "itemId": "M0028122398SHKAEF34A7711A1",
           "lineNumber": 2
         }
       },
       {
-        "intent": "device",
-        "action": "get_devices",
-        "timestamp": 1768775108137,
-        "data": {
-          "deviceCount": 8,
-          "brand": null
-        }
-      },
-      {
-        "intent": "device",
+        "intent": "plan",
         "action": "add_to_cart",
-        "timestamp": 1768775197342,
+        "timestamp": 1768778501711,
         "data": {
-          "itemType": "device",
-          "itemId": "ab586a73c7914ea09a7991975577178c",
-          "lineNumber": 1
+          "itemType": "plan",
+          "itemId": "M0028122398SHKE98BC3295A88",
+          "lineNumber": 3
         }
       },
       {
         "intent": "plan",
         "action": "get_plans",
-        "timestamp": 1768775818523,
+        "timestamp": 1768778544754,
+        "data": {
+          "planCount": 4
+        }
+      },
+      {
+        "intent": "plan",
+        "action": "get_plans",
+        "timestamp": 1768778747193,
+        "data": {
+          "planCount": 4
+        }
+      },
+      {
+        "intent": "plan",
+        "action": "get_plans",
+        "timestamp": 1768779375995,
         "data": {
           "planCount": 4
         }
@@ -250,45 +257,34 @@
       {
         "intent": "plan",
         "action": "add_to_cart",
-        "timestamp": 1768775929125,
+        "timestamp": 1768779428813,
         "data": {
           "itemType": "plan",
-          "itemId": "M0028122398SHK447DCBB742CC",
+          "itemId": "M0028122398SHKAEF34A7711A1",
           "lineNumber": 1
         }
       },
       {
         "intent": "plan",
         "action": "add_to_cart",
-        "timestamp": 1768775939207,
+        "timestamp": 1768779435107,
         "data": {
           "itemType": "plan",
-          "itemId": "M0028122398SHK447DCBB742CC",
+          "itemId": "M0028122398SHKAEF34A7711A1",
           "lineNumber": 2
         }
       },
       {
-        "intent": "device",
-        "action": "get_devices",
-        "timestamp": 1768776014712,
+        "intent": "plan",
+        "action": "get_plans",
+        "timestamp": 1768779609859,
         "data": {
-          "deviceCount": 8,
-          "brand": null
-        }
-      },
-      {
-        "intent": "device",
-        "action": "add_to_cart",
-        "timestamp": 1768776053019,
-        "data": {
-          "itemType": "device",
-          "itemId": "4a7f8bad90b2491eb391226b61bb9f45",
-          "lineNumber": 2
+          "planCount": 4
         }
       }
     ],
     "currentQuestion": null,
-    "lastUpdated": 1768776053019,
+    "lastUpdated": 1768780428904,
     "coverageChecked": false,
     "coverageZipCode": null,
     "zip": null,
@@ -297,7 +293,7 @@
       {
         "lineNumber": 1,
         "planSelected": true,
-        "planId": "M0028122398SHK447DCBB742CC",
+        "planId": "M0028122398SHKAEF34A7711A1",
         "deviceSelected": true,
         "deviceId": "ab586a73c7914ea09a7991975577178c",
         "protectionSelected": false,
@@ -308,7 +304,7 @@
       {
         "lineNumber": 2,
         "planSelected": true,
-        "planId": "M0028122398SHK447DCBB742CC",
+        "planId": "M0028122398SHKAEF34A7711A1",
         "deviceSelected": true,
         "deviceId": "4a7f8bad90b2491eb391226b61bb9f45",
         "protectionSelected": false,
@@ -377,5 +373,262 @@
     "protectionSelected": false,
     "simSelected": false,
     "linesConfigured": false
+  },
+  "session_1768778366027_8j10wne": {
+    "sessionId": "session_1768778366027_8j10wne",
+    "flowStage": "initial",
+    "resumeStep": null,
+    "lastIntent": "plan",
+    "lastAction": null,
+    "conversationHistory": [],
+    "currentQuestion": {
+      "type": "line_count",
+      "text": "How many lines would you like to set up?",
+      "expectedEntities": {
+        "lineCount": true
+      },
+      "askedAt": 1768778366032
+    },
+    "lastUpdated": 1768778366032,
+    "coverageChecked": false,
+    "coverageZipCode": null,
+    "zip": null,
+    "lineCount": null,
+    "lines": [],
+    "cartRef": null,
+    "missingPrerequisites": [],
+    "planSelected": false,
+    "deviceSelected": false,
+    "protectionSelected": false,
+    "simSelected": false,
+    "linesConfigured": false
+  },
+  "session_1768778681948_z0ei39g": {
+    "sessionId": "session_1768778681948_z0ei39g",
+    "flowStage": "initial",
+    "resumeStep": null,
+    "lastIntent": "plan",
+    "lastAction": null,
+    "conversationHistory": [],
+    "currentQuestion": {
+      "type": "line_count",
+      "text": "How many lines would you like to set up?",
+      "expectedEntities": {
+        "lineCount": true
+      },
+      "askedAt": 1768778681960
+    },
+    "lastUpdated": 1768778681960,
+    "coverageChecked": false,
+    "coverageZipCode": null,
+    "zip": null,
+    "lineCount": null,
+    "lines": [],
+    "cartRef": null,
+    "missingPrerequisites": [],
+    "planSelected": false,
+    "deviceSelected": false,
+    "protectionSelected": false,
+    "simSelected": false,
+    "linesConfigured": false
+  },
+  "session_1768779270705_nyp4rhx": {
+    "sessionId": "session_1768779270705_nyp4rhx",
+    "flowStage": "initial",
+    "resumeStep": null,
+    "lastIntent": "plan",
+    "lastAction": null,
+    "conversationHistory": [],
+    "currentQuestion": {
+      "type": "line_count",
+      "text": "How many lines would you like to set up?",
+      "expectedEntities": {
+        "lineCount": true
+      },
+      "askedAt": 1768779270709
+    },
+    "lastUpdated": 1768779270709,
+    "coverageChecked": false,
+    "coverageZipCode": null,
+    "zip": null,
+    "lineCount": null,
+    "lines": [],
+    "cartRef": null,
+    "missingPrerequisites": [],
+    "planSelected": false,
+    "deviceSelected": false,
+    "protectionSelected": false,
+    "simSelected": false,
+    "linesConfigured": false
+  },
+  "session_1768780286652_062459g": {
+    "sessionId": "session_1768780286652_062459g",
+    "flowStage": "initial",
+    "resumeStep": null,
+    "lastIntent": "plan",
+    "lastAction": null,
+    "conversationHistory": [],
+    "currentQuestion": {
+      "type": "line_count",
+      "text": "How many lines would you like to set up?",
+      "expectedEntities": {
+        "lineCount": true
+      },
+      "askedAt": 1768780286671
+    },
+    "lastUpdated": 1768780286671,
+    "coverageChecked": false,
+    "coverageZipCode": null,
+    "zip": null,
+    "lineCount": null,
+    "lines": [],
+    "cartRef": null,
+    "missingPrerequisites": [],
+    "planSelected": false,
+    "deviceSelected": false,
+    "protectionSelected": false,
+    "simSelected": false,
+    "linesConfigured": false
+  },
+  "session_1768780369625_z31p32m": {
+    "sessionId": "session_1768780369625_z31p32m",
+    "flowStage": "initial",
+    "resumeStep": null,
+    "lastIntent": "plan",
+    "lastAction": null,
+    "conversationHistory": [],
+    "currentQuestion": {
+      "type": "line_count",
+      "text": "How many lines would you like to set up?",
+      "expectedEntities": {
+        "lineCount": true
+      },
+      "askedAt": 1768780369639
+    },
+    "lastUpdated": 1768780369639,
+    "coverageChecked": false,
+    "coverageZipCode": null,
+    "zip": null,
+    "lineCount": null,
+    "lines": [],
+    "cartRef": null,
+    "missingPrerequisites": [],
+    "planSelected": false,
+    "deviceSelected": false,
+    "protectionSelected": false,
+    "simSelected": false,
+    "linesConfigured": false
+  },
+  "session_1768780810166_370qijw": {
+    "sessionId": "session_1768780810166_370qijw",
+    "flowStage": "initial",
+    "resumeStep": null,
+    "lastIntent": "plan",
+    "lastAction": null,
+    "conversationHistory": [],
+    "currentQuestion": {
+      "type": "line_count",
+      "text": "How many lines would you like to set up?",
+      "expectedEntities": {
+        "lineCount": true
+      },
+      "askedAt": 1768780810173
+    },
+    "lastUpdated": 1768780810173,
+    "coverageChecked": false,
+    "coverageZipCode": null,
+    "zip": null,
+    "lineCount": null,
+    "lines": [],
+    "cartRef": null,
+    "missingPrerequisites": [],
+    "planSelected": false,
+    "deviceSelected": false,
+    "protectionSelected": false,
+    "simSelected": false,
+    "linesConfigured": false
+  },
+  "session_1768807103986_60da7xe": {
+    "sessionId": "session_1768807103986_60da7xe",
+    "flowStage": "initial",
+    "resumeStep": null,
+    "lastIntent": "plan",
+    "lastAction": null,
+    "conversationHistory": [],
+    "currentQuestion": {
+      "type": "line_count",
+      "text": "How many lines would you like to set up?",
+      "expectedEntities": {
+        "lineCount": true
+      },
+      "askedAt": 1768807103998
+    },
+    "lastUpdated": 1768807103999,
+    "coverageChecked": false,
+    "coverageZipCode": null,
+    "zip": null,
+    "lineCount": null,
+    "lines": [],
+    "cartRef": null,
+    "missingPrerequisites": [],
+    "planSelected": false,
+    "deviceSelected": false,
+    "protectionSelected": false,
+    "simSelected": false,
+    "linesConfigured": false
+  },
+  "session_1768807125561_dlcky7k": {
+    "sessionId": "session_1768807125561_dlcky7k",
+    "flowStage": "planning",
+    "resumeStep": "plan_selection",
+    "lastIntent": "plan",
+    "lastAction": "get_plans",
+    "conversationHistory": [
+      {
+        "intent": "plan",
+        "action": "get_plans",
+        "timestamp": 1768807127745,
+        "data": {
+          "planCount": 4
+        }
+      }
+    ],
+    "currentQuestion": null,
+    "lastUpdated": 1768807127745,
+    "coverageChecked": false,
+    "coverageZipCode": null,
+    "zip": null,
+    "lineCount": 2,
+    "lines": [
+      {
+        "lineNumber": 1,
+        "planSelected": false,
+        "planId": null,
+        "deviceSelected": false,
+        "deviceId": null,
+        "protectionSelected": false,
+        "protectionId": null,
+        "simType": null,
+        "simIccId": null
+      },
+      {
+        "lineNumber": 2,
+        "planSelected": false,
+        "planId": null,
+        "deviceSelected": false,
+        "deviceId": null,
+        "protectionSelected": false,
+        "protectionId": null,
+        "simType": null,
+        "simIccId": null
+      }
+    ],
+    "cartRef": null,
+    "missingPrerequisites": [],
+    "planSelected": false,
+    "deviceSelected": false,
+    "protectionSelected": false,
+    "simSelected": false,
+    "linesConfigured": true
   }
 }
