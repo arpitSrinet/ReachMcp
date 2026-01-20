@@ -256,7 +256,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: "get_plans",
-        description: "CRITICAL: NO WEB SEARCH - Use ONLY API data and tool responses. DO NOT search the web or use general knowledge. MANDATORY TOOL: Fetch purchasable mobile plans catalog. CRITICAL: 1) MUST call when user asks about plans, wants to see plans, mentions plans, or needs plan information. 2) DO NOT use general knowledge or training data. 3) ONLY use plans returned by this tool. 4) Fetches real-time plans from Reach Mobile API. FLOW LOGIC: If lineCount unknown, ask user first. After showing plans, system sets resume step to 'plan_selection'. Supports 'apply to all' (SAME_FOR_ALL) or 'mix & match' (PER_LINE) per line. NON-LINEAR: Users can jump to plans from any step. Answer question first, then resume previous step. GUARDRAILS: Plans are mandatory for checkout. Each configured line must have a plan before checkout.",
+        description: "CRITICAL: NO WEB SEARCH - Use ONLY API data and tool responses. DO NOT search the web or use general knowledge. MANDATORY TOOL: Fetch purchasable mobile plans catalog. CRITICAL: 1) MUST call when user asks about plans, wants to see plans, mentions plans, or needs plan information. 2) DO NOT use general knowledge or training data. 3) ONLY use plans returned by this tool. 4) Fetches real-time plans from Reach Mobile API. FLOW LOGIC: If lineCount unknown, ask user first. After showing plans initially (selectionMode='initial'), ask user to choose 'apply to all' or 'mix and match'. CRITICAL: If user chooses 'mix & match', 'apply to all', 'same plan', or 'different plans', you MUST call select_plan_mode tool IMMEDIATELY. Do NOT respond with text confirmation. SEQUENTIAL MODE: After user selects a plan in sequential mode, call this tool again with selectionMode='sequential' to show plans for the next line. Repeat until all lines have plans. NON-LINEAR: Users can jump to plans from any step. Answer question first, then resume previous step. GUARDRAILS: Plans are mandatory for checkout. Each configured line must have a plan before checkout.",
         inputSchema: {
           type: "object",
           properties: {
@@ -280,7 +280,36 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               type: "number",
               description: "Number of lines to configure (optional) - if provided, updates the session context",
             },
+            selectionMode: {
+              type: "string",
+              enum: ["initial", "applyAll", "sequential"],
+              description: "Plan selection mode: 'initial' (first time, no mode chosen), 'applyAll' (apply same plan to all lines), 'sequential' (select different plans per line). Optional - defaults to 'initial'.",
+            },
           },
+        },
+        _meta: {
+          "openai/outputTemplate": "ui://widget/plans.html",
+          "openai/resultCanProduceWidget": true,
+          "openai/widgetAccessible": true
+        },
+      },
+      {
+        name: "select_plan_mode",
+        description: "CRITICAL: MANDATORY TOOL - Call this IMMEDIATELY when user indicates they want 'different plans per line', 'mix and match', or 'apply to all'. DO NOT respond with text - you MUST call this tool. WHEN TO USE: 1) User says 'mix and match', 'different plans', 'different for each line', 'customize per line' -> CALL select_plan_mode(mode='sequential'). 2) User says 'apply to all', 'same for all', 'same plan' -> CALL select_plan_mode(mode='applyAll'). LOGIC: This tool is REQUIRED to switch the UI mode. You cannot handle plan selection via text. You must use this tool to show the correct plan selection widget.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            mode: {
+              type: "string",
+              enum: ["applyAll", "sequential"],
+              description: "Selection mode: 'applyAll' (apply same plan to all lines) or 'sequential' (mix and match - select different plans per line). Required.",
+            },
+            sessionId: {
+              type: "string",
+              description: "Session ID for flow context tracking (optional)",
+            },
+          },
+          required: ["mode"],
         },
         _meta: {
           "openai/outputTemplate": "ui://widget/plans.html",
@@ -430,7 +459,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: "add_to_cart",
-        description: "CRITICAL: NO WEB SEARCH - Use ONLY API data and tool responses. DO NOT search the web or use general knowledge. Add or replace a line-scoped item in cart (PLAN/DEVICE/PROTECTION/SIM). Supports multi-line structure - specify lineNumber to add item to a specific line. SessionId auto-generated if not provided. FLOW LOGIC: Automatically updates flow context (bundle.lines[*].selections), sets appropriate resume step, and tracks intent. If adding plan to new session, initializes lineCount=1. Ensures cart exists (cart_start equivalent). Returns conversational guidance with next steps. NON-LINEAR: Users can add items in any order. System tracks progress per line and suggests next steps. GUARDRAILS: Protection requires device for that line. Plans and SIM required before checkout.",
+        description: "CRITICAL: NO WEB SEARCH - Use ONLY API data and tool responses. DO NOT search the web or use general knowledge. Add or replace a line-scoped item in cart (PLAN/DEVICE/PROTECTION/SIM). Supports multi-line structure - specify lineNumber to add item to a specific line. SessionId auto-generated if not provided. FLOW LOGIC: Automatically updates flow context (bundle.lines[*].selections), sets appropriate resume step, and tracks intent. If adding plan to new session, initializes lineCount=1. Ensures cart exists (cart_start equivalent). Returns conversational guidance with next steps. CRITICAL PLAN SELECTION FLOW: After adding a plan (itemType='plan'), if there are still lines without plans, you MUST call get_plans tool again with selectionMode='sequential' to show plans for the next line. Continue this loop until all lines have plans. NON-LINEAR: Users can add items in any order. System tracks progress per line and suggests next steps. GUARDRAILS: Protection requires device for that line. Plans and SIM required before checkout.",
         inputSchema: {
           type: "object",
           properties: {
@@ -1188,6 +1217,26 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         contextUpdates.lines = [];
       }
 
+      // Detect plan selection mode from user input
+      if (userPrompt) {
+        if (/apply.*to.*all|same.*plan.*all|all.*same/i.test(userPrompt)) {
+          contextUpdates.planSelectionMode = 'applyAll';
+          contextUpdates.selectedPlansPerLine = {};
+        } else if (/mix.*match|different.*plan|select.*each/i.test(userPrompt)) {
+          contextUpdates.planSelectionMode = 'sequential';
+          contextUpdates.activeLineForPlan = 1;
+          contextUpdates.selectedPlansPerLine = {};
+        }
+
+        // Detect plan selection for specific line
+        const selectPlanMatch = userPrompt.match(/select.*(?:plan|unlimited|essentials|by the gig).*for.*line\s*(\d+)/i);
+        if (selectPlanMatch && context?.planSelectionMode === 'sequential') {
+          const lineNum = parseInt(selectPlanMatch[1]);
+          // Move to next line
+          contextUpdates.activeLineForPlan = lineNum + 1;
+        }
+      }
+
       updateFlowContext(sessionId, contextUpdates);
       updateMostRecentSession(sessionId);
 
@@ -1504,6 +1553,152 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       };
     }
 
+    if (name === "select_plan_mode") {
+      // Handle plan selection mode choice (Apply to All vs Mix and Match)
+      const sessionId = getOrCreateSessionId(args.sessionId || null);
+      const context = getFlowContext(sessionId);
+      const mode = args.mode; // 'applyAll' or 'sequential'
+
+      if (!context || !context.lineCount || context.lineCount === 0) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: "## ⚠️ Line Count Required\n\nPlease specify the number of lines first before selecting a plan mode.\n\n**To continue:** Tell me how many lines you need (e.g., 'I need 2 lines').",
+            }
+          ]
+        };
+      }
+
+      logger.info("Plan selection mode chosen", { sessionId, mode, lineCount: context.lineCount });
+
+      // Force token refresh for get_plans
+      logger.info("Forcing auth token refresh for get_plans (via select_plan_mode)", { tenant });
+      await getAuthToken(tenant, true);
+
+      // Get plans
+      let plans;
+      try {
+        plans = await getPlans(null, tenant);
+      } catch (planError) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `## ⚠️ Unable to Load Plans\n\nI tried to fetch the available mobile plans, but encountered an issue: ${planError.message}\n\nPlease try again or contact support.`,
+            }
+          ]
+        };
+      }
+
+      if (!plans || plans.length === 0) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: "## 📱 Available Mobile Plans\n\nNo plans found. Please try again or contact support.",
+            }
+          ]
+        };
+      }
+
+      // Set resume step
+      setResumeStep(sessionId, 'plan_selection');
+      updateLastIntent(sessionId, INTENT_TYPES.PLAN, 'select_plan_mode');
+
+      // Fetch cart to check for existing lines with plans
+      const cart = sessionId ? getCartMultiLine(sessionId) : null;
+
+      // Calculate activeLineId for sequential mode
+      let activeLineId = null;
+      let selectedPlansPerLine = {};
+
+      const linesWithPlans = cart ? (cart.lines || [])
+        .filter(l => l.plan && l.plan.id)
+        .map(l => l.lineNumber) : [];
+
+      if (cart && cart.lines) {
+        cart.lines.forEach(line => {
+          if (line.plan && line.plan.id) {
+            selectedPlansPerLine[String(line.lineNumber)] = line.plan.id;
+          }
+        });
+      }
+
+      if (mode === 'sequential') {
+        // Find the first line without a plan
+        const lineCount = context?.lineCount || 0;
+        for (let i = 1; i <= lineCount; i++) {
+          if (!linesWithPlans.includes(i)) {
+            activeLineId = i;
+            break;
+          }
+        }
+      }
+
+      // Build response text
+      let responseText = "";
+      if (mode === 'applyAll') {
+        responseText = `## 📱 Apply to All Lines\n\nGreat! You'll choose one plan that applies to all ${context.lineCount} lines.\n\n**Next:** Click any plan card below to apply it to all lines.`;
+      } else if (mode === 'sequential') {
+        responseText = `## 📱 Mix and Match Plans\n\nPerfect! You can select different plans for each line.\n\n**Starting with Line ${activeLineId}:** Click any plan card below to select it for Line ${activeLineId}.`;
+        if (linesWithPlans.length > 0) {
+          responseText += `\n\n✅ **Completed:** Line${linesWithPlans.length > 1 ? 's' : ''} ${linesWithPlans.join(', ')}`;
+        }
+      }
+
+      // Build structured data for widget
+      const structuredData = {
+        selectionMode: mode,
+        activeLineId: activeLineId,
+        selectedPlansPerLine: selectedPlansPerLine,
+        linesWithPlans: linesWithPlans,
+        plans: plans.map(plan => ({
+          ...plan,
+          id: plan.id || plan.uniqueIdentifier,
+          name: plan.displayName || plan.displayNameWeb || plan.name,
+          price: plan.price || plan.baseLinePrice || 0,
+          data: plan.data || plan.planData || 0,
+          dataUnit: plan.dataUnit || "GB",
+          discountPctg: plan.discountPctg || 0,
+          planType: plan.planType,
+          serviceCode: plan.serviceCode,
+          planCharging: plan.planCharging,
+        })),
+        lineCount: context.lineCount,
+        lines: context.lines ? context.lines.map((line, index) => ({
+          lineNumber: line.lineNumber || (index + 1),
+          phoneNumber: line.phoneNumber || null,
+          planSelected: line.planSelected || false,
+          planId: line.planId || null,
+          deviceSelected: line.deviceSelected || false,
+          deviceId: line.deviceId || null,
+          protectionSelected: line.protectionSelected || false,
+          protectionId: line.protectionId || null,
+          simType: line.simType || null,
+          simIccId: line.simIccId || null
+        })) : []
+      };
+
+      return {
+        structuredContent: structuredData,
+        content: [
+          {
+            type: "text",
+            text: responseText,
+          }
+        ],
+        _meta: {
+          "openai/outputTemplate": "ui://widget/plans.html",
+          "openai/resultCanProduceWidget": true,
+          "openai/widgetAccessible": true,
+          widgetType: "planCard",
+          hasLineSelected: true,
+          selectionMode: mode
+        }
+      };
+    }
+
     if (name === "get_plans") {
       // User Requested: Force explicit token refresh on every get_plans call to avoid 403s
       logger.info("Forcing auth token refresh for get_plans tool", { tenant });
@@ -1810,6 +2005,40 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         });
       }
 
+      // Fetch cart to check for existing lines with plans
+      const cart = sessionId ? getCartMultiLine(sessionId) : null;
+
+      // Determine selection mode and calculate activeLineId
+      let selectionMode = args.selectionMode || 'initial';
+      let activeLineId = null;
+      let selectedPlansPerLine = {};
+
+      // Get lines with plans from cart
+      const linesWithPlans = cart ? (cart.lines || [])
+        .filter(l => l.plan && l.plan.id)
+        .map(l => l.lineNumber) : [];
+
+      // Build selectedPlansPerLine map
+      if (cart && cart.lines) {
+        cart.lines.forEach(line => {
+          if (line.plan && line.plan.id) {
+            selectedPlansPerLine[String(line.lineNumber)] = line.plan.id;
+          }
+        });
+      }
+
+      // Calculate activeLineId for sequential mode
+      if (selectionMode === 'sequential') {
+        // Find the first line without a plan
+        const lineCount = context?.lineCount || 0;
+        for (let i = 1; i <= lineCount; i++) {
+          if (!linesWithPlans.includes(i)) {
+            activeLineId = i;
+            break;
+          }
+        }
+      }
+
       // Build three-section response: Response | Suggestions | Next Steps
       // SECTION 1: RESPONSE
       let mainResponse = `Showing ${plans.length} available plan${plans.length > 1 ? 's' : ''}. All prices in USD for USA.\n\nSee plan cards below with pricing, data, and features.`;
@@ -1818,13 +2047,29 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       let nextSteps = "";
 
       if (context && progress) {
+        const lineCount = context?.lineCount || 0;
+
         // Section 2: Suggestions about the response
-        if (progress.missing.plans && progress.missing.plans.length > 0) {
+        if (selectionMode === 'initial' && lineCount > 1) {
+          suggestions = `**How would you like to select plans?**\n\n`;
+          suggestions += `• **Apply to all:** Choose one plan for all ${lineCount} lines (I will use the \`select_plan_mode\` tool)\n`;
+          suggestions += `• **Mix and match:** Select different plans for each line (I will use the \`select_plan_mode\` tool)\n\n`;
+          suggestions += `Please let me know your preference!`;
+        } else if (selectionMode === 'applyAll') {
+          suggestions = `**Apply to All Mode**\n\n`;
+          suggestions += `Click any plan card below to apply it to all ${lineCount} lines.`;
+        } else if (selectionMode === 'sequential' && activeLineId) {
+          suggestions = `**Selecting plan for Line ${activeLineId}**\n\n`;
+          suggestions += `Click any plan card below to select it for Line ${activeLineId}.`;
+          if (linesWithPlans.length > 0) {
+            suggestions += `\n\n✅ Completed: Line${linesWithPlans.length > 1 ? 's' : ''} ${linesWithPlans.join(', ')}`;
+          }
+        } else if (progress.missing.plans && progress.missing.plans.length > 0) {
           suggestions = `You need to select plans for **${progress.missing.plans.length} line${progress.missing.plans.length > 1 ? 's' : ''}**.\n\n`;
           suggestions += `**Selection Options:**\n`;
           suggestions += `• **Apply to All:** Choose one plan and apply it to all lines\n`;
           suggestions += `• **Mix & Match:** Select different plans for each line\n\n`;
-          suggestions += `Click "Add to Cart" on any plan card below.`;
+          suggestions += `Click \"Add to Cart\" on any plan card below.`;
         } else {
           suggestions = "All plans have been selected for your lines. You can still add more plans or modify your selections.";
         }
@@ -1839,15 +2084,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       const responseText = formatThreeSectionResponse(mainResponse, suggestions, nextSteps);
 
-      // Fetch cart to check for existing lines with plans
-      const cart = sessionId ? getCartMultiLine(sessionId) : null;
-
       // Return structuredContent for Apps SDK widget (ONLY when line is selected)
       // The widget will read this via window.openai.toolOutput
       const structuredData = {
-        linesWithPlans: cart ? (cart.lines || [])
-          .filter(l => l.plan && l.plan.id)
-          .map(l => l.lineNumber) : [],
+        selectionMode: selectionMode,
+        activeLineId: activeLineId,
+        selectedPlansPerLine: selectedPlansPerLine,
+        linesWithPlans: linesWithPlans,
         plans: plans.map(plan => ({
           // Spread original plan so widget sees all API fields
           ...plan,

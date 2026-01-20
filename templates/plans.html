@@ -25,7 +25,7 @@
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
       padding: 24px;
-      background: #f3f4f6;
+      background: #ffffff;
     }
 
     .plans-container {
@@ -474,6 +474,10 @@
     let currentLines = [];
     // Track lines that already have plans in cart
     let linesWithPlans = [];
+    // Selection mode state from backend
+    let selectionMode = 'initial';
+    let activeLineId = null;
+    let selectedPlansPerLine = {};
 
     // Function to extract lines from toolOutput
     // Also populates DUMMY_LINES with API data for compatibility with cached code
@@ -616,6 +620,14 @@
         linesWithPlans = [];
       }
 
+      // Extract selection mode state
+      if (toolOutput && toolOutput.structuredContent) {
+        selectionMode = toolOutput.structuredContent.selectionMode || 'initial';
+        activeLineId = toolOutput.structuredContent.activeLineId || null;
+        selectedPlansPerLine = toolOutput.structuredContent.selectedPlansPerLine || {};
+        console.log('✅ Selection state:', { selectionMode, activeLineId, selectedPlansPerLine });
+      }
+
       return extractedLines;
     }
 
@@ -698,37 +710,41 @@
             `).join('')}
           </div>
           
-          <button class="select-button ${isSelected ? 'select-button--selected' : ''}" 
-                  onclick="selectPlan('${planId}', '${name.replace(/'/g, "\\'")}', this)">
-            ${isSelected ? '✓ Selected' : 'Select Plan'}
-          </button>
+          <button class="select-button" 
+                  onclick="handlePlanSelection('${planId}', '${name.replace(/'/g, "\\'")}')">${selectionMode === 'applyAll'
+          ? `Add ${name} to All Lines`
+          : selectionMode === 'sequential' && activeLineId
+            ? `Select ${name} for Line ${activeLineId}`
+            : `Select Plan`
+        }</button>
           
-          <div class="line-selection-section ${plansWithSelection.has(planId) ? 'show' : ''}" id="line-selection-${planId}">
-            <div class="line-selection-title">Select lines for this plan:</div>
+          <div class="line-selection-section" style="display: none;">
+            <div class="line-selection-title">Lines:</div>
             <div class="line-checkboxes">
               ${(Array.isArray(currentLines) ? currentLines : []).map(line => {
-        const lineIdStr = String(line.id);
-        const hasPlanInCart = linesWithPlans.includes(line.id);
-        const isLineAssigned = (linePlanAssignments[lineIdStr] && linePlanAssignments[lineIdStr] !== planId) || hasPlanInCart;
-        const isChecked = linePlanAssignments[lineIdStr] === planId;
+          const lineIdStr = String(line.id);
+          const hasPlanInCart = linesWithPlans.includes(line.id);
+          const hasSelectedPlan = selectedPlansPerLine[lineIdStr] !== undefined;
+          const isThisPlan = selectedPlansPerLine[lineIdStr] === planId;
+          const isChecked = hasPlanInCart || isThisPlan;
 
-        return `
-                  <label class="line-checkbox-item ${isLineAssigned ? 'disabled' : ''}" ${isLineAssigned ? 'onclick="return false;"' : ''}>
+          return `
+                  <label class="line-checkbox-item disabled" onclick="return false;">
                     <div class="line-checkbox">
                       <input type="checkbox" 
                              id="line-${line.id}-plan-${planId}"
                              ${isChecked ? 'checked' : ''}
-                             ${isLineAssigned ? 'disabled' : ''}
-                             onchange="toggleLineAssignment(${line.id}, '${planId}', '${name.replace(/'/g, "\\'")}')">
+                             disabled>
                       <span class="line-checkbox-custom"></span>
                     </div>
                     <span class="line-label">
                       ${line.name} ${line.phoneNumber ? `(${line.phoneNumber})` : ''}
-                      ${hasPlanInCart ? '<span style="font-size: 12px; color: #30ba95; margin-left: 6px;">(Plan in cart)</span>' : ''}
+                      ${hasPlanInCart ? '<span style="font-size: 12px; color: #30ba95; margin-left: 6px;">(In cart)</span>' : ''}
+                      ${isThisPlan ? '<span style="font-size: 12px; color: #2563eb; margin-left: 6px;">(Selected)</span>' : ''}
                     </span>
                   </label>
                 `;
-      }).join('')}
+        }).join('')}
             </div>
           </div>
           
@@ -752,6 +768,34 @@
             </div>
         </div>
       `;
+    }
+
+    // New simplified plan selection handler
+    function handlePlanSelection(planId, planName) {
+      console.log('handlePlanSelection called:', { planId, planName, selectionMode, activeLineId });
+
+      let message = '';
+
+      if (selectionMode === 'applyAll') {
+        message = `Add ${planName} plan to all lines`;
+      } else if (selectionMode === 'sequential' && activeLineId) {
+        message = `Select ${planName} plan for Line ${activeLineId}`;
+      } else {
+        // Initial or single line logic check
+        const toolOutput = window.openai && window.openai.toolOutput ? window.openai.toolOutput : {};
+        const sc = toolOutput.structuredContent || {};
+        const lineCount = sc.lineCount || 1;
+
+        if (lineCount > 1) {
+          // Multi-line initial selection - ask mode
+          message = `I am interested in ${planName}. Should I apply this to all lines or mix and match?`;
+        } else {
+          // Single line - just select it
+          message = `Select ${planName} plan`;
+        }
+      }
+
+      sendPrompt(message);
     }
 
     // Shared helper function to populate chat input with prompt
