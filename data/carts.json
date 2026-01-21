@@ -289,11 +289,30 @@
           "simType": null,
           "iccId": null
         }
+      },
+      {
+        "lineNumber": 2,
+        "plan": {
+          "type": "plan",
+          "id": "M0028122398SHKAEF34A7711A1",
+          "uniqueIdentifier": "M0028122398SHKAEF34A7711A1",
+          "name": "By the Gig",
+          "price": 15,
+          "data": 1,
+          "dataUnit": "GB"
+        },
+        "device": null,
+        "protection": null,
+        "sim": {
+          "type": "sim",
+          "simType": null,
+          "iccId": null
+        }
       }
     ],
-    "total": 649.99,
+    "total": 664.99,
     "sessionId": "session_1768994364747_60n3733",
-    "expiresAt": 1769003070795,
-    "createdAt": 1768994569427
+    "expiresAt": 1769004305231,
+    "createdAt": 1768996994031
   }
 }
