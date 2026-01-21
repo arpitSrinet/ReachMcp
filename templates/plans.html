@@ -24,22 +24,24 @@
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-      padding: 24px;
+      padding: 12px;
       background: #ffffff;
+      overflow-x: hidden;
     }
 
     .plans-container {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-      gap: 28px;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
       max-width: 1400px;
       margin: 0 auto;
+      width: 100%;
     }
 
     .plan-card {
       border: 1px solid #e0e0e0;
       border-radius: var(--card-radius);
-      padding: 24px;
+      padding: 20px;
       background: white;
       box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
       transition: all 0.25s ease;
@@ -419,6 +421,7 @@
     </div>
   </div>
 
+  <!--
   <div class="global-confirm-section" id="global-confirm-section">
     <div class="global-confirm-content">
       <div class="global-confirm-summary">
@@ -431,6 +434,7 @@
       </button>
     </div>
   </div>
+  -->
 
   <script>
     // ============================================================================
@@ -478,6 +482,7 @@
     let selectionMode = 'initial';
     let activeLineId = null;
     let selectedPlansPerLine = {};
+    let planModePrompted = false;
 
     // Function to extract lines from toolOutput
     // Also populates DUMMY_LINES with API data for compatibility with cached code
@@ -625,7 +630,8 @@
         selectionMode = toolOutput.structuredContent.selectionMode || 'initial';
         activeLineId = toolOutput.structuredContent.activeLineId || null;
         selectedPlansPerLine = toolOutput.structuredContent.selectedPlansPerLine || {};
-        console.log('✅ Selection state:', { selectionMode, activeLineId, selectedPlansPerLine });
+        planModePrompted = !!toolOutput.structuredContent.planModePrompted;
+        console.log('✅ Selection state:', { selectionMode, activeLineId, selectedPlansPerLine, planModePrompted });
       }
 
       return extractedLines;
@@ -777,21 +783,22 @@
       let message = '';
 
       if (selectionMode === 'applyAll') {
-        message = `Add ${planName} plan to all lines`;
+        message = `Add ${planName} plan (ID: ${planId}) to all lines`;
       } else if (selectionMode === 'sequential' && activeLineId) {
-        message = `Select ${planName} plan for Line ${activeLineId}`;
+        message = `Add ${planName} plan (ID: ${planId}) to line ${activeLineId}`;
       } else {
         // Initial or single line logic check
         const toolOutput = window.openai && window.openai.toolOutput ? window.openai.toolOutput : {};
         const sc = toolOutput.structuredContent || {};
-        const lineCount = sc.lineCount || 1;
+        const lineCount = sc.lineCount || (Array.isArray(currentLines) ? currentLines.length : 0) || 1;
+        const defaultLine = activeLineId || 1;
 
-        if (lineCount > 1) {
+        if (lineCount > 1 && !planModePrompted) {
           // Multi-line initial selection - ask mode
-          message = `I am interested in ${planName}. Should I apply this to all lines or mix and match?`;
+          message = `I am interested in ${planName} plan (ID: ${planId}). Should I apply this to all lines or mix and match?`;
         } else {
-          // Single line - just select it
-          message = `Select ${planName} plan`;
+          // Single line or follow-up after initial prompt
+          message = `Add ${planName} plan (ID: ${planId}) to line ${defaultLine}`;
         }
       }
 
@@ -846,7 +853,7 @@
     window.sendPrompt = sendPrompt;
     window.selectPlan = selectPlan;
     window.toggleLineAssignment = toggleLineAssignment;
-    window.confirmAllSelections = confirmAllSelections;
+    // window.confirmAllSelections = confirmAllSelections;
     window.toggleBroadbandFacts = toggleBroadbandFacts;
 
     function selectPlan(planId, planName, buttonEl) {
@@ -908,7 +915,7 @@
         renderAllPlans();
       }
 
-      updateConfirmButtons();
+      // updateConfirmButtons();
     }
 
     function toggleLineAssignment(lineId, planId, planName) {
@@ -945,9 +952,10 @@
 
       // Re-render all plans to update disabled states
       renderAllPlans();
-      updateConfirmButtons();
+      // updateConfirmButtons();
     }
 
+    /*
     function updateConfirmButtons() {
       // DEFENSIVE: Ensure DUMMY_LINES exists (for cached code compatibility)
       // This handles cases where cached/old code might reference DUMMY_LINES
@@ -1046,7 +1054,9 @@
         }
       }
     }
+    */
 
+    /*
     function confirmAllSelections() {
       // Update current lines from toolOutput
       const extractedLines = extractLines();
@@ -1125,6 +1135,7 @@
       // planNames = {};
       // renderAllPlans();
     }
+    */
 
     function toggleBroadbandFacts(planId) {
       const content = document.getElementById(`facts-${planId}`);
@@ -1238,7 +1249,7 @@
 
         // Update confirm buttons after rendering
         setTimeout(() => {
-          updateConfirmButtons();
+          // updateConfirmButtons();
         }, 10);
 
         return true;

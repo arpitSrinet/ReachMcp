@@ -75,6 +75,7 @@ export function getFlowContext(sessionId) {
       // Bundle configuration (bundle section)
       lineCount: null, // lineTotal
       lines: [], // Array of line configurations
+      planSelectionMode: 'initial', // initial | applyAll | sequential
       
       // Commerce/cart tracking (commerce section)
       cartRef: null, // Cart reference ID
@@ -574,4 +575,3 @@ export function getGlobalContextFlags(sessionId) {
     coverageChecked: context.coverageChecked || false
   };
 }
-

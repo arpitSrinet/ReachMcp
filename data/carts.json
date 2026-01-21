@@ -1,1 +1,29 @@
-{}
+{
+  "session_1768985609051_b5fjza2": {
+    "lines": [
+      {
+        "lineNumber": 1,
+        "plan": {
+          "type": "plan",
+          "id": "M0028122398SHK447DCBB742CC",
+          "uniqueIdentifier": "M0028122398SHK447DCBB742CC",
+          "name": "Unlimited 10",
+          "price": 25,
+          "data": 10,
+          "dataUnit": "GB"
+        },
+        "device": null,
+        "protection": null,
+        "sim": {
+          "type": "sim",
+          "simType": null,
+          "iccId": null
+        }
+      }
+    ],
+    "total": 25,
+    "sessionId": "session_1768985609051_b5fjza2",
+    "expiresAt": 1768993238661,
+    "createdAt": 1768986038661
+  }
+}

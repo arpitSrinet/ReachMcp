@@ -671,7 +671,7 @@
         const summaryHtml = renderSummary(monthlyTotal, deviceTotal, protectionTotal, oneTimeTotal, totalDueToday);
 
         container.innerHTML = `
-          <div class="cart-header">🧾 Your Shopping Cart</div>
+          <div class="cart-header">SUMMARY</div>
           <div class="lines-container">
             ${linesHtml}
           </div>
@@ -695,7 +695,7 @@
 
       // Old structure rendering (simplified)
       container.innerHTML = `
-        <div class="cart-header">🧾 Your Shopping Cart</div>
+        <div class="cart-header">SUMMARY</div>
         <div class="summary-section">
           <div class="summary-title">Cart Items</div>
           ${items.map(item => `

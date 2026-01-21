@@ -53,6 +53,9 @@ import {
   formatButtonSuggestions,
   formatConversationalResponse,
 } from "./utils/formatter.js";
+
+const WIDGET_VERSION = Date.now();
+
 import { setupDevServer } from "./devServer.js";
 import { initializeCartService } from "./services/cartService.js";
 import { initializeFlowContextService } from "./services/flowContextService.js";
@@ -288,7 +291,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           },
         },
         _meta: {
-          "openai/outputTemplate": "ui://widget/plans.html",
+          "openai/outputTemplate": `ui://widget/plans.html?v=${WIDGET_VERSION}`,
           "openai/resultCanProduceWidget": true,
           "openai/widgetAccessible": true
         },
@@ -312,7 +315,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           required: ["mode"],
         },
         _meta: {
-          "openai/outputTemplate": "ui://widget/plans.html",
+          "openai/outputTemplate": `ui://widget/plans.html?v=${WIDGET_VERSION}`,
           "openai/resultCanProduceWidget": true,
           "openai/widgetAccessible": true
         },
@@ -763,7 +766,7 @@ server.setRequestHandler(ListResourcesRequestSchema, async () => {
   return {
     resources: [
       {
-        uri: "ui://widget/plans.html",
+        uri: `ui://widget/plans.html?v=${WIDGET_VERSION}`,
         name: "Plans Widget",
         description: "Widget for displaying mobile plans with interactive buttons",
         mimeType: "text/html+skybridge",
@@ -883,8 +886,9 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
       }
 
       // Extract template name from ui:// URI for file-based widgets
-      // Format: ui://widget/plans.html
-      const match = uri.match(/ui:\/\/widget\/([^\/]+)$/);
+      // Extract template name from ui:// URI for file-based widgets
+      // Format: ui://widget/plans.html or ui://widget/plans.html?v=123
+      const match = uri.match(/ui:\/\/widget\/([^\/?]+)/);
       if (!match) {
         throw new Error(`Invalid widget URI: ${uri}`);
       }
@@ -1602,8 +1606,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
-      // Set resume step
+      // Set resume step and persist plan selection mode
       setResumeStep(sessionId, 'plan_selection');
+      updateFlowContext(sessionId, { planSelectionMode: mode, planModePrompted: true });
       updateLastIntent(sessionId, INTENT_TYPES.PLAN, 'select_plan_mode');
 
       // Fetch cart to check for existing lines with plans
@@ -1653,6 +1658,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         activeLineId: activeLineId,
         selectedPlansPerLine: selectedPlansPerLine,
         linesWithPlans: linesWithPlans,
+        planModePrompted: true,
         plans: plans.map(plan => ({
           ...plan,
           id: plan.id || plan.uniqueIdentifier,
@@ -1689,7 +1695,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           }
         ],
         _meta: {
-          "openai/outputTemplate": "ui://widget/plans.html",
+          "openai/outputTemplate": `ui://widget/plans.html?v=${WIDGET_VERSION}`,
           "openai/resultCanProduceWidget": true,
           "openai/widgetAccessible": true,
           widgetType: "planCard",
@@ -2009,7 +2015,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const cart = sessionId ? getCartMultiLine(sessionId) : null;
 
       // Determine selection mode and calculate activeLineId
-      let selectionMode = args.selectionMode || 'initial';
+      let selectionMode = args.selectionMode || context?.planSelectionMode || 'initial';
       let activeLineId = null;
       let selectedPlansPerLine = {};
 
@@ -2038,6 +2044,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           }
         }
       }
+
+      const planModePrompted = context?.planModePrompted || false;
 
       // Build three-section response: Response | Suggestions | Next Steps
       // SECTION 1: RESPONSE
@@ -2091,6 +2099,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         activeLineId: activeLineId,
         selectedPlansPerLine: selectedPlansPerLine,
         linesWithPlans: linesWithPlans,
+        planModePrompted: planModePrompted,
         plans: plans.map(plan => ({
           // Spread original plan so widget sees all API fields
           ...plan,
@@ -2143,6 +2152,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         plansCount: structuredData.plans.length,
         responsePreview: JSON.stringify(response, null, 2).substring(0, 500)
       });
+
+      if (context && selectionMode === 'initial' && context.lineCount > 1 && !planModePrompted) {
+        updateFlowContext(sessionId, { planModePrompted: true });
+      }
 
       return response;
     }
@@ -3087,6 +3100,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     if (name === "add_to_cart") {
       const itemType = args.itemType || 'plan';
       const lineNumber = args.lineNumber || null;
+      const lineNumbersArg = Array.isArray(args.lineNumbers) ? args.lineNumbers : null;
       const sessionId = getOrCreateSessionId(args.sessionId || null);
 
       let item;
@@ -3264,22 +3278,78 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
-      // If this is a new session and we're adding a plan, initialize lineCount if not set
-      if (itemType === 'plan' && flowContext && !flowContext.lineCount) {
-        updateFlowContext(sessionIdForContext, {
-          lineCount: 1,
-          flowStage: 'planning'
-        });
-        // Refresh context after update
-        flowContext = getFlowContext(sessionIdForContext);
+      // For plans: if line count is missing, ask before adding to cart
+      if (itemType === 'plan' && (!flowContext || !flowContext.lineCount || flowContext.lineCount === 0)) {
+        setResumeStep(sessionIdForContext, 'plan_selection');
+        setCurrentQuestion(sessionIdForContext, QUESTION_TYPES.LINE_COUNT,
+          "How many lines do you need? (You can choose the same or different plans per line)",
+          { lineCount: true });
+        updateLastIntent(sessionIdForContext, INTENT_TYPES.PLAN, 'add_to_cart');
+
+        return {
+          content: [{
+            type: "text",
+            text: `## 📱 Plan Selected\n\n` +
+              `Great choice! You've selected **${item.name}**.\n\n` +
+              `Before I add this plan to your cart, I need to know how many lines you'd like to set up.\n\n` +
+              `**How many lines do you need?**\n\n` +
+              `Once you tell me, I can apply this plan to all lines or mix and match.`
+          }],
+          _meta: {
+            sessionId: sessionIdForContext,
+            intent: INTENT_TYPES.PLAN,
+            requiresLineCount: true,
+            resumeStep: 'plan_selection',
+            planItem: item
+          }
+        };
       }
 
-      // Determine target line number using smart assignment
+      // Determine target line number(s) using smart assignment
       let targetLineNumber = lineNumber;
+      let targetLineNumbers = null;
       let assignmentSuggestion = null;
       let assignmentReason = null;
 
+      const wantsAllLines = typeof lineNumber === 'string' && lineNumber.toLowerCase() === 'all';
+      const normalizedLineNumbers = lineNumbersArg
+        ? lineNumbersArg
+            .map(n => Number.parseInt(n, 10))
+            .filter(n => Number.isInteger(n) && n > 0)
+        : [];
+
       if (flowContext) {
+        if (itemType === 'plan' && (wantsAllLines || normalizedLineNumbers.length > 0)) {
+          const maxLines = flowContext.lineCount || 0;
+          if (!maxLines) {
+            return {
+              content: [{
+                type: "text",
+                text: `## 📱 Line Count Required\n\nBefore I can add this plan to multiple lines, I need to know how many lines you'd like to set up.\n\n**How many lines do you need?**`
+              }],
+              _meta: {
+                sessionId: sessionIdForContext,
+                intent: INTENT_TYPES.PLAN,
+                requiresLineCount: true,
+                resumeStep: 'plan_selection',
+                planItem: item
+              }
+            };
+          }
+
+          if (wantsAllLines) {
+            targetLineNumbers = Array.from({ length: maxLines }, (_, i) => i + 1);
+            assignmentSuggestion = `I'll add this plan to all ${maxLines} lines.`;
+            assignmentReason = 'apply_all';
+          } else {
+            targetLineNumbers = normalizedLineNumbers.filter(n => n <= maxLines);
+            assignmentSuggestion = `I'll add this plan to lines ${targetLineNumbers.join(', ')}.`;
+            assignmentReason = 'multi_line';
+          }
+        }
+      }
+
+      if (flowContext && (!targetLineNumbers || targetLineNumbers.length === 0)) {
         try {
           // Use smart line assignment
           const assignment = determineOptimalLineAssignment(flowContext, itemType, lineNumber);
@@ -3359,23 +3429,72 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           targetLineNumber = 1;
           assignmentSuggestion = "I'll add this to Line 1.";
         }
-      } else {
+      } else if (!targetLineNumbers || targetLineNumbers.length === 0) {
         // No context - default to line 1
         targetLineNumber = 1;
         assignmentSuggestion = "I'll add this to Line 1. You may want to set up your line count first.";
       }
 
+      if (flowContext && targetLineNumbers && targetLineNumbers.length > 0) {
+        const maxLines = flowContext.lineCount || targetLineNumbers.length;
+        while (flowContext.lines.length < maxLines) {
+          flowContext.lines.push({
+            lineNumber: flowContext.lines.length + 1,
+            planSelected: false,
+            planId: null,
+            deviceSelected: false,
+            deviceId: null,
+            protectionSelected: false,
+            protectionId: null,
+            simType: null,
+            simIccId: null
+          });
+        }
+
+        targetLineNumbers.forEach(lineNum => {
+          const line = flowContext.lines[lineNum - 1];
+          if (!line) return;
+          if (itemType === 'plan') {
+            line.planSelected = true;
+            line.planId = item.id;
+          } else if (itemType === 'device') {
+            line.deviceSelected = true;
+            line.deviceId = item.id;
+          } else if (itemType === 'protection') {
+            line.protectionSelected = true;
+            line.protectionId = item.id;
+          } else if (itemType === 'sim') {
+            line.simType = item.simType;
+            line.simIccId = item.iccId || null;
+          }
+        });
+
+        updateFlowContext(sessionIdForContext, {
+          lines: flowContext.lines,
+          flowStage: 'configuring'
+        });
+      }
+
       // Safety: Ensure we always have a valid line number
-      if (!targetLineNumber || targetLineNumber < 1) {
+      if ((!targetLineNumbers || targetLineNumbers.length === 0) && (!targetLineNumber || targetLineNumber < 1)) {
         targetLineNumber = 1;
       }
 
       // Now add to cart with validated line number
       let cart, finalSessionId;
       try {
-        const cartResult = addToCart(sessionIdForContext, item, targetLineNumber);
-        cart = cartResult.cart;
-        finalSessionId = cartResult.sessionId;
+        if (targetLineNumbers && targetLineNumbers.length > 0) {
+          finalSessionId = sessionIdForContext;
+          targetLineNumbers.forEach(lineNum => {
+            const cartResult = addToCart(sessionIdForContext, item, lineNum);
+            cart = cartResult.cart;
+            finalSessionId = cartResult.sessionId;
+          });
+        } else {
+          const cartResult = addToCart(sessionIdForContext, item, targetLineNumber);
+          cart = cartResult.cart;
+          finalSessionId = cartResult.sessionId;
+        }
       } catch (error) {
         logger.error('Error adding to cart', { error: error.message, itemType, targetLineNumber });
         return {
@@ -3400,7 +3519,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         addConversationHistory(finalSessionId, {
           intent,
           action: 'add_to_cart',
-          data: { itemType, itemId: item.id, lineNumber: targetLineNumber || lineNumber }
+          data: {
+            itemType,
+            itemId: item.id,
+            lineNumber: targetLineNumber || lineNumber,
+            lineNumbers: targetLineNumbers || undefined
+          }
         });
 
         // Set appropriate resume step
@@ -3422,7 +3546,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       // SECTION 1: RESPONSE
       let mainResponse = `✅ **${item.name}** has been added to your cart!\n\n`;
       mainResponse += `**Item:** ${item.name}\n`;
-      if (lineNumber || targetLineNumber) {
+      if (targetLineNumbers && targetLineNumbers.length > 0) {
+        mainResponse += `**Lines:** ${targetLineNumbers.join(', ')}\n`;
+      } else if (lineNumber || targetLineNumber) {
         mainResponse += `**Line:** ${lineNumber || targetLineNumber}\n`;
       }
       mainResponse += `**Type:** ${itemType.charAt(0).toUpperCase() + itemType.slice(1)}\n`;
@@ -3508,6 +3634,78 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       } else if (itemType === 'plan' && progress && progress.missing && progress.missing.sim && progress.missing.sim.length > 0) {
         // After plan is added, if SIM is missing, suggest get_sim_types tool
         suggestedTool = 'get_sim_types';
+      }
+
+      if (itemType === 'plan' && finalContext && progress && progress.missing?.plans?.length > 0 && finalContext.planSelectionMode === 'sequential') {
+        const plans = await getPlans(null, tenant);
+        const cartSnapshot = finalSessionId ? getCartMultiLine(finalSessionId) : null;
+
+        const linesWithPlans = cartSnapshot ? (cartSnapshot.lines || [])
+          .filter(l => l.plan && l.plan.id)
+          .map(l => l.lineNumber) : [];
+
+        let activeLineId = null;
+        const lineCount = finalContext.lineCount || 0;
+        for (let i = 1; i <= lineCount; i++) {
+          if (!linesWithPlans.includes(i)) {
+            activeLineId = i;
+            break;
+          }
+        }
+
+        const selectedPlansPerLine = {};
+        if (cartSnapshot && cartSnapshot.lines) {
+          cartSnapshot.lines.forEach(line => {
+            if (line.plan && line.plan.id) {
+              selectedPlansPerLine[String(line.lineNumber)] = line.plan.id;
+            }
+          });
+        }
+
+        const responseText = `✅ **${item.name}** added for Line ${targetLineNumber || lineNumber}.\n\n**Next:** Select a plan for Line ${activeLineId}.`;
+
+        return {
+          structuredContent: {
+            selectionMode: 'sequential',
+            activeLineId,
+            selectedPlansPerLine,
+            linesWithPlans,
+            plans: plans.map(plan => ({
+              ...plan,
+              id: plan.id || plan.uniqueIdentifier,
+              name: plan.displayName || plan.displayNameWeb || plan.name,
+              price: plan.price || plan.baseLinePrice || 0,
+              data: plan.data || plan.planData || 0,
+              dataUnit: plan.dataUnit || "GB",
+              discountPctg: plan.discountPctg || 0,
+              planType: plan.planType,
+              serviceCode: plan.serviceCode,
+              planCharging: plan.planCharging,
+            })),
+            lineCount: finalContext.lineCount,
+            lines: finalContext.lines ? finalContext.lines.map((line, index) => ({
+              lineNumber: line.lineNumber || (index + 1),
+              phoneNumber: line.phoneNumber || null,
+              planSelected: line.planSelected || false,
+              planId: line.planId || null,
+              deviceSelected: line.deviceSelected || false,
+              deviceId: line.deviceId || null,
+              protectionSelected: line.protectionSelected || false,
+              protectionId: line.protectionId || null,
+              simType: line.simType || null,
+              simIccId: line.simIccId || null
+            })) : []
+          },
+          content: [{ type: "text", text: responseText }],
+          _meta: {
+            "openai/outputTemplate": `ui://widget/plans.html?v=${WIDGET_VERSION}`,
+            "openai/resultCanProduceWidget": true,
+            "openai/widgetAccessible": true,
+            widgetType: "planCard",
+            hasLineSelected: true,
+            selectionMode: 'sequential'
+          }
+        };
       }
 
       return {
@@ -5361,4 +5559,3 @@ main().catch((error) => {
   stopTokenRefreshCron();
   process.exit(1);
 });
-
