@@ -268,246 +268,14 @@
       box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
     }
 
-    .add-to-cart-btn--added {
-      background: #30ba95;
-    }
-
-    .add-to-cart-btn--added:hover {
-      background: #30ba95;
-      box-shadow: 0 10px 20px rgba(48, 186, 149, 0.35);
-    }
-
-    .line-selection-section {
-      margin-top: 16px;
-      padding: 16px;
-      background: #f9fafb;
-      border-radius: 12px;
-      display: none;
-      position: relative;
-      z-index: 10;
-    }
-
-    .line-selection-section.show {
-      display: block;
-    }
-
-    .line-selection-title {
-      font-size: 14px;
-      font-weight: 600;
-      color: #111827;
-      margin-bottom: 12px;
-    }
-
-    .line-checkboxes {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .line-checkbox-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      cursor: pointer;
-      padding: 8px;
-      border-radius: 8px;
-      transition: background 0.2s ease;
-    }
-
-    .line-checkbox-item:hover {
-      background: #f3f4f6;
-    }
-
-    .line-checkbox-item.disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    .line-checkbox-item.disabled:hover {
-      background: transparent;
-    }
-
-    .line-checkbox {
-      position: relative;
-      width: 24px;
-      height: 24px;
-      flex-shrink: 0;
-    }
-
-    .line-checkbox input[type="checkbox"] {
-      position: absolute;
-      opacity: 0;
-      cursor: pointer;
-      width: 100%;
-      height: 100%;
-      margin: 0;
-    }
-
-    .line-checkbox-custom {
-      width: 24px;
-      height: 24px;
-      border: 2px solid #d1d5db;
-      border-radius: 50%;
-      background: white;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.2s ease;
-    }
-
-    .line-checkbox input[type="checkbox"]:checked+.line-checkbox-custom {
-      background: var(--primary-green);
-      border-color: var(--primary-green);
-    }
-
-    .line-checkbox input[type="checkbox"]:checked+.line-checkbox-custom::after {
-      content: '✓';
-      color: white;
-      font-size: 14px;
-      font-weight: bold;
-    }
-
-    .line-checkbox input[type="checkbox"]:disabled+.line-checkbox-custom {
-      background: #e5e7eb;
-      border-color: #d1d5db;
-      cursor: not-allowed;
-    }
-
-    .line-label {
-      font-size: 14px;
-      color: #111827;
-      font-weight: 500;
-    }
-
-    .line-label.occupied {
-      color: #9ca3af;
-      font-style: italic;
-    }
-
-    .setup-lines-section {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      background: #fef2f2;
-      border-top: 2px solid #fee2e2;
-      padding: 24px;
-      box-shadow: 0 -4px 20px rgba(220, 38, 38, 0.1);
-      z-index: 101;
-      display: none;
-      text-align: center;
-    }
-
-    .setup-lines-section.show {
-      display: block;
-    }
-
-    .setup-lines-title {
-      font-size: 16px;
-      font-weight: 700;
-      color: #991b1b;
-      margin-bottom: 8px;
-    }
-
-    .setup-lines-text {
-      font-size: 14px;
-      color: #b91c1c;
-      margin-bottom: 16px;
-    }
-
-    .setup-lines-button {
-      background: #dc2626;
-      color: white;
-      border: none;
-      padding: 12px 32px;
-      border-radius: var(--button-radius);
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-
-    .setup-lines-button:hover {
-      background: #b91c1c;
-      transform: translateY(-1px);
-      box-shadow: 0 8px 16px rgba(220, 38, 38, 0.3);
-    }
-
-    .global-confirm-section {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      background: white;
-      border-top: 1px solid #e0e0e0;
-      padding: 20px 24px;
-      box-shadow: 0 -4px 20px rgba(15, 23, 42, 0.1);
-      z-index: 100;
-      display: none;
-      transition: transform 0.3s ease;
-    }
-
-    .global-confirm-section.show {
-      display: block;
-    }
-
-    .global-confirm-content {
-      max-width: 1400px;
-      margin: 0 auto;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 20px;
-    }
-
-    .global-confirm-summary {
-      flex: 1;
-      font-size: 14px;
-      color: #111827;
-    }
-
-    .global-confirm-summary-title {
-      font-weight: 600;
-      margin-bottom: 4px;
-    }
-
-    .global-confirm-summary-details {
-      color: #6b7280;
-      font-size: 13px;
-    }
-
-    .global-confirm-button {
-      background: var(--primary-green);
-      color: white;
-      border: none;
-      padding: 14px 32px;
-      border-radius: var(--button-radius);
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      white-space: nowrap;
-    }
-
-    .global-confirm-button:hover:enabled {
-      background: var(--primary-green-hover);
-      transform: translateY(-1px);
-      box-shadow: 0 10px 20px rgba(48, 186, 149, 0.35);
-    }
-
-    .global-confirm-button:disabled {
-      background: #d1d5db;
-      color: #9ca3af;
-      cursor: not-allowed;
-      opacity: 0.6;
-    }
+    
 
     body {
-      padding-bottom: 120px;
+      padding-bottom: 24px;
     }
 
     .devices-container {
-      margin-bottom: 120px;
+      margin-bottom: 24px;
     }
 
     .device-specs {
@@ -839,6 +607,272 @@
         align-items: flex-start;
       }
     }
+
+    /* Filter Styles - Enhanced Elegant Design */
+    .filters-container {
+      max-width: 1400px;
+      margin: 0 auto 32px;
+      background: linear-gradient(145deg, #ffffff 0%, #f9fafb 100%);
+      padding: 28px 32px;
+      border-radius: var(--card-radius);
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+      border: 1px solid rgba(224, 224, 224, 0.5);
+      transition: all 0.3s ease;
+    }
+
+    .filters-container:hover {
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
+    }
+
+    .filters-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 2px solid #f0f0f0;
+    }
+
+    .filters-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: #111827;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .filters-title::before {
+      content: '🔍';
+      font-size: 24px;
+    }
+
+    .filters-actions {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .clear-filters-btn {
+      background: linear-gradient(145deg, #f5f5f5 0%, #e5e5e5 100%);
+      color: #666;
+      border: 1px solid #e0e0e0;
+      border-radius: var(--button-radius);
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .clear-filters-btn:hover {
+      background: linear-gradient(145deg, #e5e5e5 0%, #d5d5d5 100%);
+      border-color: #d0d0d0;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .clear-filters-btn:active {
+      transform: translateY(0);
+    }
+
+    .filters-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 20px;
+      align-items: end;
+    }
+
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      position: relative;
+    }
+
+    .filter-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .filter-label::before {
+      content: '';
+      width: 3px;
+      height: 14px;
+      background: var(--primary-green);
+      border-radius: 2px;
+    }
+
+    .filter-input,
+    .filter-select {
+      width: 100%;
+      padding: 14px 16px;
+      border: 2px solid #e5e7eb;
+      border-radius: 12px;
+      font-size: 15px;
+      font-family: inherit;
+      background: white;
+      transition: all 0.25s ease;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+    }
+
+    .filter-input:focus,
+    .filter-select:focus {
+      outline: none;
+      border-color: var(--primary-green);
+      box-shadow: 0 0 0 4px rgba(48, 186, 149, 0.1);
+      transform: translateY(-1px);
+    }
+
+    .filter-input::placeholder {
+      color: #9ca3af;
+    }
+
+    .filter-select {
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 16px center;
+      padding-right: 40px;
+    }
+
+    .filter-checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 18px;
+      border: 2px solid #e5e7eb;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      background: white;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+    }
+
+    .filter-checkbox-group:hover {
+      border-color: var(--primary-green);
+      background: linear-gradient(145deg, #f0fdf4 0%, #ffffff 100%);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(48, 186, 149, 0.15);
+    }
+
+    .filter-checkbox-group:has(input:checked) {
+      border-color: var(--primary-green);
+      background: linear-gradient(145deg, #ecfdf5 0%, #f0fdf4 100%);
+    }
+
+    .filter-checkbox-group input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+      accent-color: var(--primary-green);
+      flex-shrink: 0;
+    }
+
+    .filter-checkbox-group label {
+      cursor: pointer;
+      font-size: 15px;
+      color: #111827;
+      font-weight: 500;
+      user-select: none;
+      flex: 1;
+    }
+
+    .filter-results {
+      font-size: 14px;
+      color: #6b7280;
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 2px solid #f0f0f0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .filter-results-count {
+      font-weight: 600;
+      color: #111827;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .filter-results-count::before {
+      content: '📊';
+      font-size: 16px;
+    }
+
+    .no-results {
+      text-align: center;
+      padding: 60px 20px;
+      color: #6b7280;
+    }
+
+    .no-results-icon {
+      font-size: 64px;
+      margin-bottom: 16px;
+      opacity: 0.5;
+    }
+
+    .no-results-title {
+      font-size: 22px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #111827;
+    }
+
+    .no-results-text {
+      font-size: 15px;
+      margin-bottom: 24px;
+      color: #6b7280;
+    }
+
+    .filter-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--primary-green);
+      color: white;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-left: 8px;
+    }
+
+    @media (max-width: 768px) {
+      .filters-container {
+        padding: 20px;
+      }
+
+      .filters-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+      }
+
+      .filters-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+
+      .filter-results {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
   </style>
 </head>
 
@@ -873,30 +907,41 @@
     </div>
   </div>
 
+  <!-- Filters Container (UI hidden) -->
+  <div class="filters-container" id="filters-container" style="display: none;">
+    <div class="filters-title">🔍 Filter Devices</div>
+    <div class="filters-grid">
+      <div class="filter-group">
+        <label class="filter-label">Search</label>
+        <input type="text" class="filter-input" id="filter-search" placeholder="Search by name or brand...">
+      </div>
+      <div class="filter-group">
+        <label class="filter-label">Brand</label>
+        <select class="filter-select" id="filter-brand">
+          <option value="">All Brands</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label class="filter-label">Max Price ($)</label>
+        <input type="number" class="filter-input" id="filter-price" placeholder="No limit" min="0" step="100">
+      </div>
+      <div class="filter-group">
+        <div class="filter-checkbox-group" onclick="toggleEsimFilter()">
+          <input type="checkbox" id="filter-esim">
+          <label for="filter-esim">eSIM Capable Only</label>
+        </div>
+      </div>
+    </div>
+    <div class="filter-results" id="filter-results">
+      <div class="filter-results-count" id="filter-results-count">Showing all devices</div>
+    </div>
+  </div>
+
   <div class="devices-container" id="devices-container">
     <p style="padding: 20px; text-align: center; color: #666;">Loading devices...</p>
   </div>
 
-  <div class="global-confirm-section" id="global-confirm-section">
-    <div class="global-confirm-content">
-      <div class="global-confirm-summary">
-        <div class="global-confirm-summary-title" id="global-confirm-title">Ready to confirm</div>
-        <div class="global-confirm-summary-details" id="global-confirm-details">Select devices for all lines to continue
-        </div>
-      </div>
-      <button class="global-confirm-button" id="global-confirm-button" onclick="confirmAllSelections()" disabled>
-        Confirm All Selections
-      </button>
-    </div>
-  </div>
-
-  <div class="setup-lines-section" id="setup-lines-section">
-    <div class="setup-lines-title">📦 Lines Required First</div>
-    <div class="setup-lines-text">You need to configure your lines before you can select devices.</div>
-    <button class="setup-lines-button" id="setup-lines-button" onclick="sendPrompt('I want to set up my lines')">
-      Set Up Lines Now
-    </button>
-  </div>
+  
 
   <script>
     // Immediate diagnostic check
@@ -907,17 +952,15 @@
       allKeys: window.openai ? Object.keys(window.openai) : []
     });
 
-    // Track selected devices
-    const selectedDevices = new Set();
+    
 
-    // Track line-to-device assignments: { lineId: deviceId }
-    const lineDeviceAssignments = {};
+    // Track whether we've prompted for device mode in this widget session
+    let deviceModePrompted = false;
 
-    // Track device names: { deviceId: deviceName }
-    const deviceNames = {};
-
-    // Track which devices have been selected (for showing checkboxes)
-    const devicesWithSelection = new Set();
+    // Device selection mode state from backend
+    let selectionMode = 'initial';
+    let activeLineId = null;
+    let selectedDevicesPerLine = {};
 
     // Initialize currentLines - will be populated from toolOutput
     let currentLines = [];
@@ -932,6 +975,14 @@
         console.log('✅ Found linesWithDevices:', linesWithDevices);
       } else {
         linesWithDevices = [];
+      }
+
+      if (toolOutput && toolOutput.structuredContent) {
+        selectionMode = toolOutput.structuredContent.selectionMode || 'initial';
+        activeLineId = toolOutput.structuredContent.activeLineId || null;
+        selectedDevicesPerLine = toolOutput.structuredContent.selectedDevicesPerLine || {};
+        deviceModePrompted = !!toolOutput.structuredContent.deviceModePrompted;
+        console.log('✅ Device selection state:', { selectionMode, activeLineId, selectedDevicesPerLine, deviceModePrompted });
       }
 
       return extractLinesInternal();
@@ -1242,45 +1293,16 @@
             </span>
           </div>
 
-          <button class="add-to-cart-btn ${selectedDevices.has(deviceId) ? 'add-to-cart-btn--added' : ''}" 
+          <button class="add-to-cart-btn" 
                   onclick="selectDevice('${deviceId}', '${name.replace(/'/g, "\\'")}', this)" 
-                  ${!isAvailable || currentLines.length === 0 ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>
-            ${!isAvailable ? 'Out of Stock' : (currentLines.length === 0 ? 'Setup Lines First' : (selectedDevices.has(deviceId) ? '✓ Selected' : 'Select Device'))}
+                  ${!isAvailable ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>
+            ${!isAvailable ? 'Out of Stock' : (selectionMode === 'applyAll'
+              ? `Add ${fullName} to All Lines`
+              : selectionMode === 'sequential' && activeLineId
+                ? `Select ${fullName} for Line ${activeLineId}`
+                : 'Select Device')}
           </button>
-          
-          <div class="line-selection-section ${devicesWithSelection.has(deviceId) ? 'show' : ''}" id="line-selection-${deviceId}">
-            <div class="line-selection-title">Select lines for this device:</div>
-            <div class="line-checkboxes">
-              ${currentLines.map(line => {
-          const lineIdStr = String(line.id);
-          const hasDeviceInCart = linesWithDevices.includes(line.id);
-          const isChecked = lineDeviceAssignments[lineIdStr] === deviceId;
-          // Line is assigned to another device in this widget session
-          const isLineAssignedToOther = lineDeviceAssignments[lineIdStr] && !isChecked;
-          // Line already has a device assigned in the cart (from tool data)
-          const isLineOccupiedInCart = line.deviceSelected === true || hasDeviceInCart;
 
-          const isDisabled = isLineAssignedToOther || isLineOccupiedInCart;
-
-          return `
-                  <label class="line-checkbox-item ${isDisabled ? 'disabled' : ''}" ${isDisabled ? 'onclick="return false;"' : ''}>
-                    <div class="line-checkbox">
-                      <input type="checkbox" 
-                             id="line-${line.id}-device-${deviceId}"
-                             ${isChecked ? 'checked' : ''}
-                             ${isDisabled ? 'disabled' : ''}
-                             onchange="toggleDeviceLineAssignment(${line.id}, '${deviceId}', '${name.replace(/'/g, "\\'")}')">
-                      <span class="line-checkbox-custom"></span>
-                    </div>
-                    <span class="line-label ${isLineOccupiedInCart ? 'occupied' : ''}">
-                      ${line.name} ${line.phoneNumber ? `(${line.phoneNumber})` : ''}
-                      ${isLineOccupiedInCart ? ' (Device in cart)' : ''}
-                    </span>
-                  </label>
-                `;
-        }).join('')}
-            </div>
-          </div>
         </div>
       `;
     }
@@ -1341,245 +1363,37 @@
     window.stepDeviceImage = stepDeviceImage;
     window.replaceLogoWithSVG = replaceLogoWithSVG;
     window.selectDevice = selectDevice;
-    window.toggleDeviceLineAssignment = toggleDeviceLineAssignment;
-    window.confirmAllSelections = confirmAllSelections;
 
     function selectDevice(deviceId, deviceName, buttonEl) {
-      const isSelected = selectedDevices.has(deviceId);
+      const toolOutput = window.openai && window.openai.toolOutput ? window.openai.toolOutput : {};
+      const sc = toolOutput.structuredContent || {};
+      const lineCount = sc.lineCount || (Array.isArray(currentLines) ? currentLines.length : 0) || 0;
+      const defaultLine = activeLineId || 1;
 
-      if (isSelected) {
-        // Deselect
-        selectedDevices.delete(deviceId);
-        devicesWithSelection.delete(deviceId);
-
-        // Remove device name
-        delete deviceNames[deviceId];
-
-        // Remove all line assignments for this device
-        Object.keys(lineDeviceAssignments).forEach(lineId => {
-          if (lineDeviceAssignments[lineId] === deviceId) {
-            delete lineDeviceAssignments[lineId];
-            // Also uncheck the checkbox if it exists
-            const checkbox = document.getElementById(`line-${lineId}-device-${deviceId}`);
-            if (checkbox) {
-              checkbox.checked = false;
-            }
-          }
-        });
-
-        if (buttonEl) {
-          buttonEl.classList.remove('add-to-cart-btn--added');
-          buttonEl.textContent = 'Select Device';
-        }
-
-        // Hide line selection section
-        const lineSection = document.getElementById(`line-selection-${deviceId}`);
-        if (lineSection) {
-          lineSection.classList.remove('show');
-        }
-
-        // Re-render all devices to update disabled states
-        renderAllDevices();
-      } else {
-        // Select
-        selectedDevices.add(deviceId);
-        devicesWithSelection.add(deviceId);
-
-        // Store device name for later use
-        deviceNames[deviceId] = deviceName;
-
-        if (buttonEl) {
-          buttonEl.classList.add('add-to-cart-btn--added');
-          buttonEl.textContent = '✓ Selected';
-        }
-
-        // Show line selection section
-        const lineSection = document.getElementById(`line-selection-${deviceId}`);
-        if (lineSection) {
-          lineSection.classList.add('show');
-        }
-
-        // Re-render all devices to update disabled states
-        renderAllDevices();
-      }
-
-      updateConfirmButtons();
-    }
-
-    function toggleDeviceLineAssignment(lineId, deviceId, deviceName) {
-      // Ensure lineId is a string for consistent key usage
-      const lineIdStr = String(lineId);
-      const checkbox = document.getElementById(`line-${lineId}-device-${deviceId}`);
-      if (!checkbox) return;
-
-      const isChecked = checkbox.checked;
-
-      console.log('🔄 toggleDeviceLineAssignment:', { lineId, lineIdStr, deviceId, isChecked, currentAssignments: Object.assign({}, lineDeviceAssignments) });
-
-      if (isChecked) {
-        // If this line already has a device assigned, remove it first
-        if (lineDeviceAssignments[lineIdStr] && lineDeviceAssignments[lineIdStr] !== deviceId) {
-          const oldDeviceId = lineDeviceAssignments[lineIdStr];
-          // Uncheck the old device's checkbox for this line
-          const oldCheckbox = document.getElementById(`line-${lineId}-device-${oldDeviceId}`);
-          if (oldCheckbox) {
-            oldCheckbox.checked = false;
-          }
-        }
-
-        // Assign this device to this line
-        lineDeviceAssignments[lineIdStr] = deviceId;
-      } else {
-        // Remove assignment
-        if (lineDeviceAssignments[lineIdStr] === deviceId) {
-          delete lineDeviceAssignments[lineIdStr];
-        }
-      }
-
-      console.log('✅ toggleDeviceLineAssignment complete:', { lineDeviceAssignments: Object.assign({}, lineDeviceAssignments) });
-
-      // Re-render all devices to update disabled states
-      renderAllDevices();
-      updateConfirmButtons();
-    }
-
-    function updateConfirmButtons() {
-      // Update current lines from toolOutput
-      const extractedLines = extractLines();
-      if (extractedLines.length > 0) {
-        currentLines = extractedLines;
-        console.log('✅ updateConfirmButtons: Lines updated:', currentLines.length, currentLines);
-      }
-
-      // Check if no lines are set up
-      const noLinesConfigured = currentLines.length === 0;
-      const setupSection = document.getElementById('setup-lines-section');
-      const globalConfirmSection = document.getElementById('global-confirm-section');
-
-      if (setupSection) {
-        if (noLinesConfigured) {
-          setupSection.classList.add('show');
-          if (globalConfirmSection) globalConfirmSection.classList.remove('show');
-
-          const container = document.getElementById('devices-container');
-          if (container) container.style.paddingBottom = '160px';
-          return;
-        } else {
-          setupSection.classList.remove('show');
-        }
-      }
-
-      // Get all device-to-line assignments
-      const assignments = [];
-      currentLines.forEach(line => {
-        const lineIdStr = String(line.id);
-        const hasDeviceInCart = linesWithDevices.includes(line.id);
-
-        if (lineDeviceAssignments[lineIdStr]) {
-          assignments.push({
-            lineId: line.id,
-            lineName: line.name,
-            deviceId: lineDeviceAssignments[lineIdStr]
-          });
-        } else if (hasDeviceInCart) {
-          // Count lines with devices in cart as "assigned" for visual/logic purposes 
-          // (though we don't need to add them to cart again)
-          assignments.push({
-            lineId: line.id,
-            lineName: line.name,
-            deviceId: 'IN_CART',
-            inCart: true
-          });
-        }
-      });
-
-      console.log('✅ updateConfirmButtons: State check', {
-        totalLines: currentLines.length,
-        assignedLines: assignments.length,
-        lineDeviceAssignments: Object.assign({}, lineDeviceAssignments),
-      });
-
-      // Update global confirm section
-      const globalConfirmButton = document.getElementById('global-confirm-button');
-      const globalConfirmTitle = document.getElementById('global-confirm-title');
-      const globalConfirmDetails = document.getElementById('global-confirm-details');
-
-      if (globalConfirmSection && globalConfirmButton && globalConfirmTitle && globalConfirmDetails) {
-        // Show section if there are any assignments
-        if (assignments.length > 0) {
-          globalConfirmSection.classList.add('show');
-
-          const assignedLinesCount = assignments.length;
-          const totalLinesCount = currentLines.length;
-
-          // Relaxed logic: allow confirmation if at least one device is selected
-          globalConfirmTitle.textContent = `${assignedLinesCount} ${assignedLinesCount === 1 ? 'device' : 'devices'} selected`;
-          globalConfirmDetails.textContent = `Ready to add to cart (Devices are optional)`;
-          globalConfirmButton.disabled = false;
-        } else {
-          globalConfirmSection.classList.remove('show');
-          globalConfirmButton.disabled = true;
-        }
-
-        // Adjust container padding based on confirm section visibility
-        const container = document.getElementById('devices-container');
-        if (container) {
-          if (globalConfirmSection.classList.contains('show')) {
-            container.style.paddingBottom = '160px';
-          } else {
-            container.style.paddingBottom = '24px';
-          }
-        }
-      }
-    }
-
-    function confirmAllSelections() {
-      // Update current lines from toolOutput
-      currentLines = extractLines();
-
-      // Get all device-to-line assignments from all cards
-      const allAssignments = [];
-
-      currentLines.forEach(line => {
-        const lineIdStr = String(line.id);
-        if (lineDeviceAssignments[lineIdStr]) {
-          const deviceId = lineDeviceAssignments[lineIdStr];
-          const deviceName = deviceNames[deviceId] || `Device ${deviceId}`;
-
-          allAssignments.push({
-            lineId: line.id,
-            lineNumber: line.lineNumber || line.id,
-            lineName: line.name,
-            deviceId: deviceId,
-            deviceName: deviceName
-          });
-        }
-      });
-
-      if (allAssignments.length === 0) {
-        // If we have devices in cart but no new selections, allow user to proceed/continue
-        if (linesWithDevices.length > 0) {
-          sendPrompt("I have completed my device selections.");
-          return;
-        }
-        alert('Please select at least one device for a line.');
+      if (lineCount < 1) {
+        sendPrompt(`I want to add ${deviceName} device (ID: ${deviceId}). How many lines do I need to set up?`);
         return;
       }
 
-      // Build individual add_to_cart commands for each device-line combination
-      const commands = allAssignments.map(a => {
-        return `Add ${a.deviceName} device (ID: ${a.deviceId}) to line ${a.lineNumber}`;
-      });
+      if (selectionMode === 'applyAll') {
+        sendPrompt(`Add ${deviceName} device (ID: ${deviceId}) to all lines`);
+        return;
+      }
 
-      // Send all commands as a single message
-      const message = `Please add the following devices to my cart:\n\n${commands.join('\n')}\n\nUse the add_to_cart tool with itemType="device", itemId for each device, and the corresponding lineNumber for each line.`;
-      sendPrompt(message);
+      if (selectionMode === 'sequential' && activeLineId) {
+        sendPrompt(`Add ${deviceName} device (ID: ${deviceId}) to line ${activeLineId}`);
+        return;
+      }
 
-      console.log('✅ Confirmed selections, sending to cart:', {
-        assignments: allAssignments,
-        commands: commands
-      });
+      if (lineCount > 1 && !deviceModePrompted) {
+        sendPrompt(`I am interested in ${deviceName} device (ID: ${deviceId}). Should I apply this to all lines or mix and match?`);
+        return;
+      }
+
+      sendPrompt(`Add ${deviceName} device (ID: ${deviceId}) to line ${defaultLine}`);
+      return;
     }
+
 
     // Image gallery handler for each card (direct change)
     function changeDeviceImage(galleryId, imageUrl, index) {
@@ -1837,9 +1651,9 @@
 
       console.log('Brands extracted for filter:', brands);
 
-      // Show filters container
+      // Keep filters UI hidden while preserving logic
       if (filtersContainer) {
-        filtersContainer.style.display = 'block';
+        filtersContainer.style.display = 'none';
       }
 
       // Set up filter event listeners
@@ -2080,11 +1894,6 @@
         if (resultsCountDiv) {
           resultsCountDiv.innerHTML = `Showing all <strong>${devices.length}</strong> devices`;
         }
-
-        // Update confirm buttons after rendering
-        setTimeout(() => {
-          updateConfirmButtons();
-        }, 10);
 
         return true;
       }

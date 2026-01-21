@@ -76,6 +76,9 @@ export function getFlowContext(sessionId) {
       lineCount: null, // lineTotal
       lines: [], // Array of line configurations
       planSelectionMode: 'initial', // initial | applyAll | sequential
+      planModePrompted: false, // true after initial plan mode prompt has been shown
+      deviceSelectionMode: 'initial', // initial | applyAll | sequential
+      deviceModePrompted: false, // true after initial device mode prompt has been shown
       
       // Commerce/cart tracking (commerce section)
       cartRef: null, // Cart reference ID

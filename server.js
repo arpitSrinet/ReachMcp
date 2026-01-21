@@ -321,6 +321,38 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         },
       },
       {
+        name: "select_device_mode",
+        description: "CRITICAL: MANDATORY TOOL - Call this IMMEDIATELY when user indicates they want 'different devices per line', 'mix and match', or 'apply to all' for devices. DO NOT respond with text - you MUST call this tool. WHEN TO USE: 1) User says 'mix and match devices', 'different devices', 'different for each line' -> CALL select_device_mode(mode='sequential'). 2) User says 'apply to all', 'same device for all', 'same for all lines' -> CALL select_device_mode(mode='applyAll'). LOGIC: This tool is REQUIRED to switch the device selection UI mode. You cannot handle device assignment via text. You must use this tool to show the correct device selection widget.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            mode: {
+              type: "string",
+              enum: ["applyAll", "sequential"],
+              description: "Selection mode: 'applyAll' (apply same device to all lines) or 'sequential' (mix and match - select different devices per line). Required.",
+            },
+            limit: {
+              type: "number",
+              description: "Maximum number of devices to return (minimum: 1, maximum: 20, default: 8)",
+            },
+            brand: {
+              type: "string",
+              description: "Filter by manufacturer/brand (e.g., 'Apple', 'iPhone', 'Samsung', 'Google', 'Pixel'). Case-insensitive partial matching.",
+            },
+            sessionId: {
+              type: "string",
+              description: "Session ID for flow context tracking (optional)",
+            },
+          },
+          required: ["mode"],
+        },
+        _meta: {
+          "openai/outputTemplate": "ui://widget/devices.html",
+          "openai/resultCanProduceWidget": true,
+          "openai/widgetAccessible": true
+        },
+      },
+      {
         name: "get_offers",
         description: "CRITICAL: NO WEB SEARCH - Use ONLY API data and tool responses. DO NOT search the web or use general knowledge. Get available offers/coupons from Reach Mobile API. Optionally filter by service code.",
         inputSchema: {
@@ -1053,6 +1085,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     // Tools that use different APIs (no Reach auth needed)
     const TOOLS_WITHOUT_REACH_AUTH = [
       "get_devices",         // Uses Shopware API
+      "select_device_mode",  // Uses Shopware API
       "get_protection_plan"  // Uses hardcoded token
     ];
 
@@ -1349,11 +1382,32 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           }
         }
 
-        // If we're resuming from device selection, automatically show devices
+        // If we're resuming from device selection, ask for device mode first (if multi-line)
         if (isDeviceResume) {
           // Clear the current question and resume step since line count was provided
           clearCurrentQuestion(sessionId);
           setResumeStep(sessionId, null); // Clear resume step after resuming
+
+          if (finalLineCount > 1 && (!context.deviceSelectionMode || context.deviceSelectionMode === 'initial')) {
+            const responseText = `Perfect! 👍 You've set up ${finalLineCount} lines.\n\nWould you like to apply the same device to all lines, or mix & match different devices per line?\n\nDevices are optional — you can skip device selection anytime.`;
+            const suggestionsText = `• **Apply to all:** One device for all ${finalLineCount} lines (I'll use \`select_device_mode\`)\n` +
+              `• **Mix & match:** Choose different devices per line (I'll use \`select_device_mode\`)\n\n` +
+              `Just tell me your preference.`;
+
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: formatThreeSectionResponse(responseText, suggestionsText, "")
+                }
+              ],
+              _meta: {
+                sessionId: sessionId,
+                intent: INTENT_TYPES.DEVICE,
+                lineCount: finalLineCount
+              }
+            };
+          }
 
           // Automatically fetch devices for the specified line count
           let devices;
@@ -2605,6 +2659,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       const limit = args.limit || 8;
       const brand = args.brand || null;
+      const selectionMode = args.selectionMode || context?.deviceSelectionMode || 'initial';
       let devices;
       try {
         devices = await fetchDevices(limit * 2, brand, tenant); // Fetch more to account for filtering
@@ -2747,6 +2802,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         suggestions += "**Please add lines first:** Tell me how many lines you need (e.g., \"I need 2 lines\" or \"Set up 3 lines\").\n\n";
         suggestions += "**After adding lines:** You'll need to select plans for each line before checkout. Plans are required before you can complete your purchase.\n\n";
         suggestions += "**Device Selection:** You can browse and add more devices below. Once lines are configured, you can assign devices to specific lines.";
+      } else if (context && selectionMode === 'initial' && context.lineCount > 1) {
+        mainResponse += `\n\n**Before you pick a device:** Choose how you'd like to assign devices to lines.`;
+        suggestions = `**How would you like to select devices?**\n\n`;
+        suggestions += `• **Apply to all:** Choose one device for all ${context.lineCount} lines (I will use the \`select_device_mode\` tool)\n`;
+        suggestions += `• **Mix and match:** Select different devices per line (I will use the \`select_device_mode\` tool)\n\n`;
+        suggestions += `Devices are optional — you can skip device selection and continue anytime.`;
       } else if (!hasPlans && context) {
         suggestions = "**Note:** You can browse and add devices now, but you'll need to select plans before checkout.\n\n";
         suggestions += "**Device Selection:** Click \"Add to Cart\" on any device below. You can add devices to specific lines or browse first and assign later.";
@@ -2859,10 +2920,35 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         });
       }
 
+      const linesWithDevices = cart ? (cart.lines || [])
+        .filter(l => l.device && l.device.id)
+        .map(l => l.lineNumber) : [];
+
+      const selectedDevicesPerLine = {};
+      if (cart && cart.lines) {
+        cart.lines.forEach(line => {
+          if (line.device && line.device.id) {
+            selectedDevicesPerLine[String(line.lineNumber)] = line.device.id;
+          }
+        });
+      }
+
+      let activeLineId = null;
+      if (selectionMode === 'sequential' && context?.lineCount) {
+        for (let i = 1; i <= context.lineCount; i++) {
+          if (!linesWithDevices.includes(i)) {
+            activeLineId = i;
+            break;
+          }
+        }
+      }
+
       const structuredData = {
-        linesWithDevices: cart ? (cart.lines || [])
-          .filter(l => l.device && l.device.id)
-          .map(l => l.lineNumber) : [],
+        selectionMode,
+        activeLineId,
+        selectedDevicesPerLine,
+        linesWithDevices,
+        deviceModePrompted: context?.deviceModePrompted || false,
         devices: structuredDevices,
         // Include flowContext data for line selection
         lineCount: context ? (context.lineCount || 0) : 0,
@@ -2900,6 +2986,220 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       });
 
       return response;
+    }
+
+    if (name === "select_device_mode") {
+      const sessionId = getOrCreateSessionId(args.sessionId || null);
+      const context = getFlowContext(sessionId);
+      const mode = args.mode;
+      const limit = args.limit || 8;
+      const brand = args.brand || null;
+
+      if (!context || !context.lineCount || context.lineCount === 0) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: "## ⚠️ Line Count Required\n\nPlease specify the number of lines first before selecting a device mode.\n\n**To continue:** Tell me how many lines you need (e.g., 'I need 2 lines').",
+            }
+          ]
+        };
+      }
+
+      logger.info("Device selection mode chosen", { sessionId, mode, lineCount: context.lineCount });
+
+      let devices;
+      try {
+        devices = await fetchDevices(limit * 2, brand, tenant);
+      } catch (err) {
+        logger.error("Failed to fetch devices for select_device_mode", {
+          error: err.message,
+          brand,
+          limit
+        });
+        return {
+          content: [
+            {
+              type: "text",
+              text: `## ⚠️ Device Catalog Unavailable\n\nI'm currently unable to fetch the live device list due to a connection issue with our catalog service.\n\n**What you can do:**\n- Try again in a few moments\n- Search for a specific brand or model`
+            }
+          ]
+        };
+      }
+
+      if (brand && devices && devices.length > 0) {
+        const brandLower = brand.toLowerCase();
+        const normalizedBrand = brandLower.includes('iphone') || brandLower.includes('apple') ? 'apple' :
+          brandLower.includes('samsung') || brandLower.includes('galaxy') ? 'samsung' :
+            brandLower.includes('pixel') || brandLower.includes('google') ? 'google' : brandLower;
+
+        devices = devices.filter(device => {
+          const deviceName = (device.name || device.translated?.name || '').toLowerCase();
+          const deviceBrand = (device.manufacturer?.name || device.brand || device.translated?.manufacturer?.name || '').toLowerCase();
+
+          if (normalizedBrand === 'apple') {
+            return deviceName.includes('iphone') || deviceBrand.includes('apple');
+          } else if (normalizedBrand === 'samsung') {
+            return deviceName.includes('samsung') || deviceName.includes('galaxy') || deviceBrand.includes('samsung');
+          } else if (normalizedBrand === 'google') {
+            return deviceName.includes('pixel') || deviceBrand.includes('google');
+          } else {
+            return deviceName.includes(normalizedBrand) || deviceBrand.includes(normalizedBrand);
+          }
+        });
+      }
+
+      devices = devices.slice(0, limit);
+
+      if (!devices || devices.length === 0) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `## 📱 Available Devices\n\nNo ${brand ? brand + ' ' : ''}devices found.`,
+            },
+          ],
+        };
+      }
+
+      updateFlowContext(sessionId, { deviceSelectionMode: mode, deviceModePrompted: true });
+      setResumeStep(sessionId, 'device_selection');
+      updateLastIntent(sessionId, INTENT_TYPES.DEVICE, 'select_device_mode');
+
+      const cart = sessionId ? getCartMultiLine(sessionId) : null;
+      const linesWithDevices = cart ? (cart.lines || [])
+        .filter(l => l.device && l.device.id)
+        .map(l => l.lineNumber) : [];
+
+      const selectedDevicesPerLine = {};
+      if (cart && cart.lines) {
+        cart.lines.forEach(line => {
+          if (line.device && line.device.id) {
+            selectedDevicesPerLine[String(line.lineNumber)] = line.device.id;
+          }
+        });
+      }
+
+      let activeLineId = null;
+      if (mode === 'sequential') {
+        const lineCount = context?.lineCount || 0;
+        for (let i = 1; i <= lineCount; i++) {
+          if (!linesWithDevices.includes(i)) {
+            activeLineId = i;
+            break;
+          }
+        }
+      }
+
+      let responseText = "";
+      if (mode === 'applyAll') {
+        responseText = `## 📱 Apply to All Lines\n\nGreat! You'll choose one device that applies to all ${context.lineCount} lines.\n\n**Next:** Click any device card below to apply it to all lines.`;
+      } else if (mode === 'sequential') {
+        responseText = `## 📱 Mix and Match Devices\n\nPerfect! You can select different devices for each line (optional).\n\n**Starting with Line ${activeLineId}:** Click any device card below to select it for Line ${activeLineId}.\n\n**Skip option:** Say "Skip device for line ${activeLineId}".`;
+        if (linesWithDevices.length > 0) {
+          responseText += `\n\n✅ **Completed:** Line${linesWithDevices.length > 1 ? 's' : ''} ${linesWithDevices.join(', ')}`;
+        }
+      }
+
+      const structuredDevices = [];
+      for (const device of devices) {
+        const normalizedCoverMediaUrl = device.cover?.media?.url
+          ? normalizeDeviceImageUrl(device.cover.media.url)
+          : null;
+
+        const normalizedMedia = device.media && Array.isArray(device.media)
+          ? device.media.map(m => ({
+            ...m,
+            media: m.media ? {
+              ...m.media,
+              url: m.media.url ? normalizeDeviceImageUrl(m.media.url) : m.media.url
+            } : m.media,
+            url: m.url ? normalizeDeviceImageUrl(m.url) : m.url
+          }))
+          : device.media;
+
+        let mainImageRaw = null;
+        if (device.cover?.media?.url) {
+          mainImageRaw = device.cover.media.url;
+        } else if (device.media?.[0]?.media?.url) {
+          mainImageRaw = device.media[0].media.url;
+        }
+
+        const normalizedImageUrl = normalizeDeviceImageUrl(mainImageRaw);
+        const extension = (normalizedImageUrl || '').split('.').pop().split(/[?#]/)[0] || 'png';
+        const filename = `${device.id || device.productNumber}.${extension}`;
+        const base64Image = await getImageBase64(filename);
+
+        structuredDevices.push({
+          ...device,
+          base64Image: base64Image,
+          cover: device.cover ? {
+            ...device.cover,
+            media: device.cover.media ? {
+              ...device.cover.media,
+              url: normalizedCoverMediaUrl
+            } : device.cover.media
+          } : device.cover,
+          media: normalizedMedia,
+          id: device.id || device.productNumber || device.ean,
+          name: device.name || device.translated?.name,
+          brand: device.manufacturer?.name || device.brand || device.translated?.manufacturer?.name,
+          productNumber: device.productNumber,
+          manufacturerNumber: device.manufacturerNumber,
+          price: device.calculatedPrice?.unitPrice || device.calculatedPrice?.totalPrice || device.price?.[0]?.gross || 0,
+          originalPrice: device.calculatedPrice?.listPrice?.price || device.price?.[0]?.listPrice || device.listPrice || null,
+          image: normalizedImageUrl,
+          properties: device.properties || [],
+          calculatedPrice: device.calculatedPrice || device.calculatedCheapestPrice,
+          calculatedCheapestPrice: device.calculatedCheapestPrice,
+          stock: device.stock,
+          availableStock: device.availableStock,
+          available: device.available,
+          weight: device.weight,
+          width: device.width,
+          height: device.height,
+          length: device.length,
+          releaseDate: device.releaseDate,
+        });
+      }
+
+      const structuredData = {
+        selectionMode: mode,
+        activeLineId: activeLineId,
+        selectedDevicesPerLine: selectedDevicesPerLine,
+        linesWithDevices: linesWithDevices,
+        deviceModePrompted: true,
+        devices: structuredDevices,
+        lineCount: context ? (context.lineCount || 0) : 0,
+        lines: context && context.lines ? context.lines.map((line, index) => ({
+          lineNumber: line.lineNumber || (index + 1),
+          phoneNumber: line.phoneNumber || null,
+          planSelected: line.planSelected || false,
+          planId: line.planId || null,
+          deviceSelected: line.deviceSelected || false,
+          deviceId: line.deviceId || null,
+          protectionSelected: line.protectionSelected || false,
+          protectionId: line.protectionId || null,
+          simType: line.simType || null,
+          simIccId: line.simIccId || null
+        })) : []
+      };
+
+      return {
+        structuredContent: structuredData,
+        content: [
+          {
+            type: "text",
+            text: responseText,
+          }
+        ],
+        _meta: {
+          "openai/outputTemplate": "ui://widget/devices.html",
+          "openai/resultCanProduceWidget": true,
+          "openai/widgetAccessible": true,
+          widgetType: "deviceCard"
+        }
+      };
     }
 
     if (name === "get_sim_types") {
@@ -3319,7 +3619,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         : [];
 
       if (flowContext) {
-        if (itemType === 'plan' && (wantsAllLines || normalizedLineNumbers.length > 0)) {
+        if ((itemType === 'plan' || itemType === 'device') && (wantsAllLines || normalizedLineNumbers.length > 0)) {
           const maxLines = flowContext.lineCount || 0;
           if (!maxLines) {
             return {
@@ -3706,6 +4006,83 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             selectionMode: 'sequential'
           }
         };
+      }
+
+      if (itemType === 'device' && finalContext && finalContext.deviceSelectionMode === 'sequential' && finalContext.lineCount > 0) {
+        const cartSnapshot = finalSessionId ? getCartMultiLine(finalSessionId) : null;
+        const linesWithDevices = cartSnapshot ? (cartSnapshot.lines || [])
+          .filter(l => l.device && l.device.id)
+          .map(l => l.lineNumber) : [];
+
+        let activeLineId = null;
+        for (let i = 1; i <= finalContext.lineCount; i++) {
+          if (!linesWithDevices.includes(i)) {
+            activeLineId = i;
+            break;
+          }
+        }
+
+        if (activeLineId) {
+          const devices = await fetchDevices(16, null, tenant);
+          const trimmedDevices = devices.slice(0, 8);
+          const structuredDevices = trimmedDevices.map(device => ({
+            ...device,
+            id: device.id || device.productNumber || device.ean,
+            name: device.name || device.translated?.name,
+            brand: device.manufacturer?.name || device.brand || device.translated?.manufacturer?.name,
+            price: device.calculatedPrice?.unitPrice || device.calculatedPrice?.totalPrice || device.price?.[0]?.gross || 0,
+            image: normalizeDeviceImageUrl(device.cover?.media?.url || device.media?.[0]?.media?.url || device.image || null),
+            properties: device.properties || [],
+            calculatedPrice: device.calculatedPrice || device.calculatedCheapestPrice,
+            calculatedCheapestPrice: device.calculatedCheapestPrice,
+            stock: device.stock,
+            availableStock: device.availableStock,
+            available: device.available,
+          }));
+
+          const selectedDevicesPerLine = {};
+          if (cartSnapshot && cartSnapshot.lines) {
+            cartSnapshot.lines.forEach(line => {
+              if (line.device && line.device.id) {
+                selectedDevicesPerLine[String(line.lineNumber)] = line.device.id;
+              }
+            });
+          }
+
+          return {
+            structuredContent: {
+              selectionMode: 'sequential',
+              activeLineId,
+              selectedDevicesPerLine,
+              linesWithDevices,
+              deviceModePrompted: true,
+              devices: structuredDevices,
+              lineCount: finalContext.lineCount,
+              lines: finalContext.lines ? finalContext.lines.map((line, index) => ({
+                lineNumber: line.lineNumber || (index + 1),
+                phoneNumber: line.phoneNumber || null,
+                planSelected: line.planSelected || false,
+                planId: line.planId || null,
+                deviceSelected: line.deviceSelected || false,
+                deviceId: line.deviceId || null,
+                protectionSelected: line.protectionSelected || false,
+                protectionId: line.protectionId || null,
+                simType: line.simType || null,
+                simIccId: line.simIccId || null
+              })) : []
+            },
+            content: [{
+              type: "text",
+              text: `✅ **${item.name}** added for Line ${targetLineNumber || lineNumber}.\n\n**Next:** Select a device for Line ${activeLineId} (optional).\n\n**Skip option:** Say "Skip device for line ${activeLineId}".`
+            }],
+            _meta: {
+              "openai/outputTemplate": "ui://widget/devices.html",
+              "openai/resultCanProduceWidget": true,
+              "openai/widgetAccessible": true,
+              widgetType: "deviceCard"
+            }
+          };
+        }
       }
 
       return {
