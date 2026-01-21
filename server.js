@@ -557,11 +557,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           },
           required: [],
         },
-        _meta: {
-          "openai/outputTemplate": "ui://widget/cart.html",
-          "openai/resultCanProduceWidget": true,
-          "openai/widgetAccessible": true
-        },
       },
       {
         name: "get_flow_status",
@@ -671,11 +666,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               description: "Session ID (optional - will use most recent session if not provided)"
             },
           },
-        },
-        _meta: {
-          "openai/outputTemplate": "ui://widget/cart.html",
-          "openai/resultCanProduceWidget": true,
-          "openai/widgetAccessible": true
         },
       },
       {
@@ -4141,14 +4131,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       let headerText;
 
       if (cartMultiLine.lines && cartMultiLine.lines.length > 0) {
-        // Multi-line structure
-        structuredData = {
-          cart: {
-            lines: cartMultiLine.lines,
-            total: cartMultiLine.total || 0
-          },
-          sessionId: cartMultiLine.sessionId || "default"
-        };
+        structuredData = buildCartStructuredContent(cartMultiLine, cartMultiLine.sessionId || sessionId);
 
         // Generate conversational cart display with button suggestions
         if (progress && progress.missing) {
@@ -4226,13 +4209,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       } else {
         // Old structure (backward compatibility)
         const cartResult = getCartWithSession(sessionId);
-        structuredData = {
-          cart: {
-            items: cartResult.items || [],
-            total: cartResult.total || 0
-          },
-          sessionId: cartResult.sessionId || "default"
-        };
+        structuredData = buildCartStructuredContent(cartResult, cartResult.sessionId || sessionId);
         headerText = "Here's your shopping cart. Proceed to checkout when ready.";
       }
 
@@ -4243,17 +4220,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             type: "text",
             text: headerText,
           }
-        ],
-        _meta: {
-          // Widget-only data, not Apps SDK config
-          widgetType: "ui://widget/cart.html"
-        }
+        ]
       };
 
       logger.info("📤 get_cart response", {
         hasStructuredContent: !!response.structuredContent,
         isMultiLine: !!(cartMultiLine.lines && cartMultiLine.lines.length > 0),
-        itemsCount: structuredData.cart.items?.length || structuredData.cart.lines?.length || 0,
+        itemsCount: structuredData.cards?.length || 0,
         sessionId: structuredData.sessionId,
         providedSessionId: sessionId,
         responsePreview: JSON.stringify(response, null, 2).substring(0, 500)
@@ -4782,26 +4755,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       let suggestions = "";
       let nextSteps = "";
 
-      // Prepare structuredContent for cart widget (same as get_cart)
+      // Prepare structuredContent for SDK cards (same as get_cart)
       let structuredData;
       if (cart && cart.lines && cart.lines.length > 0) {
-        structuredData = {
-          cart: {
-            lines: cart.lines,
-            total: cart.total || 0
-          },
-          sessionId: cart.sessionId || sessionId || "default"
-        };
+        structuredData = buildCartStructuredContent(cart, cart.sessionId || sessionId || "default");
       } else {
         // Fallback to old structure if needed
         const cartResult = getCartWithSession(sessionId);
-        structuredData = {
-          cart: {
-            items: cartResult.items || [],
-            total: cartResult.total || 0
-          },
-          sessionId: cartResult.sessionId || sessionId || "default"
-        };
+        structuredData = buildCartStructuredContent(cartResult, cartResult.sessionId || sessionId || "default");
       }
 
       if (!prerequisites.allowed || !checkoutGuidance.ready) {
@@ -4825,10 +4786,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               type: "text",
               text: responseText
             }
-          ],
-          _meta: {
-            widgetType: "cart"
-          }
+          ]
         };
       }
 
@@ -4879,10 +4837,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             type: "text",
             text: responseText
           }
-        ],
-        _meta: {
-          widgetType: "cart"
-        }
+        ]
       };
     }
 
@@ -5244,6 +5199,112 @@ function formatThreeSectionResponse(mainResponse, suggestions, nextSteps) {
   }
 
   return formatted;
+}
+
+function formatCurrency(amount) {
+  const value = Number(amount || 0);
+  return `$${value.toFixed(2)}`;
+}
+
+function buildCartStructuredContent(cart, sessionId) {
+  const structured = {
+    sessionId: sessionId || "default",
+    cards: []
+  };
+
+  if (cart && Array.isArray(cart.lines) && cart.lines.length > 0) {
+    let monthlyTotal = 0;
+    let deviceTotal = 0;
+    let protectionTotal = 0;
+
+    cart.lines.forEach((line, index) => {
+      const lineNumber = line.lineNumber || (index + 1);
+      const planPrice = Number(line.plan?.price || line.plan?.baseLinePrice || 0);
+      const devicePrice = Number(line.device?.price || line.device?.calculatedPrice?.unitPrice || 0);
+      const protectionPrice = Number(line.protection?.price || 0);
+
+      monthlyTotal += planPrice;
+      deviceTotal += devicePrice;
+      protectionTotal += protectionPrice;
+
+      const planName = line.plan?.name || line.plan?.displayName || line.plan?.displayNameWeb || null;
+      const planData = line.plan?.data || line.plan?.planData;
+      const dataUnit = line.plan?.dataUnit || 'GB';
+      const planValue = planName
+        ? `${planName}${planPrice ? ` — ${formatCurrency(planPrice)}/mo` : ''}${planData ? ` (${planData}${dataUnit})` : ''}`
+        : 'Not selected';
+
+      const deviceName = line.device?.brand
+        ? `${line.device.brand} ${line.device.name || line.device.translated?.name || 'Device'}`
+        : (line.device?.name || line.device?.translated?.name || null);
+      const deviceValue = deviceName
+        ? `${deviceName}${devicePrice ? ` — ${formatCurrency(devicePrice)}` : ''}`
+        : 'Not selected';
+
+      const protectionName = line.protection?.name || null;
+      const protectionValue = protectionName
+        ? `${protectionName}${protectionPrice ? ` — ${formatCurrency(protectionPrice)}` : ''}`
+        : 'Not selected';
+
+      const simValue = line.sim?.simType
+        ? (line.sim.simType === 'ESIM' ? 'eSIM' : (line.sim.simType === 'PSIM' ? 'Physical SIM' : line.sim.simType))
+        : 'Not selected';
+
+      const lineTotal = planPrice + devicePrice + protectionPrice;
+
+      structured.cards.push({
+        title: `Line ${lineNumber}`,
+        items: [
+          { label: 'Plan', value: planValue },
+          { label: 'Device', value: deviceValue },
+          { label: 'Protection', value: protectionValue },
+          { label: 'SIM', value: simValue },
+          { label: 'Line total', value: formatCurrency(lineTotal) }
+        ]
+      });
+    });
+
+    const oneTimeSubtotal = deviceTotal + protectionTotal;
+    const handlingFee = oneTimeSubtotal > 0 ? 10 : 0;
+    const shippingFee = oneTimeSubtotal > 0 ? 15 : 0;
+    const dueToday = oneTimeSubtotal + handlingFee + shippingFee;
+
+    const summaryItems = [];
+    if (monthlyTotal > 0) summaryItems.push({ label: 'Monthly total', value: `${formatCurrency(monthlyTotal)}/mo` });
+    if (deviceTotal > 0) summaryItems.push({ label: 'Devices', value: formatCurrency(deviceTotal) });
+    if (protectionTotal > 0) summaryItems.push({ label: 'Protection', value: formatCurrency(protectionTotal) });
+    if (oneTimeSubtotal > 0) {
+      summaryItems.push({ label: 'Handling fee', value: formatCurrency(handlingFee) });
+      summaryItems.push({ label: 'Shipping & handling', value: formatCurrency(shippingFee) });
+      summaryItems.push({ label: 'Due today', value: formatCurrency(dueToday) });
+    }
+
+    if (summaryItems.length > 0) {
+      structured.cards.push({
+        title: 'Order Summary',
+        items: summaryItems
+      });
+    }
+
+    return structured;
+  }
+
+  if (cart && Array.isArray(cart.items) && cart.items.length > 0) {
+    cart.items.forEach((item) => {
+      structured.cards.push({
+        title: item.name || 'Item',
+        items: [{ label: 'Price', value: formatCurrency(item.price || 0) }]
+      });
+    });
+    return structured;
+  }
+
+  structured.cards.push({
+    title: 'Cart',
+    items: [{ label: 'Status', value: 'Your cart is empty' }]
+  });
+
+  return structured;
 }
 
 /**

@@ -1,264 +1,106 @@
 {
-  "session_1768985609051_b5fjza2": {
+  "session_1769005391279_3e68mqp": {
     "lines": [
       {
         "lineNumber": 1,
-        "plan": null,
-        "device": {
-          "type": "device",
-          "id": "480a63dbede44fb39262140d0b708a50",
-          "name": "Apple iPhone 15 256GB",
-          "brand": "",
-          "price": 702.5,
-          "image": "https://shopware-api-nctc-qa.reachmobileplatform.com/media/25/6c/46/1730972224/bec9b5be978942e5a4f7743d5c80e1e3.jpg",
-          "localImageUrl": "https://reach-api-mcp.applore.in/public/assets/480a63dbede44fb39262140d0b708a50.jpg",
-          "properties": [],
-          "customFields": {
-            "brand": "Apple",
-            "condition": "Open-Box",
-            "design_color": "Black",
-            "ram_capacity": "6GB",
-            "hac_rating_info": "{     \"rating\": \"M3/T4\",     \"fccId\": \"BCG-E8427A, BCG-E8428A\",     \"standard\": \"2011 ANSI\",     \"type\": \"SmartPhone\" }",
-            "storage_capacity": "256GB"
-          },
-          "translated": {
-            "metaDescription": null,
-            "name": "Apple iPhone 15 256GB",
-            "keywords": null,
-            "description": null,
-            "metaTitle": null,
-            "packUnit": null,
-            "packUnitPlural": null,
-            "customFields": {
-              "brand": "Apple",
-              "condition": "Open-Box",
-              "design_color": "Black",
-              "ram_capacity": "6GB",
-              "hac_rating_info": "{     \"rating\": \"M3/T4\",     \"fccId\": \"BCG-E8427A, BCG-E8428A\",     \"standard\": \"2011 ANSI\",     \"type\": \"SmartPhone\" }",
-              "storage_capacity": "256GB"
-            }
-          },
-          "calculatedPrice": {
-            "unitPrice": 702.5,
-            "quantity": 1,
-            "totalPrice": 702.5,
-            "calculatedTaxes": [
-              {
-                "tax": 0,
-                "taxRate": 0,
-                "price": 702.5,
-                "apiAlias": "cart_tax_calculated"
-              }
-            ],
-            "taxRules": [
-              {
-                "taxRate": 0,
-                "percentage": 100,
-                "apiAlias": "cart_tax_rule"
-              }
-            ],
-            "referencePrice": null,
-            "listPrice": {
-              "price": 799,
-              "discount": -96.5,
-              "percentage": 12.08,
-              "apiAlias": "cart_list_price"
-            },
-            "regulationPrice": null,
-            "apiAlias": "calculated_price"
-          },
-          "available": true,
-          "availableStock": -38,
-          "stock": 11
+        "plan": {
+          "type": "plan",
+          "id": "M0028122398SHK447DCBB742CC",
+          "uniqueIdentifier": "M0028122398SHK447DCBB742CC",
+          "name": "Unlimited 10",
+          "price": 25,
+          "data": 10,
+          "dataUnit": "GB"
         },
-        "protection": null,
-        "sim": {
-          "type": "sim",
-          "simType": null,
-          "iccId": null
-        }
-      },
-      {
-        "lineNumber": 2,
-        "plan": null,
         "device": {
           "type": "device",
-          "id": "480a63dbede44fb39262140d0b708a50",
-          "name": "Apple iPhone 15 256GB",
+          "id": "173469c667e34cc9a8a63984ace5cbe6",
+          "name": "Motorola Moto G (2025)",
           "brand": "",
-          "price": 702.5,
-          "image": "https://shopware-api-nctc-qa.reachmobileplatform.com/media/25/6c/46/1730972224/bec9b5be978942e5a4f7743d5c80e1e3.jpg",
-          "localImageUrl": "https://reach-api-mcp.applore.in/public/assets/480a63dbede44fb39262140d0b708a50.jpg",
-          "properties": [],
-          "customFields": {
-            "brand": "Apple",
-            "condition": "Open-Box",
-            "design_color": "Black",
-            "ram_capacity": "6GB",
-            "hac_rating_info": "{     \"rating\": \"M3/T4\",     \"fccId\": \"BCG-E8427A, BCG-E8428A\",     \"standard\": \"2011 ANSI\",     \"type\": \"SmartPhone\" }",
-            "storage_capacity": "256GB"
-          },
-          "translated": {
-            "metaDescription": null,
-            "name": "Apple iPhone 15 256GB",
-            "keywords": null,
-            "description": null,
-            "metaTitle": null,
-            "packUnit": null,
-            "packUnitPlural": null,
-            "customFields": {
-              "brand": "Apple",
-              "condition": "Open-Box",
-              "design_color": "Black",
-              "ram_capacity": "6GB",
-              "hac_rating_info": "{     \"rating\": \"M3/T4\",     \"fccId\": \"BCG-E8427A, BCG-E8428A\",     \"standard\": \"2011 ANSI\",     \"type\": \"SmartPhone\" }",
-              "storage_capacity": "256GB"
-            }
-          },
-          "calculatedPrice": {
-            "unitPrice": 702.5,
-            "quantity": 1,
-            "totalPrice": 702.5,
-            "calculatedTaxes": [
-              {
-                "tax": 0,
-                "taxRate": 0,
-                "price": 702.5,
-                "apiAlias": "cart_tax_calculated"
-              }
-            ],
-            "taxRules": [
-              {
-                "taxRate": 0,
-                "percentage": 100,
-                "apiAlias": "cart_tax_rule"
-              }
-            ],
-            "referencePrice": null,
-            "listPrice": {
-              "price": 799,
-              "discount": -96.5,
-              "percentage": 12.08,
-              "apiAlias": "cart_list_price"
-            },
-            "regulationPrice": null,
-            "apiAlias": "calculated_price"
-          },
-          "available": true,
-          "availableStock": -38,
-          "stock": 11
-        },
-        "protection": null,
-        "sim": {
-          "type": "sim",
-          "simType": null,
-          "iccId": null
-        }
-      }
-    ],
-    "total": 1405,
-    "sessionId": "session_1768985609051_b5fjza2",
-    "expiresAt": 1768997860573,
-    "createdAt": 1768990642956
-  },
-  "session_1768994364747_60n3733": {
-    "lines": [
-      {
-        "lineNumber": 1,
-        "plan": null,
-        "device": {
-          "type": "device",
-          "id": "4a7f8bad90b2491eb391226b61bb9f45",
-          "name": "Samsung Galaxy S24FE",
-          "brand": "",
-          "price": 649.99,
-          "image": "https://shopware-api-nctc-qa.reachmobileplatform.com/media/c1/c1/aa/1732474419/dc9aa1c153e540b5aa2cfad58a709201.png",
-          "localImageUrl": "https://reach-api-mcp.applore.in/public/assets/4a7f8bad90b2491eb391226b61bb9f45.png",
+          "price": 189.99,
+          "image": "https://shopware-api-nctc-qa.reachmobileplatform.com/media/c4/4e/ed/1749011391/6144522ea81d47bea60989651643d3ec.webp",
+          "localImageUrl": "https://reach-api-mcp.applore.in/public/assets/173469c667e34cc9a8a63984ace5cbe6.webp",
           "properties": [],
           "customFields": {
             "os": "Android",
-            "hac": "M3/T3",
             "nfc": "Yes",
-            "brand": "Samsung",
-            "model": "SM-S721UZKAXAG",
-            "chipset": "Exynos 2400e (4 nm)",
+            "brand": "Motorola",
+            "model": "PB5X0002US",
+            "chipset": "Mediatek Dimensity 6300 (6 nm)",
             "condition": "New",
-            "ip_rating": "IP68",
-            "dimensions": "162 x 77.3 x 8 mm",
-            "os_version": "Android 14",
-            "chargingport": "USB Type-C 3.2",
-            "design_color": "Black",
-            "display_type": "6.7\" Super AMOLED (6.5\" rounded corners)",
-            "merchant_sku": "SA-S721UG-A001-GEGE",
-            "ram_capacity": "8GB",
+            "dimensions": "167.1 x 76.3 x 8.2 mm",
+            "os_version": "Android 16",
+            "chargingport": "USB Type-C 2.0",
+            "design_color": "Gray",
+            "display_type": "6.7 inches",
+            "merchant_sku": "MO-PB5X0002US-G001-GEGE",
+            "ram_capacity": "4GB",
+            "wifi_feature": "Wi-Fi 802.11 a/b/g/n/ac",
             "mobilehotspot": "Yes",
-            "processor_cpu": "SEC | S5E9945(Exynos 2400e)",
-            "hac_rating_info": "{     \"rating\": \"Pass\",     \"fccId\": \"A3LSMAF21U\",     \"standard\": \"ANSI C63.19-2019\",     \"type\": \"SmartPhone\" }",
+            "processor_cpu": "MTK 24E (6835)",
             "reach_vendor_id": "9625c2a764614753a87460e22031ad59",
-            "battery_capacity": "4700mAh",
-            "storage_capacity": "128 GB",
-            "wirelesscharging": "Yes",
+            "battery_capacity": "5000mAh",
+            "storage_capacity": "128GB",
+            "wirelesscharging": "No",
             "bluetooth_version": "v5.3",
             "fingerprintsensor": "Yes",
             "cellulartechnology": "5G",
-            "display_resolution": "1080 x 2340 pixels",
+            "display_resolution": "720 x 1604",
             "display_refresh_rate": "120Hz",
             "compatibility_service": "Unlocked",
-            "back_camera_resolution": "50MP, 12MP, 8MP",
-            "front_camera_resolution": "10MP",
-            "reach_vendor_product_id": "SA-S721UG-A001-GEGE"
+            "back_camera_resolution": "50 MP, f/1.8, (wide), 0.61µm, PDAF, OIS,2 MP, f/2.4, (macro)",
+            "front_camera_resolution": "16 MP, f/2.4, (wide), 1.0µm",
+            "reach_vendor_product_id": "MO-PB5X0002US-G001-GEGE"
           },
           "translated": {
             "metaDescription": null,
-            "name": "Samsung Galaxy S24FE",
+            "name": "Motorola Moto G (2025)",
             "keywords": null,
-            "description": null,
+            "description": " <img  src=\"http://shopware-api-nctc-qa.reachmobileplatform.com/media/49/57/81/1749011388/a8a1b3f01bd94e72a01b266314abfbde.webp\" alt=\"Motorola Moto G (2025)\"  /> <img  src=\"http://shopware-api-nctc-qa.reachmobileplatform.com/media/4b/50/c9/1749011388/fd5e25e699d6412fa4e1c1bd39e418b6.webp\" alt=\"Motorola Moto G (2025)\"  />",
             "metaTitle": null,
             "packUnit": null,
             "packUnitPlural": null,
             "customFields": {
               "os": "Android",
-              "hac": "M3/T3",
               "nfc": "Yes",
-              "brand": "Samsung",
-              "model": "SM-S721UZKAXAG",
-              "chipset": "Exynos 2400e (4 nm)",
+              "brand": "Motorola",
+              "model": "PB5X0002US",
+              "chipset": "Mediatek Dimensity 6300 (6 nm)",
               "condition": "New",
-              "ip_rating": "IP68",
-              "dimensions": "162 x 77.3 x 8 mm",
-              "os_version": "Android 14",
-              "chargingport": "USB Type-C 3.2",
-              "design_color": "Black",
-              "display_type": "6.7\" Super AMOLED (6.5\" rounded corners)",
-              "merchant_sku": "SA-S721UG-A001-GEGE",
-              "ram_capacity": "8GB",
+              "dimensions": "167.1 x 76.3 x 8.2 mm",
+              "os_version": "Android 16",
+              "chargingport": "USB Type-C 2.0",
+              "design_color": "Gray",
+              "display_type": "6.7 inches",
+              "merchant_sku": "MO-PB5X0002US-G001-GEGE",
+              "ram_capacity": "4GB",
+              "wifi_feature": "Wi-Fi 802.11 a/b/g/n/ac",
               "mobilehotspot": "Yes",
-              "processor_cpu": "SEC | S5E9945(Exynos 2400e)",
-              "hac_rating_info": "{     \"rating\": \"Pass\",     \"fccId\": \"A3LSMAF21U\",     \"standard\": \"ANSI C63.19-2019\",     \"type\": \"SmartPhone\" }",
+              "processor_cpu": "MTK 24E (6835)",
               "reach_vendor_id": "9625c2a764614753a87460e22031ad59",
-              "battery_capacity": "4700mAh",
-              "storage_capacity": "128 GB",
-              "wirelesscharging": "Yes",
+              "battery_capacity": "5000mAh",
+              "storage_capacity": "128GB",
+              "wirelesscharging": "No",
               "bluetooth_version": "v5.3",
               "fingerprintsensor": "Yes",
               "cellulartechnology": "5G",
-              "display_resolution": "1080 x 2340 pixels",
+              "display_resolution": "720 x 1604",
               "display_refresh_rate": "120Hz",
               "compatibility_service": "Unlocked",
-              "back_camera_resolution": "50MP, 12MP, 8MP",
-              "front_camera_resolution": "10MP",
-              "reach_vendor_product_id": "SA-S721UG-A001-GEGE"
+              "back_camera_resolution": "50 MP, f/1.8, (wide), 0.61µm, PDAF, OIS,2 MP, f/2.4, (macro)",
+              "front_camera_resolution": "16 MP, f/2.4, (wide), 1.0µm",
+              "reach_vendor_product_id": "MO-PB5X0002US-G001-GEGE"
             }
           },
           "calculatedPrice": {
-            "unitPrice": 649.99,
+            "unitPrice": 189.99,
             "quantity": 1,
-            "totalPrice": 649.99,
+            "totalPrice": 189.99,
             "calculatedTaxes": [
               {
                 "tax": 0,
                 "taxRate": 0,
-                "price": 649.99,
+                "price": 189.99,
                 "apiAlias": "cart_tax_calculated"
               }
             ],
@@ -271,17 +113,17 @@
             ],
             "referencePrice": null,
             "listPrice": {
-              "price": 749.99,
-              "discount": -100,
-              "percentage": 13.33,
+              "price": 189.99,
+              "discount": 0,
+              "percentage": 0,
               "apiAlias": "cart_list_price"
             },
             "regulationPrice": null,
             "apiAlias": "calculated_price"
           },
           "available": true,
-          "availableStock": -2,
-          "stock": 7
+          "availableStock": 20,
+          "stock": 20
         },
         "protection": null,
         "sim": {
@@ -294,14 +136,132 @@
         "lineNumber": 2,
         "plan": {
           "type": "plan",
-          "id": "M0028122398SHKAEF34A7711A1",
-          "uniqueIdentifier": "M0028122398SHKAEF34A7711A1",
-          "name": "By the Gig",
-          "price": 15,
-          "data": 1,
+          "id": "M0028122398SHK012B1CCEB302",
+          "uniqueIdentifier": "M0028122398SHK012B1CCEB302",
+          "name": "Essentials",
+          "price": 25,
+          "data": 5,
           "dataUnit": "GB"
         },
-        "device": null,
+        "device": {
+          "type": "device",
+          "id": "4673ec53003f4900a2160a771ee6e64c",
+          "name": "Google Pixel 9 Pro",
+          "brand": "",
+          "price": 1002.99,
+          "image": "https://shopware-api-nctc-qa.reachmobileplatform.com/media/95/26/f1/1728034328/0888900c7bca4aa8b37dff95de767c7b.PNG",
+          "localImageUrl": "https://reach-api-mcp.applore.in/public/assets/4673ec53003f4900a2160a771ee6e64c.PNG",
+          "properties": [],
+          "customFields": {
+            "os": "Android",
+            "hac": "M3/T4",
+            "nfc": "Yes",
+            "brand": "Google",
+            "model": "GA05925-US",
+            "chipset": "Google Tensor G4 (4 nm)",
+            "condition": "New",
+            "ip_rating": "IP68",
+            "dimensions": "152.8 x 72.0 x 8.5 mm",
+            "os_version": "Android 14",
+            "chargingport": "USB Type-C 3.2",
+            "design_color": "Black",
+            "display_type": "6.3\" Super Actua display",
+            "merchant_sku": "GO-GA05925US-A001-GEGE",
+            "ram_capacity": "16GB",
+            "wifi_feature": "Wi-Fi 7",
+            "mobilehotspot": "Yes",
+            "processor_cpu": "Octa-core (1x3.1 GHz Cortex-X4 & 3x2.6 GHz Cortex-A720 & 4x1.92 GHz Cortex-A520)",
+            "hac_rating_info": "{     \"rating\": \"Pass\",     \"fccId\": \"A4RGR83Y\",     \"standard\": \"ANSI C63.19-2019\",     \"type\": \"SmartPhone\" }",
+            "reach_vendor_id": "9625c2a764614753a87460e22031ad59",
+            "battery_capacity": "4700 mAh",
+            "storage_capacity": "128GB",
+            "wirelesscharging": "Yes",
+            "bluetooth_version": "v5.3",
+            "fingerprintsensor": "Yes",
+            "cellulartechnology": "5G",
+            "display_resolution": "1280 x 2856",
+            "display_refresh_rate": "120Hz",
+            "compatibility_service": "Unlocked",
+            "back_camera_resolution": "50MP Wide, 48MP UltraWide, 48MP Telephoto, 8K Video Boost",
+            "front_camera_resolution": "42 MP Dual PD selfie camera with autofocus",
+            "reach_vendor_product_id": "GO-GA05925US-A001-GEGE"
+          },
+          "translated": {
+            "metaDescription": null,
+            "name": "Google Pixel 9 Pro",
+            "keywords": null,
+            "description": " <img  src=\"http://shopware-api-nctc-qa.reachmobileplatform.com/media/3f/a9/42/1728034318/6e64fcf1ad144613b5739cbc2bf4f213.jpg\" alt=\"Google Pixel 9 Pro\"  /> <img  src=\"http://shopware-api-nctc-qa.reachmobileplatform.com/media/a6/66/8a/1728034319/73b95f099e9344daa3f4b86d7385c40a.jpg\" alt=\"Google Pixel 9 Pro\"  /> <img  src=\"http://shopware-api-nctc-qa.reachmobileplatform.com/media/56/d9/17/1728034321/491e4879031e4c5fa733d848d0987c10.jpg\" alt=\"Google Pixel 9 Pro\"  /> <img  src=\"http://shopware-api-nctc-qa.reachmobileplatform.com/media/1b/33/88/1728034322/06452b424f1946fcaff7fcb1ed855667.jpg\" alt=\"Google Pixel 9 Pro\"  /> <img  src=\"http://shopware-api-nctc-qa.reachmobileplatform.com/media/1f/c4/0c/1728034323/b5d6fc6cef094735bcbbae74986d86b7.jpg\" alt=\"Google Pixel 9 Pro\"  /> <img  src=\"http://shopware-api-nctc-qa.reachmobileplatform.com/media/15/d4/1c/1728034324/de16f916dd494a55ad7b1b3f3b28fce9.jpg\" alt=\"Google Pixel 9 Pro\"  />",
+            "metaTitle": null,
+            "packUnit": null,
+            "packUnitPlural": null,
+            "customFields": {
+              "os": "Android",
+              "hac": "M3/T4",
+              "nfc": "Yes",
+              "brand": "Google",
+              "model": "GA05925-US",
+              "chipset": "Google Tensor G4 (4 nm)",
+              "condition": "New",
+              "ip_rating": "IP68",
+              "dimensions": "152.8 x 72.0 x 8.5 mm",
+              "os_version": "Android 14",
+              "chargingport": "USB Type-C 3.2",
+              "design_color": "Black",
+              "display_type": "6.3\" Super Actua display",
+              "merchant_sku": "GO-GA05925US-A001-GEGE",
+              "ram_capacity": "16GB",
+              "wifi_feature": "Wi-Fi 7",
+              "mobilehotspot": "Yes",
+              "processor_cpu": "Octa-core (1x3.1 GHz Cortex-X4 & 3x2.6 GHz Cortex-A720 & 4x1.92 GHz Cortex-A520)",
+              "hac_rating_info": "{     \"rating\": \"Pass\",     \"fccId\": \"A4RGR83Y\",     \"standard\": \"ANSI C63.19-2019\",     \"type\": \"SmartPhone\" }",
+              "reach_vendor_id": "9625c2a764614753a87460e22031ad59",
+              "battery_capacity": "4700 mAh",
+              "storage_capacity": "128GB",
+              "wirelesscharging": "Yes",
+              "bluetooth_version": "v5.3",
+              "fingerprintsensor": "Yes",
+              "cellulartechnology": "5G",
+              "display_resolution": "1280 x 2856",
+              "display_refresh_rate": "120Hz",
+              "compatibility_service": "Unlocked",
+              "back_camera_resolution": "50MP Wide, 48MP UltraWide, 48MP Telephoto, 8K Video Boost",
+              "front_camera_resolution": "42 MP Dual PD selfie camera with autofocus",
+              "reach_vendor_product_id": "GO-GA05925US-A001-GEGE"
+            }
+          },
+          "calculatedPrice": {
+            "unitPrice": 1002.99,
+            "quantity": 1,
+            "totalPrice": 1002.99,
+            "calculatedTaxes": [
+              {
+                "tax": 0,
+                "taxRate": 0,
+                "price": 1002.99,
+                "apiAlias": "cart_tax_calculated"
+              }
+            ],
+            "taxRules": [
+              {
+                "taxRate": 0,
+                "percentage": 100,
+                "apiAlias": "cart_tax_rule"
+              }
+            ],
+            "referencePrice": null,
+            "listPrice": {
+              "price": 1002.99,
+              "discount": 0,
+              "percentage": 0,
+              "apiAlias": "cart_list_price"
+            },
+            "regulationPrice": null,
+            "apiAlias": "calculated_price"
+          },
+          "available": true,
+          "availableStock": -3,
+          "stock": 5
+        },
         "protection": null,
         "sim": {
           "type": "sim",
@@ -310,9 +270,9 @@
         }
       }
     ],
-    "total": 664.99,
-    "sessionId": "session_1768994364747_60n3733",
-    "expiresAt": 1769004305231,
-    "createdAt": 1768996994031
+    "total": 1242.98,
+    "sessionId": "session_1769005391279_3e68mqp",
+    "expiresAt": 1769013137195,
+    "createdAt": 1769005591709
   }
 }
