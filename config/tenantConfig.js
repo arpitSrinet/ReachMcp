@@ -7,6 +7,9 @@ export const tenantConfig = {
     accountAccessSecreteKey: process.env.REACH_ACCOUNT_ACCESS_SECRET_KEY || "hBv1WoCSvrrUbc8Ql7H6VVt7fT0gzHbOwllo9AVT",
     xapiKey: process.env.REACH_XAPI_KEY || "prf6kKCjty8Hicjx2hGXz5TBBW9bHRLu7G384YST",
     apiBaseUrl: process.env.REACH_API_BASE_URL || "https://api-rm-common-qa.reachmobileplatform.com",
+    partnerTenantId: process.env.REACH_PARTNER_TENANT_ID || "REACH@nu",
+    reachMvne: process.env.REACH_MVNE || "ATT",
+    reachSrc: process.env.REACH_SRC || "web|||customer|codex|node",
   },
 };
 
@@ -57,4 +60,3 @@ export function getTenantConfig(tenant) {
   
   return config;
 }
-

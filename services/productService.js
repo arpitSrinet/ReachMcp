@@ -1,5 +1,7 @@
 import { callReachAPI } from "./apiClient.js";
+import { getTenantConfig } from "../config/tenantConfig.js";
 import { logger } from "../utils/logger.js";
+import crypto from "crypto";
 
 export async function fetchProducts(tenant = "reach") {
   const response = await callReachAPI("/apisvc/v0/product/fetch", {
@@ -41,113 +43,46 @@ export async function fetchProducts(tenant = "reach") {
 }
 
 export async function fetchPlans(serviceCode = null, tenant = "reach") {
-  // Try unified endpoint first, then fall back to item-wise endpoint
-  // Unified: /apisvc/v0/product/fetch
-  // Item-wise: /apisvc/v0/product/fetch/plan
+  const config = getTenantConfig(tenant);
+  const endpoint = "https://api-rm-common.reachmobileplatform.com/authsvc/v0/reachplans/active";
+  const txnId = crypto.randomUUID();
+  const reachDate = Date.now().toString();
 
-  try {
-    // Attempt unified endpoint - this is usually the most complete
-    const allProducts = await fetchProducts(tenant);
-
-    if (allProducts && allProducts.plans && Array.isArray(allProducts.plans) && allProducts.plans.length > 0) {
-      let plans = allProducts.plans;
-      if (serviceCode) {
-        plans = plans.filter(plan => plan.serviceCode === serviceCode);
-      }
-      if (plans.length > 0) {
-        logger.info("Successfully fetched plans from unified endpoint", {
-          planCount: plans.length,
-          serviceCode,
-          tenant
-        });
-        return plans;
-      }
+  const response = await callReachAPI(endpoint, {
+    method: "GET",
+    headers: {
+      "accept": "application/json, text/plain, */*",
+      "origin": "https://nu-mobile.com",
+      "referer": "https://nu-mobile.com/",
+      "x-partner-tenant-id": config.partnerTenantId,
+      "x-reach-date": reachDate,
+      "x-reach-mvne": config.reachMvne,
+      "x-reach-src": config.reachSrc,
+      "txnid": txnId
     }
+  }, tenant);
 
-    throw new Error("No plans found in unified endpoint response");
-
-  } catch (error) {
-    const errorMessage = error.message || String(error);
-    const statusCode = error.statusCode;
-
-    logger.warn("Unified endpoint failed for plans, trying fallbacks", {
-      error: errorMessage,
-      statusCode,
+  if (response.status !== "SUCCESS" || !Array.isArray(response.data)) {
+    logger.error("Plans API returned unexpected response", {
+      status: response.status,
+      hasDataArray: Array.isArray(response.data),
       tenant
     });
-
-    // FALLBACK 1: Try NBI item-wise endpoint (Northbound Interface)
-    // Sometimes permissions are available on NBI but not APISVC
-    try {
-      const nbiEndpoint = serviceCode
-        ? `/nbi/v0/product/fetch/plan?serviceCode=${serviceCode}`
-        : `/nbi/v0/product/fetch/plan`;
-
-      const response = await callReachAPI(nbiEndpoint, {
-        method: "GET",
-      }, tenant);
-
-      if (response.status === "SUCCESS" && response.data && Array.isArray(response.data.plans)) {
-        logger.info("Successfully fetched plans from NBI fallback endpoint", {
-          planCount: response.data.plans.length,
-          serviceCode,
-          tenant
-        });
-        return response.data.plans;
-      }
-
-      // If NBI returns success but no plans, or non-success, we fall through to APISVC fallback
-      logger.debug("NBI fallback returned no plans or non-success, trying APISVC fallback");
-    } catch (nbiError) {
-      logger.warn("NBI fallback failed, trying APISVC fallback", {
-        error: nbiError.message,
-        tenant
-      });
-      // Continue to next fallback
-    }
-
-    // FALLBACK 2: Try APISVC item-wise endpoint
-    try {
-      const endpoint = serviceCode
-        ? `/apisvc/v0/product/fetch/plan?serviceCode=${serviceCode}`
-        : `/apisvc/v0/product/fetch/plan`;
-
-      const response = await callReachAPI(endpoint, {
-        method: "GET",
-      }, tenant);
-
-      if (response.status === "SUCCESS" && response.data && Array.isArray(response.data.plans)) {
-        logger.info("Successfully fetched plans from APISVC item-wise fallback endpoint", {
-          planCount: response.data.plans.length,
-          serviceCode,
-          tenant
-        });
-        return response.data.plans;
-      }
-
-      throw new Error(response.message || "Item-wise endpoint returned empty or failed");
-
-    } catch (fallbackError) {
-      const finalErrorMessage = fallbackError.message || String(fallbackError);
-
-      // Check for the specific modifiedDate unconversion error
-      if (finalErrorMessage.includes('modifiedDate') || finalErrorMessage.includes('unconvert') || finalErrorMessage.includes('ReachPlanDTO')) {
-        logger.error("Item-wise fallback also failed with modifiedDate error", {
-          error: finalErrorMessage,
-          tenant
-        });
-        throw new Error(`Server error: The Reach API has a server-side bug with the modifiedDate field. Both unified and item-wise endpoints are affected. Please contact Reach support.`);
-      }
-
-      logger.error("Final failure fetching plans after fallback", {
-        originalError: errorMessage,
-        fallbackError: finalErrorMessage,
-        tenant
-      });
-
-      throw new Error(`Failed to fetch plans after trying fallback: ${finalErrorMessage}`);
-    }
+    throw new Error(response.message || "Failed to fetch plans from reachplans/active");
   }
+
+  let plans = response.data;
+  if (serviceCode) {
+    plans = plans.filter(plan => plan.serviceCode === serviceCode);
+  }
+
+  logger.info("Successfully fetched plans from reachplans/active", {
+    planCount: plans.length,
+    serviceCode,
+    tenant
+  });
+
+  return plans;
 }
 
 export async function fetchOffers(serviceCode = null, tenant = "reach") {
@@ -261,4 +196,3 @@ export async function fetchServices(serviceCode = null, tenant = "reach") {
 
   return services;
 }
-

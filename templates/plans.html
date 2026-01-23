@@ -13,13 +13,13 @@
     }
 
     :root {
-      --primary-green: #30ba95;
-      --primary-green-hover: #269678;
-      --card-radius: 24px;
+      --primary-green: #2cb38a;
+      --primary-green-hover: #249270;
+      --card-radius: 20px;
       --button-radius: 999px;
-      --button-padding: 14px 22px;
-      --cta-bg: #000000;
-      --cta-bg-hover: #121212;
+      --button-padding: 12px 18px;
+      --cta-bg: #0f1115;
+      --cta-bg-hover: #1b1f26;
     }
 
     body {
@@ -31,79 +31,79 @@
 
     .plans-container {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 16px;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 18px;
       max-width: 1400px;
       margin: 0 auto;
       width: 100%;
     }
 
     .plan-card {
-      border: 1px solid #e0e0e0;
+      border: 1px solid #e5e7eb;
       border-radius: var(--card-radius);
-      padding: 20px;
+      padding: 16px;
       background: white;
-      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
       transition: all 0.25s ease;
       display: flex;
       flex-direction: column;
     }
 
     .plan-card:hover {
-      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
-      transform: translateY(-4px);
-      border-color: #d0d0d0;
+      box-shadow: 0 14px 28px rgba(15, 23, 42, 0.12);
+      transform: translateY(-3px);
+      border-color: #d1d5db;
     }
 
     .plan-header {
-      margin-bottom: 20px;
+      margin-bottom: 12px;
     }
 
     .plan-name {
-      font-size: 24px;
+      font-size: 18px;
       font-weight: 600;
-      color: #111827;
-      margin-bottom: 8px;
+      color: #0f172a;
+      margin-bottom: 6px;
     }
 
     .plan-data {
-      font-size: 32px;
+      font-size: 28px;
       font-weight: 700;
-      color: #111827;
-      line-height: 1.2;
+      color: #0f172a;
+      line-height: 1.1;
     }
 
     .plan-pricing {
-      margin-bottom: 16px;
+      margin-bottom: 12px;
     }
 
     .price-row {
       display: flex;
       align-items: baseline;
       gap: 8px;
-      margin-bottom: 4px;
+      margin-bottom: 2px;
     }
 
     .original-price {
-      font-size: 20px;
-      color: #999;
+      font-size: 14px;
+      color: #94a3b8;
       text-decoration: line-through;
     }
 
     .current-price {
-      font-size: 24px;
+      font-size: 22px;
       font-weight: 700;
-      color: #111827;
+      color: #0f172a;
     }
 
     .price-unit {
-      font-size: 18px;
-      font-weight: 500;
+      font-size: 14px;
+      font-weight: 600;
       color: #6b7280;
     }
 
     .taxes-note {
-      font-size: 14px;
+      font-size: 12px;
       color: #6b7280;
       margin-top: 4px;
     }
@@ -112,7 +112,7 @@
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
-      margin-bottom: 20px;
+      margin-bottom: 16px;
     }
 
     .promotion-pill {
@@ -129,24 +129,41 @@
     }
 
     .plan-features {
-      margin-bottom: 20px;
+      margin-bottom: 18px;
       flex-grow: 1;
     }
 
     .feature {
       display: flex;
       align-items: flex-start;
-      margin-bottom: 12px;
-      font-size: 14px;
+      margin-bottom: 10px;
+      font-size: 13px;
       color: #111827;
       line-height: 1.5;
+      gap: 10px;
     }
 
     .feature-icon {
-      margin-right: 10px;
-      font-size: 18px;
+      color: #6b7280;
       flex-shrink: 0;
       margin-top: 2px;
+      width: 16px;
+      height: 16px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .feature-icon svg {
+      width: 16px;
+      height: 16px;
+      fill: currentColor;
+      stroke: none;
+      display: block;
+    }
+
+    .feature-icon svg rect {
+      fill: transparent;
     }
 
     .select-button {
@@ -156,11 +173,11 @@
       border: none;
       padding: var(--button-padding);
       border-radius: var(--button-radius);
-      font-size: 16px;
+      font-size: 15px;
       font-weight: 600;
       cursor: pointer;
       transition: all 0.2s ease;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
 
     .select-button:hover {
@@ -185,33 +202,39 @@
 
     .broadband-facts-button {
       width: 100%;
-      background: #f5f5f5;
-      color: #666;
-      border: 1px solid #e0e0e0;
-      padding: 12px 16px;
+      background: #f6f7f8;
+      color: #4b5563;
+      border: 1px solid #e5e7eb;
+      padding: 10px 16px;
       border-radius: var(--button-radius);
-      font-size: 14px;
-      font-weight: 500;
+      font-size: 13px;
+      font-weight: 600;
       cursor: pointer;
       transition: all 0.2s ease;
       display: flex;
       align-items: center;
-      justify-content: center;
+      justify-content: space-between;
       gap: 6px;
     }
 
     .broadband-facts-button:hover {
-      background: #e5e5e5;
-      border-color: #d0d0d0;
+      background: #eef0f2;
+      border-color: #d1d5db;
+    }
+
+    .broadband-facts-icon {
+      font-size: 12px;
+      color: #6b7280;
     }
 
     .broadband-facts-content {
       margin-top: 16px;
       padding: 16px;
-      background: #f9fafb;
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
       border-radius: 12px;
-      font-size: 12px;
-      color: #666;
+      font-size: 11px;
+      color: #4b5563;
       display: none;
     }
 
@@ -219,8 +242,84 @@
       display: block;
     }
 
-    .broadband-facts-content p {
-      margin-bottom: 8px;
+    .broadband-facts-table {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .broadband-facts-footnote {
+      margin-top: 10px;
+      font-size: 10px;
+      color: #6b7280;
+      line-height: 1.4;
+    }
+
+    .broadband-facts-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 4px;
+    }
+
+    .broadband-facts-subtitle {
+      font-size: 11px;
+      color: #6b7280;
+      margin-bottom: 12px;
+    }
+
+    .broadband-facts-section {
+      border-top: 1px solid #e5e7eb;
+      padding-top: 10px;
+      margin-top: 10px;
+    }
+
+    .broadband-facts-section-title {
+      font-size: 10px;
+      font-weight: 700;
+      color: #111827;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .broadband-facts-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 140px);
+      gap: 12px;
+      padding: 2px 0;
+      align-items: start;
+    }
+
+    .broadband-facts-label {
+      color: #4b5563;
+      font-size: 11px;
+      overflow-wrap: anywhere;
+    }
+
+    .broadband-facts-value {
+      color: #111827;
+      font-size: 11px;
+      font-weight: 600;
+      text-align: right;
+      white-space: normal;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+    }
+
+    .plan-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 12px;
+      font-size: 12px;
+      color: #6b7280;
+      margin-top: 6px;
+    }
+
+    .plan-meta span {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
     }
 
     .broadband-facts-content code {
@@ -628,6 +727,12 @@
         selectedPlansPerLine = toolOutput.structuredContent.selectedPlansPerLine || {};
         planModePrompted = !!toolOutput.structuredContent.planModePrompted;
         console.log('✅ Selection state:', { selectionMode, activeLineId, selectedPlansPerLine, planModePrompted });
+        selectedPlans.clear();
+        Object.values(selectedPlansPerLine).forEach(planId => {
+          if (planId !== undefined && planId !== null && planId !== '') {
+            selectedPlans.add(planId);
+          }
+        });
       }
 
       return extractedLines;
@@ -636,16 +741,30 @@
     // Function to render a single plan card
     function renderPlan(plan) {
       const planId = plan.id || plan.uniqueIdentifier;
-      const name = plan.name || plan.displayName;
-      const price = plan.price || plan.baseLinePrice || 0;
+      const rawName = plan.name || plan.displayName || plan.displayNameWeb || 'Plan';
+      const price = plan.price || plan.baseLinePrice || null;
       const data = plan.data || plan.planData || 0;
       const dataUnit = plan.dataUnit || 'GB';
       const discountPctg = plan.discountPctg || 0;
       const isSelected = selectedPlans.has(planId);
 
+      const formatPrice = (value) => {
+        if (value === null || value === undefined || Number.isNaN(Number(value))) {
+          return null;
+        }
+        const numeric = Number(value);
+        return numeric % 1 === 0 ? numeric.toFixed(0) : numeric.toFixed(2);
+      };
+
+      const dataLabel = data > 0 ? `${data}${dataUnit}` : null;
+      let displayName = rawName;
+      if (dataLabel && displayName.includes(dataLabel)) {
+        displayName = displayName.replace(`(${dataLabel})`, '').replace(dataLabel, '').trim();
+      }
+
       let originalPrice = null;
       let discountAmount = 0;
-      if (discountPctg > 0) {
+      if (discountPctg > 0 && price !== null) {
         originalPrice = Math.round(price / (1 - discountPctg / 100));
         discountAmount = Math.round(originalPrice - price);
       }
@@ -656,45 +775,76 @@
         promotions.push(`$${discountAmount.toFixed(2)} off applied`);
       }
       if (plan.overageAllowedData && plan.overageAllowedData > 0) {
-        const overageGB = (plan.overageAllowedData / 1024).toFixed(0);
-        promotions.push(`${overageGB}GB additional data`);
+        const overageUnit = plan.overageAllowedDataUnit || 'MB';
+        const overageValue = overageUnit.toUpperCase() === 'GB'
+          ? plan.overageAllowedData
+          : plan.overageAllowedData / 1024;
+        const overageGB = Number(overageValue);
+        if (!Number.isNaN(overageGB) && overageGB > 0) {
+          promotions.push(`${overageGB.toFixed(0)}GB additional data`);
+        }
       }
 
-      // Build features list (only essential ones)
+      const normalizeSvg = (svgCode) => {
+        if (!svgCode) return '';
+        return String(svgCode)
+          .replace(/fill=\"\"/g, 'fill=\"currentColor\"')
+          .replace(/fill=\"none\"/g, 'fill=\"currentColor\"');
+      };
+
       const features = [];
-      if (plan.isUnlimited || plan.unlimited || plan.talktime === 'Unlimited') {
-        features.push({ icon: '📞', text: 'Unlimited Talk & Text' });
+      if (Array.isArray(plan.planFeatures) && plan.planFeatures.length > 0) {
+        plan.planFeatures
+          .filter(feature => feature && feature.label)
+          .sort((a, b) => Number(a.priority || 0) - Number(b.priority || 0))
+          .forEach(feature => {
+            const label = String(feature.label || '');
+            const labelLower = label.toLowerCase();
+            const isFigmFeature = labelLower.includes('talk') ||
+              labelLower.includes('text') ||
+              labelLower.includes('high-speed') ||
+              labelLower.includes('hotspot') ||
+              labelLower.includes('video');
+            if (!isFigmFeature) return;
+            features.push({ icon: normalizeSvg(feature.svgCode), text: label });
+          });
       }
-      if (data > 0) {
-        const dataText = data >= 1
-          ? `${data}${dataUnit} high-speed data${plan.addThrottle ? ' (reduced speeds thereafter)' : ''}`
-          : `${data * 1024}MB high-speed data${plan.addThrottle ? ' (reduced speeds thereafter)' : ''}`;
-        features.push({ icon: '💾', text: dataText });
-      }
-      // Add mobile hotspot if available (checking if plan supports it)
-      if (plan.mobileHotspot || plan.hotspotData) {
-        const hotspotData = plan.hotspotData || data;
-        features.push({ icon: '📶', text: `${hotspotData}${dataUnit} mobile hotspot` });
-      }
-      // Add HD video streaming if available
-      if (plan.hdVideo || plan.videoStreaming) {
-        features.push({ icon: '▶️', text: 'HD video streaming' });
+
+      if (features.length === 0) {
+        if (plan.isUnlimited || plan.unlimited || plan.talktime === 'Unlimited') {
+          features.push({ icon: '', text: 'Unlimited Talk & Text' });
+        }
+        if (data > 0) {
+          const dataText = data >= 1
+            ? `${data}${dataUnit} high-speed data${plan.addThrottle ? ' (reduced speeds thereafter)' : ''}`
+            : `${data * 1024}MB high-speed data${plan.addThrottle ? ' (reduced speeds thereafter)' : ''}`;
+          features.push({ icon: '', text: dataText });
+        }
+        if (plan.mobileHotspot || plan.hotspotData) {
+          const hotspotData = plan.hotspotData || data;
+          if (hotspotData) {
+            features.push({ icon: '', text: `${hotspotData}${dataUnit} mobile hotspot` });
+          }
+        }
+        if (plan.hdVideo || plan.videoStreaming) {
+          features.push({ icon: '', text: 'HD video streaming' });
+        }
       }
 
       return `
         <div class="plan-card">
           <div class="plan-header">
-            <div class="plan-name">${name}</div>
-            <div class="plan-data">${data}${dataUnit}</div>
+            <div class="plan-name">${displayName || 'Plan'}</div>
+            ${dataLabel ? `<div class="plan-data">${dataLabel}</div>` : ''}
           </div>
           
           <div class="plan-pricing">
             <div class="price-row">
-            ${originalPrice ? `<span class="original-price">$${originalPrice}</span>` : ''}
-              <span class="current-price">$${price}</span>
-              <span class="price-unit">/mo</span>
+            ${originalPrice ? `<span class="original-price">$${formatPrice(originalPrice)}</span>` : ''}
+              ${formatPrice(price) ? `<span class="current-price">$${formatPrice(price)}</span>` : `<span class="current-price">—</span>`}
+              ${formatPrice(price) ? `<span class="price-unit">/mo</span>` : ''}
             </div>
-            <div class="taxes-note">Includes taxes and fees</div>
+            ${formatPrice(price) ? `<div class="taxes-note">Includes taxes and fees</div>` : ''}
           </div>
           
           ${promotions.length > 0 ? `
@@ -706,17 +856,17 @@
           <div class="plan-features">
             ${features.map(f => `
               <div class="feature">
-                <span class="feature-icon">${f.icon}</span>
+                ${f.icon ? `<span class="feature-icon">${f.icon}</span>` : ''}
                 <span>${f.text}</span>
               </div>
             `).join('')}
           </div>
           
-          <button class="select-button" 
-                  onclick="handlePlanSelection('${planId}', '${name.replace(/'/g, "\\'")}')">${selectionMode === 'applyAll'
-          ? `Add ${name} to All Lines`
+          <button class="select-button${isSelected ? ' select-button--selected' : ''}" 
+                  onclick="handlePlanSelection('${planId}', '${displayName.replace(/'/g, "\\'")}', this)">${selectionMode === 'applyAll'
+          ? `Add ${displayName} to All Lines`
           : selectionMode === 'sequential' && activeLineId
-            ? `Select ${name} for Line ${activeLineId}`
+            ? `Select ${displayName} for Line ${activeLineId}`
             : `Select Plan`
         }</button>
           
@@ -750,30 +900,188 @@
             </div>
           </div>
           
-          <button class="broadband-facts-button" onclick="toggleBroadbandFacts('${planId}')">
+          <button class="broadband-facts-button" onclick="toggleBroadbandFacts()">
             <span>Broadband Facts</span>
-            <span id="facts-icon-${planId}">✓</span>
+            <span class="broadband-facts-icon" id="facts-icon-${planId}">▾</span>
           </button>
           
           <div class="broadband-facts-content" id="facts-${planId}">
-              ${plan.planType ? `<p>Type: ${plan.planType}</p>` : ''}
-              ${plan.serviceCode ? `<p>Service: ${plan.serviceCode}</p>` : ''}
-              ${plan.planCharging ? `<p>Charging: ${plan.planCharging}</p>` : ''}
-            <p>Talktime: ${plan.talktime === -1 || plan.talktime === '-1' ? 'No' : (plan.talktime || 'N/A')}</p>
-            <p>Text: ${plan.text === -1 || plan.text === '-1' ? 'No' : (plan.text || 'N/A')}</p>
-              <p>Throttle: ${plan.addThrottle ? 'Enabled' : 'Disabled'}${plan.throttleSpeed ? ` @ ${plan.throttleSpeed}${plan.throttleSpeedUnit || 'Kbps'}` : ''}</p>
-              <p>Data Cut Off: ${plan.addDataCutOff ? 'Enabled' : 'Disabled'}</p>
-              ${Array.isArray(plan.upGradableTo) && plan.upGradableTo.length
-          ? `<p>Upgradable To: ${plan.upGradableTo.join(', ')}</p>` : ''}
-              ${Array.isArray(plan.downGradableTo) && plan.downGradableTo.length
-          ? `<p>Downgradable To: ${plan.downGradableTo.join(', ')}</p>` : ''}
+            <div class="broadband-facts-title">Broadband Facts</div>
+            <div class="broadband-facts-subtitle">${displayName || 'Plan'} • Fixed or Mobile Broadband Consumer Disclosure</div>
+
+            <div class="broadband-facts-section">
+              <div class="broadband-facts-section-title">Monthly Price</div>
+              <div class="broadband-facts-table">
+                <div class="broadband-facts-row">
+                  <div class="broadband-facts-label">Plan price</div>
+                  <div class="broadband-facts-value">${formatPrice(price) ? `$${formatPrice(price)}/mo` : 'N/A'}</div>
+                </div>
+              </div>
             </div>
+
+            <div class="broadband-facts-section">
+              <div class="broadband-facts-section-title">Additional Charges & Terms</div>
+              <div class="broadband-facts-table">
+                <div class="broadband-facts-row">
+                  <div class="broadband-facts-label">Activation fee</div>
+                  <div class="broadband-facts-value">${plan.activationFee !== undefined ? `$${formatPrice(plan.activationFee)}` : 'N/A'}</div>
+                </div>
+                <div class="broadband-facts-row">
+                  <div class="broadband-facts-label">Additional line price</div>
+                  <div class="broadband-facts-value">${plan.additionalLinePrice !== undefined ? `$${formatPrice(plan.additionalLinePrice)}/mo` : 'N/A'}</div>
+                </div>
+                <div class="broadband-facts-row">
+                  <div class="broadband-facts-label">Cost recovery fee</div>
+                  <div class="broadband-facts-value">N/A</div>
+                </div>
+                <div class="broadband-facts-row">
+                  <div class="broadband-facts-label">SIM card shipping</div>
+                  <div class="broadband-facts-value">N/A</div>
+                </div>
+                <div class="broadband-facts-row">
+                  <div class="broadband-facts-label">Early termination</div>
+                  <div class="broadband-facts-value">N/A</div>
+                </div>
+                <div class="broadband-facts-row">
+                  <div class="broadband-facts-label">Government taxes</div>
+                  <div class="broadband-facts-value">Varies by location</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="broadband-facts-section">
+              <div class="broadband-facts-section-title">Discounts & Bundles</div>
+              <div class="broadband-facts-table">
+                <div class="broadband-facts-row">
+                  <div class="broadband-facts-label">Discounts</div>
+                  <div class="broadband-facts-value">${discountPctg > 0 ? `${discountPctg}%` : 'N/A'}</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="broadband-facts-section">
+              <div class="broadband-facts-section-title">Speeds Provided with Plan</div>
+              ${(Array.isArray(plan.labelInfo?.speedInfos) && plan.labelInfo.speedInfos.length)
+              ? plan.labelInfo.speedInfos.map(speed => `
+                <div class="broadband-facts-table">
+                  <div class="broadband-facts-row">
+                    <div class="broadband-facts-label">${speed.band || 'Network'} typical download</div>
+                    <div class="broadband-facts-value">${speed.dlSpeed || 'N/A'}</div>
+                  </div>
+                  <div class="broadband-facts-row">
+                    <div class="broadband-facts-label">${speed.band || 'Network'} typical upload</div>
+                    <div class="broadband-facts-value">${speed.ulSpeed || 'N/A'}</div>
+                  </div>
+                  <div class="broadband-facts-row">
+                    <div class="broadband-facts-label">${speed.band || 'Network'} latency</div>
+                    <div class="broadband-facts-value">${speed.latency || 'N/A'}</div>
+                  </div>
+                </div>
+              `).join('')
+              : `
+                <div class="broadband-facts-table">
+                  <div class="broadband-facts-row">
+                    <div class="broadband-facts-label">Speed details</div>
+                    <div class="broadband-facts-value">N/A</div>
+                  </div>
+                </div>
+              `}
+            </div>
+
+            <div class="broadband-facts-section">
+              <div class="broadband-facts-section-title">Data Included with Plan</div>
+              <div class="broadband-facts-table">
+                <div class="broadband-facts-row">
+                  <div class="broadband-facts-label">Monthly data</div>
+                  <div class="broadband-facts-value">${dataLabel || 'N/A'}</div>
+                </div>
+                <div class="broadband-facts-row">
+                  <div class="broadband-facts-label">Charges for additional data</div>
+                  <div class="broadband-facts-value">${plan.overageAllowedData ? `$${formatPrice(price) || 'N/A'}` : 'N/A'}</div>
+                </div>
+                <div class="broadband-facts-row">
+                  <div class="broadband-facts-label">Additional data amount</div>
+                  <div class="broadband-facts-value">${plan.overageAllowedData ? `${((plan.overageAllowedDataUnit || 'MB').toUpperCase() === 'GB' ? plan.overageAllowedData : plan.overageAllowedData / 1024).toFixed(0)}GB` : 'N/A'}</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="broadband-facts-section">
+              <div class="broadband-facts-section-title">Network Management</div>
+              <div class="broadband-facts-table">
+                <div class="broadband-facts-row">
+                  <div class="broadband-facts-label">Policy</div>
+                  <div class="broadband-facts-value">N/A</div>
+                </div>
+                <div class="broadband-facts-row">
+                  <div class="broadband-facts-label">Privacy</div>
+                  <div class="broadband-facts-value">N/A</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="broadband-facts-section">
+              <div class="broadband-facts-section-title">Customer Support</div>
+              <div class="broadband-facts-table">
+                <div class="broadband-facts-row">
+                  <div class="broadband-facts-label">Contact</div>
+                  <div class="broadband-facts-value">N/A</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="broadband-facts-section">
+              <div class="broadband-facts-section-title">Plan Details</div>
+              <div class="broadband-facts-table">
+                <div class="broadband-facts-row">
+                  <div class="broadband-facts-label">Plan type</div>
+                  <div class="broadband-facts-value">${plan.planType || 'N/A'}</div>
+                </div>
+                <div class="broadband-facts-row">
+                  <div class="broadband-facts-label">Plan cycle</div>
+                  <div class="broadband-facts-value">${plan.planCycle || 'N/A'}</div>
+                </div>
+                ${Array.isArray(plan.upGradableTo) && plan.upGradableTo.length ? `
+                  <div class="broadband-facts-row">
+                    <div class="broadband-facts-label">Upgradable to</div>
+                    <div class="broadband-facts-value">${plan.upGradableTo.join(', ')}</div>
+                  </div>
+                ` : ''}
+                ${Array.isArray(plan.downGradableTo) && plan.downGradableTo.length ? `
+                  <div class="broadband-facts-row">
+                    <div class="broadband-facts-label">Downgradable to</div>
+                    <div class="broadband-facts-value">${plan.downGradableTo.join(', ')}</div>
+                  </div>
+                ` : ''}
+                <div class="broadband-facts-row">
+                  <div class="broadband-facts-label">Talk & text</div>
+                  <div class="broadband-facts-value">${(plan.talktime === -1 || plan.text === -1) ? 'Unlimited' : 'Limited'}</div>
+                </div>
+                <div class="broadband-facts-row">
+                  <div class="broadband-facts-label">Throttle</div>
+                  <div class="broadband-facts-value">${plan.addThrottle ? `Enabled${plan.throttleSpeed ? ` @ ${plan.throttleSpeed}${plan.throttleSpeedUnit || 'Kbps'}` : ''}` : 'Disabled'}</div>
+                </div>
+                <div class="broadband-facts-row">
+                  <div class="broadband-facts-label">Data cut off</div>
+                  <div class="broadband-facts-value">${plan.addDataCutOff ? 'Enabled' : 'Disabled'}</div>
+                </div>
+                <div class="broadband-facts-row">
+                  <div class="broadband-facts-label">Unique plan identifier</div>
+                  <div class="broadband-facts-value">${plan.uniqueIdentifier || 'N/A'}</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="broadband-facts-footnote">
+              Learn more about broadband labels at the FCC Consumer Help Center.
+            </div>
+          </div>
         </div>
       `;
     }
 
     // New simplified plan selection handler
-    function handlePlanSelection(planId, planName) {
+    function handlePlanSelection(planId, planName, buttonEl) {
       console.log('handlePlanSelection called:', { planId, planName, selectionMode, activeLineId });
 
       let message = '';
@@ -799,6 +1107,13 @@
       }
 
       sendPrompt(message);
+
+      if (buttonEl) {
+        buttonEl.classList.add('select-button--selected');
+        buttonEl.textContent = 'Selected';
+      }
+
+      selectedPlans.add(planId);
     }
 
     // Shared helper function to populate chat input with prompt
@@ -1133,20 +1448,18 @@
     }
     */
 
-    function toggleBroadbandFacts(planId) {
-      const content = document.getElementById(`facts-${planId}`);
-      const icon = document.getElementById(`facts-icon-${planId}`);
+    function toggleBroadbandFacts() {
+      const allContents = document.querySelectorAll('.broadband-facts-content');
+      const allIcons = document.querySelectorAll('.broadband-facts-icon');
+      if (!allContents.length) return;
 
-      if (content && icon) {
-        const isShowing = content.classList.contains('show');
-        if (isShowing) {
-          content.classList.remove('show');
-          icon.textContent = '✓';
-        } else {
-          content.classList.add('show');
-          icon.textContent = '▼';
-        }
-      }
+      const isShowing = Array.from(allContents).some(content => content.classList.contains('show'));
+      allContents.forEach(content => {
+        content.classList.toggle('show', !isShowing);
+      });
+      allIcons.forEach(icon => {
+        icon.textContent = isShowing ? '▾' : '▴';
+      });
     }
 
     // Function to check if toolOutput has valid data

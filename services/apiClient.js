@@ -226,7 +226,9 @@ export async function callReachAPI(endpoint, options = {}, tenant = "reach", con
     throw error;
   }
   
-  const url = `${config_tenant.apiBaseUrl}${endpoint}`;
+  const url = endpoint && endpoint.startsWith("http")
+    ? endpoint
+    : `${config_tenant.apiBaseUrl}${endpoint}`;
   
   // Ensure authorization header has Bearer prefix if not already present
   let authHeader = authToken;
@@ -436,4 +438,3 @@ export async function callReachAPI(endpoint, options = {}, tenant = "reach", con
   // This should never be reached, but just in case
   throw lastError || new Error('Unknown error occurred');
 }
-
