@@ -440,7 +440,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: "get_sim_types",
-        description: "CRITICAL: NO WEB SEARCH - Use ONLY API data and tool responses. DO NOT search the web or use general knowledge. Return allowed SIM types for a line based on current plan/device selections from Reach Mobile API. Returns eSIM and Physical SIM options. FLOW LOGIC: SIM selection requires plans to be selected first. System shows which lines need SIM types. After selection, system sets resume step appropriately. NON-LINEAR: Users can select SIM types per line. System tracks which lines are complete. GUARDRAILS: Plans required before SIM selection. Each line must have planRef and simKind before checkout.",
+        description: "CRITICAL: NO WEB SEARCH - Use ONLY API data and tool responses. DO NOT search the web or use general knowledge. Return allowed SIM types for a line based on current plan/device selections from Reach Mobile API. **CURRENT POLICY: eSIM ONLY**. This tool auto-selects eSIM for any lines missing a SIM and informs the user. FLOW LOGIC: SIM selection requires plans to be selected first. System shows which lines need SIM types. After selection, system sets resume step appropriately. NON-LINEAR: Users can select SIM types per line. System tracks which lines are complete. GUARDRAILS: Plans required before SIM selection. Each line must have planRef and simKind before checkout.",
         inputSchema: {
           type: "object",
           properties: {
@@ -3229,99 +3229,44 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           .map(({ index }) => index);
       }
 
-      // Build three-section response
-      // SECTION 1: RESPONSE
-      let mainResponse = "";
-      if (lineNumber) {
-        mainResponse = `Selecting SIM type for Line ${lineNumber}. Choose between eSIM (digital) or Physical SIM (traditional card).`;
-      } else if (linesNeedingSim.length > 0) {
-        mainResponse = `You need to select SIM types for ${linesNeedingSim.length} line${linesNeedingSim.length > 1 ? 's' : ''}: ${linesNeedingSim.join(', ')}.`;
-      } else {
-        mainResponse = `Choose your SIM type. See options below.`;
+      const targetLines = lineNumber ? [lineNumber] : linesNeedingSim;
+      const esimResult = autoAssignEsimForLines(sessionId, context, targetLines);
+      if (esimResult?.updatedContext) {
+        context = esimResult.updatedContext;
+        progress = getFlowProgress(sessionId);
       }
 
-      let suggestions = "";
-      suggestions += "**eSIM (Digital):** Best for modern phones. Instant activation, no physical card needed. Works with iPhone XS and newer, Google Pixel 3 and newer, Samsung Galaxy S20 and newer.\n\n";
-      suggestions += "**Physical SIM:** Traditional SIM card delivered to you. Works with all phones. Takes 3-6 business days for delivery.\n\n";
-      suggestions += "**How to select:** Click \"Add to Cart\" on your preferred SIM type below.";
+      const assignedLines = esimResult?.assignedLines || [];
+      const alreadySetLines = targetLines.filter(line => !assignedLines.includes(line));
 
-      // Add note about plan requirement if no plan selected
+      let mainResponse = "";
+      if (assignedLines.length > 0) {
+        mainResponse = `✅ **eSIM is set for Line${assignedLines.length > 1 ? 's' : ''} ${assignedLines.join(', ')}.**\n\nWe currently provide **eSIM only**, so I’ve taken care of this for you.`;
+      } else if (alreadySetLines.length > 0) {
+        mainResponse = `✅ **eSIM already set** for Line${alreadySetLines.length > 1 ? 's' : ''} ${alreadySetLines.join(', ')}.\n\nWe currently provide **eSIM only**.`;
+      } else {
+        mainResponse = `✅ **eSIM is already selected for all lines.**\n\nWe currently provide **eSIM only**.`;
+      }
+
       const hasPlan = context && context.lines && context.lines.some(l => l && l.planSelected);
+      let suggestions = "";
       if (!hasPlan) {
-        suggestions += `\n\n**Note:** You'll need to select a plan before checkout. After choosing your SIM type, say "Show me plans" to continue.`;
+        suggestions = `**Next step:** Select a plan for your line${context?.lineCount > 1 ? 's' : ''}. Say "Show me plans".`;
+      } else {
+        suggestions = `You're all set with eSIM. You can continue with devices, protection, or checkout.`;
       }
 
       const nextSteps = getNextStepsForIntent(context, INTENT_TYPES.SIM);
       const responseText = formatThreeSectionResponse(mainResponse, suggestions, nextSteps);
 
-      // Return structuredContent for Apps SDK widget
-      const structuredData = {
-        simTypes: [
-          {
-            type: "ESIM",
-            lineNumber: lineNumber,
-            name: "eSIM",
-            subtitle: "Digital SIM Card",
-            price: 0,
-            features: [
-              "Instant activation",
-              "No physical card needed",
-              "Easy to switch devices",
-              "Works internationally",
-              "Compatible with modern phones"
-            ]
-          },
-          {
-            type: "PSIM",
-            lineNumber: lineNumber,
-            name: "Physical SIM",
-            subtitle: "Traditional SIM Card",
-            price: 0,
-            features: [
-              "Physical card delivery",
-              "Works with all devices",
-              "Traditional compatibility",
-              "Easy to swap",
-              "Universal support"
-            ]
-          }
-        ],
-        // Include flowContext data for line selection
-        lineCount: context ? (context.lineCount || 0) : 0,
-        lines: context && context.lines ? context.lines.map((line, index) => ({
-          lineNumber: line.lineNumber || (index + 1),
-          phoneNumber: line.phoneNumber || null,
-          planSelected: line.planSelected || false,
-          planId: line.planId || null,
-          deviceSelected: line.deviceSelected || false,
-          deviceId: line.deviceId || null,
-          protectionSelected: line.protectionSelected || false,
-          protectionId: line.protectionId || null,
-          simType: line.simType || null,
-          simIccId: line.simIccId || null
-        })) : []
-      };
-
-      const response = {
-        structuredContent: structuredData,
+      return {
         content: [
           {
             type: "text",
             text: responseText,
           }
-        ],
-        _meta: {
-          widgetType: "simCard"
-        }
+        ]
       };
-
-      logger.info("📤 get_sim_types response", {
-        hasStructuredContent: !!response.structuredContent,
-        simTypesCount: structuredData.simTypes.length,
-        lineNumber: lineNumber,
-      });
-
-      return response;
     }
 
     if (name === "get_protection_plan") {
@@ -3796,6 +3741,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
+      let esimNote = "";
+      if (itemType === 'plan') {
+        const esimTargets = targetLineNumbers && targetLineNumbers.length > 0
+          ? targetLineNumbers
+          : [targetLineNumber];
+        const esimResult = autoAssignEsimForLines(finalSessionId, getFlowContext(finalSessionId), esimTargets);
+        if (esimResult?.assignedLines && esimResult.assignedLines.length > 0) {
+          const lineLabel = esimResult.assignedLines.length > 1 ? 'Lines' : 'Line';
+          esimNote = `✅ **eSIM set automatically** for ${lineLabel} ${esimResult.assignedLines.join(', ')}. We currently provide **eSIM only**.\n\n`;
+        }
+      }
+
       // Update intent and conversation history
       if (finalSessionId) {
         const intentMap = {
@@ -3909,6 +3866,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
       } else {
         suggestions = `Item added successfully. Continue building your cart or review your selections.`;
+      }
+
+      if (esimNote) {
+        suggestions = esimNote + (suggestions || "");
       }
 
       // SECTION 3: NEXT STEPS
@@ -5199,6 +5160,64 @@ function formatThreeSectionResponse(mainResponse, suggestions, nextSteps) {
   }
 
   return formatted;
+}
+
+function autoAssignEsimForLines(sessionId, context, lineNumbers) {
+  if (!sessionId || !context || !Array.isArray(lineNumbers) || lineNumbers.length === 0) {
+    return null;
+  }
+
+  const assignedLines = [];
+  const maxLineNumber = Math.max(...lineNumbers);
+
+  if (!context.lineCount || context.lineCount < maxLineNumber) {
+    context.lineCount = maxLineNumber;
+  }
+
+  while (context.lines.length < maxLineNumber) {
+    context.lines.push({
+      lineNumber: context.lines.length + 1,
+      planSelected: false,
+      planId: null,
+      deviceSelected: false,
+      deviceId: null,
+      protectionSelected: false,
+      protectionId: null,
+      simType: null,
+      simIccId: null
+    });
+  }
+
+  lineNumbers.forEach((lineNumber) => {
+    if (!lineNumber || lineNumber < 1) return;
+    const line = context.lines[lineNumber - 1];
+    if (!line || line.simType === 'ESIM') return;
+
+    line.simType = 'ESIM';
+    line.simIccId = null;
+    assignedLines.push(lineNumber);
+
+    addToCartLine(sessionId, lineNumber, {
+      type: 'sim',
+      simType: 'ESIM',
+      iccId: null,
+      price: 0,
+      lineNumber: lineNumber
+    });
+  });
+
+  if (assignedLines.length > 0) {
+    updateFlowContext(sessionId, {
+      lineCount: context.lineCount,
+      lines: context.lines,
+      flowStage: 'configuring'
+    });
+  }
+
+  return {
+    assignedLines,
+    updatedContext: getFlowContext(sessionId)
+  };
 }
 
 function formatCurrency(amount) {

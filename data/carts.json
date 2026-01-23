@@ -1,5 +1,5 @@
 {
-  "session_1769005391279_3e68mqp": {
+  "session_1769127265063_fr489jn": {
     "lines": [
       {
         "lineNumber": 1,
@@ -12,267 +12,41 @@
           "data": 10,
           "dataUnit": "GB"
         },
-        "device": {
-          "type": "device",
-          "id": "173469c667e34cc9a8a63984ace5cbe6",
-          "name": "Motorola Moto G (2025)",
-          "brand": "",
-          "price": 189.99,
-          "image": "https://shopware-api-nctc-qa.reachmobileplatform.com/media/c4/4e/ed/1749011391/6144522ea81d47bea60989651643d3ec.webp",
-          "localImageUrl": "https://reach-api-mcp.applore.in/public/assets/173469c667e34cc9a8a63984ace5cbe6.webp",
-          "properties": [],
-          "customFields": {
-            "os": "Android",
-            "nfc": "Yes",
-            "brand": "Motorola",
-            "model": "PB5X0002US",
-            "chipset": "Mediatek Dimensity 6300 (6 nm)",
-            "condition": "New",
-            "dimensions": "167.1 x 76.3 x 8.2 mm",
-            "os_version": "Android 16",
-            "chargingport": "USB Type-C 2.0",
-            "design_color": "Gray",
-            "display_type": "6.7 inches",
-            "merchant_sku": "MO-PB5X0002US-G001-GEGE",
-            "ram_capacity": "4GB",
-            "wifi_feature": "Wi-Fi 802.11 a/b/g/n/ac",
-            "mobilehotspot": "Yes",
-            "processor_cpu": "MTK 24E (6835)",
-            "reach_vendor_id": "9625c2a764614753a87460e22031ad59",
-            "battery_capacity": "5000mAh",
-            "storage_capacity": "128GB",
-            "wirelesscharging": "No",
-            "bluetooth_version": "v5.3",
-            "fingerprintsensor": "Yes",
-            "cellulartechnology": "5G",
-            "display_resolution": "720 x 1604",
-            "display_refresh_rate": "120Hz",
-            "compatibility_service": "Unlocked",
-            "back_camera_resolution": "50 MP, f/1.8, (wide), 0.61µm, PDAF, OIS,2 MP, f/2.4, (macro)",
-            "front_camera_resolution": "16 MP, f/2.4, (wide), 1.0µm",
-            "reach_vendor_product_id": "MO-PB5X0002US-G001-GEGE"
-          },
-          "translated": {
-            "metaDescription": null,
-            "name": "Motorola Moto G (2025)",
-            "keywords": null,
-            "description": " <img  src=\"http://shopware-api-nctc-qa.reachmobileplatform.com/media/49/57/81/1749011388/a8a1b3f01bd94e72a01b266314abfbde.webp\" alt=\"Motorola Moto G (2025)\"  /> <img  src=\"http://shopware-api-nctc-qa.reachmobileplatform.com/media/4b/50/c9/1749011388/fd5e25e699d6412fa4e1c1bd39e418b6.webp\" alt=\"Motorola Moto G (2025)\"  />",
-            "metaTitle": null,
-            "packUnit": null,
-            "packUnitPlural": null,
-            "customFields": {
-              "os": "Android",
-              "nfc": "Yes",
-              "brand": "Motorola",
-              "model": "PB5X0002US",
-              "chipset": "Mediatek Dimensity 6300 (6 nm)",
-              "condition": "New",
-              "dimensions": "167.1 x 76.3 x 8.2 mm",
-              "os_version": "Android 16",
-              "chargingport": "USB Type-C 2.0",
-              "design_color": "Gray",
-              "display_type": "6.7 inches",
-              "merchant_sku": "MO-PB5X0002US-G001-GEGE",
-              "ram_capacity": "4GB",
-              "wifi_feature": "Wi-Fi 802.11 a/b/g/n/ac",
-              "mobilehotspot": "Yes",
-              "processor_cpu": "MTK 24E (6835)",
-              "reach_vendor_id": "9625c2a764614753a87460e22031ad59",
-              "battery_capacity": "5000mAh",
-              "storage_capacity": "128GB",
-              "wirelesscharging": "No",
-              "bluetooth_version": "v5.3",
-              "fingerprintsensor": "Yes",
-              "cellulartechnology": "5G",
-              "display_resolution": "720 x 1604",
-              "display_refresh_rate": "120Hz",
-              "compatibility_service": "Unlocked",
-              "back_camera_resolution": "50 MP, f/1.8, (wide), 0.61µm, PDAF, OIS,2 MP, f/2.4, (macro)",
-              "front_camera_resolution": "16 MP, f/2.4, (wide), 1.0µm",
-              "reach_vendor_product_id": "MO-PB5X0002US-G001-GEGE"
-            }
-          },
-          "calculatedPrice": {
-            "unitPrice": 189.99,
-            "quantity": 1,
-            "totalPrice": 189.99,
-            "calculatedTaxes": [
-              {
-                "tax": 0,
-                "taxRate": 0,
-                "price": 189.99,
-                "apiAlias": "cart_tax_calculated"
-              }
-            ],
-            "taxRules": [
-              {
-                "taxRate": 0,
-                "percentage": 100,
-                "apiAlias": "cart_tax_rule"
-              }
-            ],
-            "referencePrice": null,
-            "listPrice": {
-              "price": 189.99,
-              "discount": 0,
-              "percentage": 0,
-              "apiAlias": "cart_list_price"
-            },
-            "regulationPrice": null,
-            "apiAlias": "calculated_price"
-          },
-          "available": true,
-          "availableStock": 20,
-          "stock": 20
-        },
+        "device": null,
         "protection": null,
         "sim": {
           "type": "sim",
-          "simType": null,
-          "iccId": null
+          "simType": "ESIM",
+          "iccId": null,
+          "price": 0,
+          "lineNumber": 1
         }
       },
       {
         "lineNumber": 2,
         "plan": {
           "type": "plan",
-          "id": "M0028122398SHK012B1CCEB302",
-          "uniqueIdentifier": "M0028122398SHK012B1CCEB302",
-          "name": "Essentials",
+          "id": "M0028122398SHK447DCBB742CC",
+          "uniqueIdentifier": "M0028122398SHK447DCBB742CC",
+          "name": "Unlimited 10",
           "price": 25,
-          "data": 5,
+          "data": 10,
           "dataUnit": "GB"
         },
-        "device": {
-          "type": "device",
-          "id": "4673ec53003f4900a2160a771ee6e64c",
-          "name": "Google Pixel 9 Pro",
-          "brand": "",
-          "price": 1002.99,
-          "image": "https://shopware-api-nctc-qa.reachmobileplatform.com/media/95/26/f1/1728034328/0888900c7bca4aa8b37dff95de767c7b.PNG",
-          "localImageUrl": "https://reach-api-mcp.applore.in/public/assets/4673ec53003f4900a2160a771ee6e64c.PNG",
-          "properties": [],
-          "customFields": {
-            "os": "Android",
-            "hac": "M3/T4",
-            "nfc": "Yes",
-            "brand": "Google",
-            "model": "GA05925-US",
-            "chipset": "Google Tensor G4 (4 nm)",
-            "condition": "New",
-            "ip_rating": "IP68",
-            "dimensions": "152.8 x 72.0 x 8.5 mm",
-            "os_version": "Android 14",
-            "chargingport": "USB Type-C 3.2",
-            "design_color": "Black",
-            "display_type": "6.3\" Super Actua display",
-            "merchant_sku": "GO-GA05925US-A001-GEGE",
-            "ram_capacity": "16GB",
-            "wifi_feature": "Wi-Fi 7",
-            "mobilehotspot": "Yes",
-            "processor_cpu": "Octa-core (1x3.1 GHz Cortex-X4 & 3x2.6 GHz Cortex-A720 & 4x1.92 GHz Cortex-A520)",
-            "hac_rating_info": "{     \"rating\": \"Pass\",     \"fccId\": \"A4RGR83Y\",     \"standard\": \"ANSI C63.19-2019\",     \"type\": \"SmartPhone\" }",
-            "reach_vendor_id": "9625c2a764614753a87460e22031ad59",
-            "battery_capacity": "4700 mAh",
-            "storage_capacity": "128GB",
-            "wirelesscharging": "Yes",
-            "bluetooth_version": "v5.3",
-            "fingerprintsensor": "Yes",
-            "cellulartechnology": "5G",
-            "display_resolution": "1280 x 2856",
-            "display_refresh_rate": "120Hz",
-            "compatibility_service": "Unlocked",
-            "back_camera_resolution": "50MP Wide, 48MP UltraWide, 48MP Telephoto, 8K Video Boost",
-            "front_camera_resolution": "42 MP Dual PD selfie camera with autofocus",
-            "reach_vendor_product_id": "GO-GA05925US-A001-GEGE"
-          },
-          "translated": {
-            "metaDescription": null,
-            "name": "Google Pixel 9 Pro",
-            "keywords": null,
-            "description": " <img  src=\"http://shopware-api-nctc-qa.reachmobileplatform.com/media/3f/a9/42/1728034318/6e64fcf1ad144613b5739cbc2bf4f213.jpg\" alt=\"Google Pixel 9 Pro\"  /> <img  src=\"http://shopware-api-nctc-qa.reachmobileplatform.com/media/a6/66/8a/1728034319/73b95f099e9344daa3f4b86d7385c40a.jpg\" alt=\"Google Pixel 9 Pro\"  /> <img  src=\"http://shopware-api-nctc-qa.reachmobileplatform.com/media/56/d9/17/1728034321/491e4879031e4c5fa733d848d0987c10.jpg\" alt=\"Google Pixel 9 Pro\"  /> <img  src=\"http://shopware-api-nctc-qa.reachmobileplatform.com/media/1b/33/88/1728034322/06452b424f1946fcaff7fcb1ed855667.jpg\" alt=\"Google Pixel 9 Pro\"  /> <img  src=\"http://shopware-api-nctc-qa.reachmobileplatform.com/media/1f/c4/0c/1728034323/b5d6fc6cef094735bcbbae74986d86b7.jpg\" alt=\"Google Pixel 9 Pro\"  /> <img  src=\"http://shopware-api-nctc-qa.reachmobileplatform.com/media/15/d4/1c/1728034324/de16f916dd494a55ad7b1b3f3b28fce9.jpg\" alt=\"Google Pixel 9 Pro\"  />",
-            "metaTitle": null,
-            "packUnit": null,
-            "packUnitPlural": null,
-            "customFields": {
-              "os": "Android",
-              "hac": "M3/T4",
-              "nfc": "Yes",
-              "brand": "Google",
-              "model": "GA05925-US",
-              "chipset": "Google Tensor G4 (4 nm)",
-              "condition": "New",
-              "ip_rating": "IP68",
-              "dimensions": "152.8 x 72.0 x 8.5 mm",
-              "os_version": "Android 14",
-              "chargingport": "USB Type-C 3.2",
-              "design_color": "Black",
-              "display_type": "6.3\" Super Actua display",
-              "merchant_sku": "GO-GA05925US-A001-GEGE",
-              "ram_capacity": "16GB",
-              "wifi_feature": "Wi-Fi 7",
-              "mobilehotspot": "Yes",
-              "processor_cpu": "Octa-core (1x3.1 GHz Cortex-X4 & 3x2.6 GHz Cortex-A720 & 4x1.92 GHz Cortex-A520)",
-              "hac_rating_info": "{     \"rating\": \"Pass\",     \"fccId\": \"A4RGR83Y\",     \"standard\": \"ANSI C63.19-2019\",     \"type\": \"SmartPhone\" }",
-              "reach_vendor_id": "9625c2a764614753a87460e22031ad59",
-              "battery_capacity": "4700 mAh",
-              "storage_capacity": "128GB",
-              "wirelesscharging": "Yes",
-              "bluetooth_version": "v5.3",
-              "fingerprintsensor": "Yes",
-              "cellulartechnology": "5G",
-              "display_resolution": "1280 x 2856",
-              "display_refresh_rate": "120Hz",
-              "compatibility_service": "Unlocked",
-              "back_camera_resolution": "50MP Wide, 48MP UltraWide, 48MP Telephoto, 8K Video Boost",
-              "front_camera_resolution": "42 MP Dual PD selfie camera with autofocus",
-              "reach_vendor_product_id": "GO-GA05925US-A001-GEGE"
-            }
-          },
-          "calculatedPrice": {
-            "unitPrice": 1002.99,
-            "quantity": 1,
-            "totalPrice": 1002.99,
-            "calculatedTaxes": [
-              {
-                "tax": 0,
-                "taxRate": 0,
-                "price": 1002.99,
-                "apiAlias": "cart_tax_calculated"
-              }
-            ],
-            "taxRules": [
-              {
-                "taxRate": 0,
-                "percentage": 100,
-                "apiAlias": "cart_tax_rule"
-              }
-            ],
-            "referencePrice": null,
-            "listPrice": {
-              "price": 1002.99,
-              "discount": 0,
-              "percentage": 0,
-              "apiAlias": "cart_list_price"
-            },
-            "regulationPrice": null,
-            "apiAlias": "calculated_price"
-          },
-          "available": true,
-          "availableStock": -3,
-          "stock": 5
-        },
+        "device": null,
         "protection": null,
         "sim": {
           "type": "sim",
-          "simType": null,
-          "iccId": null
+          "simType": "ESIM",
+          "iccId": null,
+          "price": 0,
+          "lineNumber": 2
         }
       }
     ],
-    "total": 1242.98,
-    "sessionId": "session_1769005391279_3e68mqp",
-    "expiresAt": 1769013137195,
-    "createdAt": 1769005591709
+    "total": 50,
+    "sessionId": "session_1769127265063_fr489jn",
+    "expiresAt": 1769136401757,
+    "createdAt": 1769127360860
   }
 }
