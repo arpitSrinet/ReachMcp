@@ -77,11 +77,20 @@ export function getFlowContext(sessionId) {
       lines: [], // Array of line configurations
       planSelectionMode: 'initial', // initial | applyAll | sequential
       planModePrompted: false, // true after initial plan mode prompt has been shown
+      planMode: 'UNKNOWN', // UNKNOWN | APPLY_TO_ALL | MIX_AND_MATCH
+      selectedPlanByLine: {}, // Record<lineId, planId|null>
+      activeLineIndex: 0, // 0-based index into lines
+      lastChosenPlanId: null,
+      planUi: { isOpen: false, loadCount: 0 },
       deviceSelectionMode: 'initial', // initial | applyAll | sequential
       deviceModePrompted: false, // true after initial device mode prompt has been shown
       
       // Commerce/cart tracking (commerce section)
       cartRef: null, // Cart reference ID
+      
+      // Checkout/shipping data (checkout section)
+      shippingAddress: null, // Shipping address object { firstName, lastName, street, city, state, zipCode, country, phone, email }
+      checkoutDataCollected: false, // true when shipping address is collected
       
       // Completion gates (completion section - derived but cached for performance)
       missingPrerequisites: [], // Track missing prerequisites
@@ -277,6 +286,30 @@ export function checkPrerequisites(sessionId, action) {
           reason: `SIM types are required for all lines. Missing SIM for: ${missingSims.join(', ')}`,
           missing: missingSims,
           gate: 'NEED_SIM'
+        };
+      }
+      
+      return { allowed: true, reason: null, missing: [], gate: 'OK' };
+
+    case 'collect_shipping':
+      // Shipping collection gate: requires cart to be ready (plans and SIMs)
+      const cartPrereq = checkPrerequisites(sessionId, 'checkout');
+      if (!cartPrereq.allowed) {
+        return {
+          allowed: false,
+          reason: cartPrereq.reason || 'Cart must be ready before collecting shipping address.',
+          missing: cartPrereq.missing,
+          gate: cartPrereq.gate
+        };
+      }
+      
+      // Check if shipping address already collected
+      if (context.shippingAddress && context.checkoutDataCollected) {
+        return {
+          allowed: true,
+          reason: 'Shipping address already collected. You can update it or proceed to get checkout data.',
+          missing: [],
+          gate: 'OK'
         };
       }
       

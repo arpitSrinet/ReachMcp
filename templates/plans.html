@@ -307,6 +307,67 @@
       overflow-wrap: anywhere;
     }
 
+    .broadband-facts-identifier {
+      font-family: monospace;
+      font-size: 10px;
+      white-space: nowrap;
+      word-break: keep-all;
+      overflow-wrap: normal;
+      min-width: 0;
+    }
+
+    .broadband-facts-row-identifier {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+
+    .broadband-facts-terms {
+      margin-top: 8px;
+      font-size: 10px;
+      color: #4b5563;
+      line-height: 1.4;
+    }
+
+    .broadband-facts-subsection-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: #111827;
+      margin-top: 6px;
+      margin-bottom: 4px;
+    }
+
+    .broadband-facts-network-group {
+      margin-bottom: 12px;
+    }
+
+    .broadband-facts-network-title {
+      font-size: 10px;
+      font-weight: 600;
+      color: #111827;
+      margin-bottom: 6px;
+    }
+
+    .broadband-facts-link {
+      color: #2563eb;
+      text-decoration: underline;
+      font-size: 11px;
+    }
+
+    .broadband-facts-link:hover {
+      color: #1d4ed8;
+    }
+
+    .broadband-facts-info-text {
+      margin-top: 8px;
+      font-size: 10px;
+      color: #6b7280;
+      line-height: 1.4;
+    }
+
+    .broadband-facts-info-text a {
+      color: #2563eb;
+      text-decoration: underline;
+    }
+
     .plan-meta {
       display: flex;
       flex-wrap: wrap;
@@ -505,6 +566,7 @@
     body {
       padding-bottom: 0;
     }
+
   </style>
 </head>
 
@@ -567,6 +629,7 @@
 
     // Track which plans have been selected (for showing checkboxes)
     const plansWithSelection = new Set();
+    let lastChosenPlanId = null;
 
     // Initialize currentLines - will be populated from toolOutput
     // Always ensure it's an array to prevent errors
@@ -738,6 +801,42 @@
       return extractedLines;
     }
 
+    function getLineCount() {
+      if (Array.isArray(currentLines) && currentLines.length > 0) {
+        return currentLines.length;
+      }
+      const toolOutput = window.openai && window.openai.toolOutput ? window.openai.toolOutput : {};
+      const sc = toolOutput.structuredContent || {};
+      return sc.lineCount || 0;
+    }
+
+    function getNextUnselectedLineId() {
+      const totalLines = getLineCount();
+      for (let i = 1; i <= totalLines; i++) {
+        if (!selectedPlansPerLine[String(i)]) {
+          return i;
+        }
+      }
+      return null;
+    }
+
+    function updatePlanButtonLabels() {
+      const buttons = document.querySelectorAll('.select-button');
+      buttons.forEach((btn) => {
+        if (btn.classList.contains('select-button--selected')) {
+          return;
+        }
+        btn.textContent = 'Select Plan';
+      });
+    }
+
+    function updatePlanHeader() {
+      const header = document.getElementById('plan-flow-header');
+      if (!header) return;
+      header.textContent = '';
+    }
+
+
     // Function to render a single plan card
     function renderPlan(plan) {
       const planId = plan.id || plan.uniqueIdentifier;
@@ -758,9 +857,19 @@
 
       const dataLabel = data > 0 ? `${data}${dataUnit}` : null;
       let displayName = rawName;
+      // Strip "REACH@nu@" prefix if present
+      if (displayName && typeof displayName === 'string') {
+        displayName = displayName.replace(/^REACH@nu@/i, '').trim();
+      }
       if (dataLabel && displayName.includes(dataLabel)) {
         displayName = displayName.replace(`(${dataLabel})`, '').replace(dataLabel, '').trim();
       }
+
+      // Helper function to strip prefix from plan names in arrays
+      const stripPlanPrefix = (name) => {
+        if (!name || typeof name !== 'string') return name;
+        return name.replace(/^REACH@nu@/i, '').trim();
+      };
 
       let originalPrice = null;
       let discountAmount = 0;
@@ -863,42 +972,7 @@
           </div>
           
           <button class="select-button${isSelected ? ' select-button--selected' : ''}" 
-                  onclick="handlePlanSelection('${planId}', '${displayName.replace(/'/g, "\\'")}', this)">${selectionMode === 'applyAll'
-          ? `Add ${displayName} to All Lines`
-          : selectionMode === 'sequential' && activeLineId
-            ? `Select ${displayName} for Line ${activeLineId}`
-            : `Select Plan`
-        }</button>
-          
-          <div class="line-selection-section" style="display: none;">
-            <div class="line-selection-title">Lines:</div>
-            <div class="line-checkboxes">
-              ${(Array.isArray(currentLines) ? currentLines : []).map(line => {
-          const lineIdStr = String(line.id);
-          const hasPlanInCart = linesWithPlans.includes(line.id);
-          const hasSelectedPlan = selectedPlansPerLine[lineIdStr] !== undefined;
-          const isThisPlan = selectedPlansPerLine[lineIdStr] === planId;
-          const isChecked = hasPlanInCart || isThisPlan;
-
-          return `
-                  <label class="line-checkbox-item disabled" onclick="return false;">
-                    <div class="line-checkbox">
-                      <input type="checkbox" 
-                             id="line-${line.id}-plan-${planId}"
-                             ${isChecked ? 'checked' : ''}
-                             disabled>
-                      <span class="line-checkbox-custom"></span>
-                    </div>
-                    <span class="line-label">
-                      ${line.name} ${line.phoneNumber ? `(${line.phoneNumber})` : ''}
-                      ${hasPlanInCart ? '<span style="font-size: 12px; color: #30ba95; margin-left: 6px;">(In cart)</span>' : ''}
-                      ${isThisPlan ? '<span style="font-size: 12px; color: #2563eb; margin-left: 6px;">(Selected)</span>' : ''}
-                    </span>
-                  </label>
-                `;
-        }).join('')}
-            </div>
-          </div>
+                  onclick="handlePlanSelection('${planId}', '${displayName.replace(/'/g, "\\'")}', this)">${isSelected ? 'Selected' : 'Select Plan'}</button>
           
           <button class="broadband-facts-button" onclick="toggleBroadbandFacts()">
             <span>Broadband Facts</span>
@@ -907,44 +981,43 @@
           
           <div class="broadband-facts-content" id="facts-${planId}">
             <div class="broadband-facts-title">Broadband Facts</div>
-            <div class="broadband-facts-subtitle">${displayName || 'Plan'} • Fixed or Mobile Broadband Consumer Disclosure</div>
+            <div class="broadband-facts-subtitle">Reach Mobile • ${displayName || 'Plan'} • Fixed or Mobile Broadband Consumer Disclosure</div>
 
             <div class="broadband-facts-section">
               <div class="broadband-facts-section-title">Monthly Price</div>
               <div class="broadband-facts-table">
                 <div class="broadband-facts-row">
-                  <div class="broadband-facts-label">Plan price</div>
-                  <div class="broadband-facts-value">${formatPrice(price) ? `$${formatPrice(price)}/mo` : 'N/A'}</div>
+                  <div class="broadband-facts-label"></div>
+                  <div class="broadband-facts-value">${formatPrice(price) ? `$${formatPrice(price)}` : 'N/A'}</div>
                 </div>
               </div>
+              ${formatPrice(price) ? `<div class="broadband-facts-terms">The monthly price of $${formatPrice(price)} is not an introductory rate and does not require a contract.</div>` : ''}
             </div>
 
             <div class="broadband-facts-section">
               <div class="broadband-facts-section-title">Additional Charges & Terms</div>
               <div class="broadband-facts-table">
+                <div class="broadband-facts-subsection-label">Provider Monthly Fees</div>
                 <div class="broadband-facts-row">
-                  <div class="broadband-facts-label">Activation fee</div>
-                  <div class="broadband-facts-value">${plan.activationFee !== undefined ? `$${formatPrice(plan.activationFee)}` : 'N/A'}</div>
+                  <div class="broadband-facts-label">Cost Recovery Fee</div>
+                  <div class="broadband-facts-value">6% of total invoice</div>
+                </div>
+                <div class="broadband-facts-subsection-label" style="margin-top: 8px;">One-time Fees at the Time of Purchase</div>
+                <div class="broadband-facts-row">
+                  <div class="broadband-facts-label">Activation Fee</div>
+                  <div class="broadband-facts-value">${plan.activationFee !== undefined && plan.activationFee !== null ? `$${formatPrice(plan.activationFee)}` : '$0.00'}</div>
                 </div>
                 <div class="broadband-facts-row">
-                  <div class="broadband-facts-label">Additional line price</div>
-                  <div class="broadband-facts-value">${plan.additionalLinePrice !== undefined ? `$${formatPrice(plan.additionalLinePrice)}/mo` : 'N/A'}</div>
+                  <div class="broadband-facts-label">SIM Card Shipping Fee</div>
+                  <div class="broadband-facts-value">$3.00 - $25.00</div>
                 </div>
                 <div class="broadband-facts-row">
-                  <div class="broadband-facts-label">Cost recovery fee</div>
-                  <div class="broadband-facts-value">N/A</div>
+                  <div class="broadband-facts-label">Early Termination Fee</div>
+                  <div class="broadband-facts-value">$0.00</div>
                 </div>
                 <div class="broadband-facts-row">
-                  <div class="broadband-facts-label">SIM card shipping</div>
-                  <div class="broadband-facts-value">N/A</div>
-                </div>
-                <div class="broadband-facts-row">
-                  <div class="broadband-facts-label">Early termination</div>
-                  <div class="broadband-facts-value">N/A</div>
-                </div>
-                <div class="broadband-facts-row">
-                  <div class="broadband-facts-label">Government taxes</div>
-                  <div class="broadband-facts-value">Varies by location</div>
+                  <div class="broadband-facts-label">Government Taxes</div>
+                  <div class="broadband-facts-value">Varies by Location</div>
                 </div>
               </div>
             </div>
@@ -953,7 +1026,7 @@
               <div class="broadband-facts-section-title">Discounts & Bundles</div>
               <div class="broadband-facts-table">
                 <div class="broadband-facts-row">
-                  <div class="broadband-facts-label">Discounts</div>
+                  <div class="broadband-facts-label"></div>
                   <div class="broadband-facts-value">${discountPctg > 0 ? `${discountPctg}%` : 'N/A'}</div>
                 </div>
               </div>
@@ -962,22 +1035,78 @@
             <div class="broadband-facts-section">
               <div class="broadband-facts-section-title">Speeds Provided with Plan</div>
               ${(Array.isArray(plan.labelInfo?.speedInfos) && plan.labelInfo.speedInfos.length)
-              ? plan.labelInfo.speedInfos.map(speed => `
-                <div class="broadband-facts-table">
-                  <div class="broadband-facts-row">
-                    <div class="broadband-facts-label">${speed.band || 'Network'} typical download</div>
-                    <div class="broadband-facts-value">${speed.dlSpeed || 'N/A'}</div>
-                  </div>
-                  <div class="broadband-facts-row">
-                    <div class="broadband-facts-label">${speed.band || 'Network'} typical upload</div>
-                    <div class="broadband-facts-value">${speed.ulSpeed || 'N/A'}</div>
-                  </div>
-                  <div class="broadband-facts-row">
-                    <div class="broadband-facts-label">${speed.band || 'Network'} latency</div>
-                    <div class="broadband-facts-value">${speed.latency || 'N/A'}</div>
-                  </div>
-                </div>
-              `).join('')
+              ? (() => {
+                  const speed4G = plan.labelInfo.speedInfos.find(s => (s.band || '').toLowerCase().includes('4g') || (s.band || '').toLowerCase().includes('lte'));
+                  const speed5G = plan.labelInfo.speedInfos.find(s => (s.band || '').toLowerCase().includes('5g'));
+                  
+                  let html = '';
+                  if (speed4G) {
+                    html += `
+                      <div class="broadband-facts-network-group">
+                        <div class="broadband-facts-network-title">4G LTE</div>
+                        <div class="broadband-facts-table">
+                          <div class="broadband-facts-row">
+                            <div class="broadband-facts-label">Typical Download Speed</div>
+                            <div class="broadband-facts-value">${speed4G.dlSpeed || 'N/A'}</div>
+                          </div>
+                          <div class="broadband-facts-row">
+                            <div class="broadband-facts-label">Typical Upload Speed</div>
+                            <div class="broadband-facts-value">${speed4G.ulSpeed || 'N/A'}</div>
+                          </div>
+                          <div class="broadband-facts-row">
+                            <div class="broadband-facts-label">Typical Latency</div>
+                            <div class="broadband-facts-value">${speed4G.latency || 'N/A'}</div>
+                          </div>
+                        </div>
+                      </div>
+                    `;
+                  }
+                  if (speed5G) {
+                    html += `
+                      <div class="broadband-facts-network-group">
+                        <div class="broadband-facts-network-title">5G</div>
+                        <div class="broadband-facts-table">
+                          <div class="broadband-facts-row">
+                            <div class="broadband-facts-label">Typical Download Speed</div>
+                            <div class="broadband-facts-value">${speed5G.dlSpeed || 'N/A'}</div>
+                          </div>
+                          <div class="broadband-facts-row">
+                            <div class="broadband-facts-label">Typical Upload Speed</div>
+                            <div class="broadband-facts-value">${speed5G.ulSpeed || 'N/A'}</div>
+                          </div>
+                          <div class="broadband-facts-row">
+                            <div class="broadband-facts-label">Typical Latency</div>
+                            <div class="broadband-facts-value">${speed5G.latency || 'N/A'}</div>
+                          </div>
+                        </div>
+                      </div>
+                    `;
+                  }
+                  if (!speed4G && !speed5G) {
+                    plan.labelInfo.speedInfos.forEach(speed => {
+                      html += `
+                        <div class="broadband-facts-network-group">
+                          <div class="broadband-facts-network-title">${speed.band || 'Network'}</div>
+                          <div class="broadband-facts-table">
+                            <div class="broadband-facts-row">
+                              <div class="broadband-facts-label">Typical Download Speed</div>
+                              <div class="broadband-facts-value">${speed.dlSpeed || 'N/A'}</div>
+                            </div>
+                            <div class="broadband-facts-row">
+                              <div class="broadband-facts-label">Typical Upload Speed</div>
+                              <div class="broadband-facts-value">${speed.ulSpeed || 'N/A'}</div>
+                            </div>
+                            <div class="broadband-facts-row">
+                              <div class="broadband-facts-label">Typical Latency</div>
+                              <div class="broadband-facts-value">${speed.latency || 'N/A'}</div>
+                            </div>
+                          </div>
+                        </div>
+                      `;
+                    });
+                  }
+                  return html;
+                })()
               : `
                 <div class="broadband-facts-table">
                   <div class="broadband-facts-row">
@@ -989,19 +1118,15 @@
             </div>
 
             <div class="broadband-facts-section">
-              <div class="broadband-facts-section-title">Data Included with Plan</div>
+              <div class="broadband-facts-section-title">Data Included with Monthly Price</div>
               <div class="broadband-facts-table">
                 <div class="broadband-facts-row">
-                  <div class="broadband-facts-label">Monthly data</div>
-                  <div class="broadband-facts-value">${dataLabel || 'N/A'}</div>
+                  <div class="broadband-facts-label"></div>
+                  <div class="broadband-facts-value">${dataLabel ? `${dataLabel}+` : 'N/A'}</div>
                 </div>
                 <div class="broadband-facts-row">
-                  <div class="broadband-facts-label">Charges for additional data</div>
-                  <div class="broadband-facts-value">${plan.overageAllowedData ? `$${formatPrice(price) || 'N/A'}` : 'N/A'}</div>
-                </div>
-                <div class="broadband-facts-row">
-                  <div class="broadband-facts-label">Additional data amount</div>
-                  <div class="broadband-facts-value">${plan.overageAllowedData ? `${((plan.overageAllowedDataUnit || 'MB').toUpperCase() === 'GB' ? plan.overageAllowedData : plan.overageAllowedData / 1024).toFixed(0)}GB` : 'N/A'}</div>
+                  <div class="broadband-facts-label">Charges for Additional Data Usage</div>
+                  <div class="broadband-facts-value">${plan.overageAllowedData ? `$${plan.overagePrice || '5.00'}/${plan.overageAllowedDataUnit === 'GB' ? (plan.overageAllowedData >= 1 ? plan.overageAllowedData : '0.5') : '0.5'}GB` : '$5.00/0.5GB'}</div>
                 </div>
               </div>
             </div>
@@ -1010,12 +1135,14 @@
               <div class="broadband-facts-section-title">Network Management</div>
               <div class="broadband-facts-table">
                 <div class="broadband-facts-row">
-                  <div class="broadband-facts-label">Policy</div>
-                  <div class="broadband-facts-value">N/A</div>
+                  <div class="broadband-facts-label">Network Management</div>
+                  <div class="broadband-facts-value"><a href="https://nu-mobile.com/network-management" class="broadband-facts-link" target="_blank">Read our Policy</a></div>
                 </div>
+              </div>
+              <div class="broadband-facts-table" style="margin-top: 6px;">
                 <div class="broadband-facts-row">
                   <div class="broadband-facts-label">Privacy</div>
-                  <div class="broadband-facts-value">N/A</div>
+                  <div class="broadband-facts-value"><a href="https://nu-mobile.com/privacy" class="broadband-facts-link" target="_blank">Read our Policy</a></div>
                 </div>
               </div>
             </div>
@@ -1024,56 +1151,23 @@
               <div class="broadband-facts-section-title">Customer Support</div>
               <div class="broadband-facts-table">
                 <div class="broadband-facts-row">
-                  <div class="broadband-facts-label">Contact</div>
-                  <div class="broadband-facts-value">N/A</div>
+                  <div class="broadband-facts-label">Contact Us:</div>
+                  <div class="broadband-facts-value"><a href="https://nu-mobile.com/contact-us" class="broadband-facts-link" target="_blank">https://nu-mobile.com/contact-us</a></div>
                 </div>
+              </div>
+              <div class="broadband-facts-info-text" style="margin-top: 8px; font-size: 10px; color: #6b7280; line-height: 1.4; text-align: left;">
+                Learn more about the terms used on this label by visiting the <a href="https://www.fcc.gov/consumers/guides" class="broadband-facts-link" target="_blank">Federal Communications Commission Consumer Resource Center</a>
               </div>
             </div>
 
             <div class="broadband-facts-section">
-              <div class="broadband-facts-section-title">Plan Details</div>
+              <div class="broadband-facts-section-title">Unique Plan Identifier</div>
               <div class="broadband-facts-table">
-                <div class="broadband-facts-row">
-                  <div class="broadband-facts-label">Plan type</div>
-                  <div class="broadband-facts-value">${plan.planType || 'N/A'}</div>
-                </div>
-                <div class="broadband-facts-row">
-                  <div class="broadband-facts-label">Plan cycle</div>
-                  <div class="broadband-facts-value">${plan.planCycle || 'N/A'}</div>
-                </div>
-                ${Array.isArray(plan.upGradableTo) && plan.upGradableTo.length ? `
-                  <div class="broadband-facts-row">
-                    <div class="broadband-facts-label">Upgradable to</div>
-                    <div class="broadband-facts-value">${plan.upGradableTo.join(', ')}</div>
-                  </div>
-                ` : ''}
-                ${Array.isArray(plan.downGradableTo) && plan.downGradableTo.length ? `
-                  <div class="broadband-facts-row">
-                    <div class="broadband-facts-label">Downgradable to</div>
-                    <div class="broadband-facts-value">${plan.downGradableTo.join(', ')}</div>
-                  </div>
-                ` : ''}
-                <div class="broadband-facts-row">
-                  <div class="broadband-facts-label">Talk & text</div>
-                  <div class="broadband-facts-value">${(plan.talktime === -1 || plan.text === -1) ? 'Unlimited' : 'Limited'}</div>
-                </div>
-                <div class="broadband-facts-row">
-                  <div class="broadband-facts-label">Throttle</div>
-                  <div class="broadband-facts-value">${plan.addThrottle ? `Enabled${plan.throttleSpeed ? ` @ ${plan.throttleSpeed}${plan.throttleSpeedUnit || 'Kbps'}` : ''}` : 'Disabled'}</div>
-                </div>
-                <div class="broadband-facts-row">
-                  <div class="broadband-facts-label">Data cut off</div>
-                  <div class="broadband-facts-value">${plan.addDataCutOff ? 'Enabled' : 'Disabled'}</div>
-                </div>
-                <div class="broadband-facts-row">
-                  <div class="broadband-facts-label">Unique plan identifier</div>
-                  <div class="broadband-facts-value">${plan.uniqueIdentifier || 'N/A'}</div>
+                <div class="broadband-facts-row broadband-facts-row-identifier">
+                  <div class="broadband-facts-label"></div>
+                  <div class="broadband-facts-value broadband-facts-identifier">${plan.uniqueIdentifier || 'N/A'}</div>
                 </div>
               </div>
-            </div>
-
-            <div class="broadband-facts-footnote">
-              Learn more about broadband labels at the FCC Consumer Help Center.
             </div>
           </div>
         </div>
@@ -1086,34 +1180,51 @@
 
       let message = '';
 
-      if (selectionMode === 'applyAll') {
-        message = `Add ${planName} plan (ID: ${planId}) to all lines`;
-      } else if (selectionMode === 'sequential' && activeLineId) {
-        message = `Add ${planName} plan (ID: ${planId}) to line ${activeLineId}`;
-      } else {
-        // Initial or single line logic check
-        const toolOutput = window.openai && window.openai.toolOutput ? window.openai.toolOutput : {};
-        const sc = toolOutput.structuredContent || {};
-        const lineCount = sc.lineCount || (Array.isArray(currentLines) ? currentLines.length : 0) || 1;
-        const defaultLine = activeLineId || 1;
+      // Get line count from structured content
+      const toolOutput = window.openai && window.openai.toolOutput ? window.openai.toolOutput : {};
+      const sc = toolOutput.structuredContent || {};
+      const lineCount = sc.lineCount || (Array.isArray(currentLines) ? currentLines.length : 0) || 1;
 
-        if (lineCount > 1 && !planModePrompted) {
-          // Multi-line initial selection - ask mode
+      if (selectionMode === 'applyAll') {
+        // Apply to all mode - directly add to all lines
+        message = `Select ${planName} plan (ID: ${planId}) for all lines`;
+      } else if (selectionMode === 'sequential' && activeLineId) {
+        // Sequential mode - add to specific line
+        message = `Select ${planName} plan (ID: ${planId}) for line ${activeLineId}`;
+      } else {
+        // Initial mode - for lines > 1, ask apply to all or mix and match
+        if (lineCount > 1) {
+          // Store the selected plan and ask for mode choice
           message = `I am interested in ${planName} plan (ID: ${planId}). Should I apply this to all lines or mix and match?`;
+          // Store the plan ID for later use
+          lastChosenPlanId = planId;
+          // Mark that we've prompted for mode
+          planModePrompted = true;
+          // Store in selectedPlansPerLine for line 1 (temporary until mode is chosen)
+          selectedPlansPerLine['1'] = planId;
+          selectedPlans.add(planId);
+          if (buttonEl) {
+            buttonEl.classList.add('select-button--selected');
+            buttonEl.textContent = 'Selected';
+          }
+          updatePlanHeader();
+          updatePlanButtonLabels();
         } else {
-          // Single line or follow-up after initial prompt
-          message = `Add ${planName} plan (ID: ${planId}) to line ${defaultLine}`;
+          // Single line - directly select
+          message = `Select ${planName} plan (ID: ${planId}) for line 1`;
         }
       }
 
       sendPrompt(message);
 
-      if (buttonEl) {
+      if (buttonEl && selectionMode !== 'initial') {
         buttonEl.classList.add('select-button--selected');
         buttonEl.textContent = 'Selected';
       }
 
-      selectedPlans.add(planId);
+      if (selectionMode !== 'initial' || lineCount === 1) {
+        selectedPlans.add(planId);
+      }
     }
 
     // Shared helper function to populate chat input with prompt
@@ -1555,6 +1666,8 @@
       } else {
         const plansHtml = plans.map(renderPlan).join('');
         container.innerHTML = plansHtml;
+        updatePlanButtonLabels();
+        updatePlanHeader();
 
         // Update confirm buttons after rendering
         setTimeout(() => {

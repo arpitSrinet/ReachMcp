@@ -606,6 +606,13 @@ export function getCheckoutGuidance(context) {
     missing.push('sim');
   }
 
+  // Check shipping address
+  const hasShippingAddress = context.shippingAddress && context.checkoutDataCollected;
+  if (!hasShippingAddress && missing.length === 0) {
+    // Cart is ready but shipping address not collected
+    missing.push('shipping_address');
+  }
+
   if (missing.length > 0) {
     let guidance = "**Before checkout, complete these steps:**\n\n";
     if (missing.includes('line_count')) {
@@ -628,6 +635,13 @@ export function getCheckoutGuidance(context) {
     } else {
       guidance += "3. ✅ SIM types selected\n";
     }
+    
+    if (missing.includes('shipping_address')) {
+      guidance += "4. ❌ **Provide shipping address**\n";
+      actionablePrompts.push("Say: 'I need to enter my shipping address' or use collect_shipping_address tool");
+    } else if (!missing.includes('line_count') && !missing.includes('plans') && !missing.includes('sim')) {
+      guidance += "4. ✅ Shipping address collected\n";
+    }
 
     return {
       ready: false,
@@ -640,8 +654,8 @@ export function getCheckoutGuidance(context) {
   return {
     ready: true,
     missing: [],
-    guidance: "✅ **Your cart is ready for checkout!**\n\nAll required items are selected:\n1. ✅ Line count set\n2. ✅ Plans selected\n3. ✅ SIM types selected",
-    actionablePrompts: ["Say: 'Review my cart'", "Say: 'Proceed to checkout'"]
+    guidance: "✅ **Your cart is ready for checkout!**\n\nAll required items are selected:\n1. ✅ Line count set\n2. ✅ Plans selected\n3. ✅ SIM types selected\n4. ✅ Shipping address collected",
+    actionablePrompts: ["Say: 'Get checkout data'", "Say: 'Proceed to payment'"]
   };
 }
 

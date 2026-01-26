@@ -7,7 +7,14 @@ export function formatPlansAsCards(plans) {
     let markdown = `## 📱 Here are a few great options for you\n\n`;
 
     plans.forEach((plan, index) => {
-      const name = plan.displayName || plan.name || "Unnamed Plan";
+      // Helper function to strip "REACH@nu@" prefix from plan names
+      const stripPlanPrefix = (name) => {
+        if (!name || typeof name !== 'string') return name;
+        return name.replace(/^REACH@nu@/i, '').trim();
+      };
+      
+      let name = plan.displayName || plan.name || "Unnamed Plan";
+      name = stripPlanPrefix(name);
       const price = plan.price || plan.baseLinePrice || 0;
       const data = plan.data || plan.planData || 0;
       const dataUnit = plan.dataUnit || "GB";
@@ -58,10 +65,12 @@ export function formatPlansAsCards(plans) {
 
       // Show upgrade/downgrade options if available
       if (plan.upGradableTo && plan.upGradableTo.length > 0) {
-        markdown += `⬆️ Upgradeable to: ${plan.upGradableTo.join(', ')}\n`;
+        const cleanedUpgrades = plan.upGradableTo.map(stripPlanPrefix).join(', ');
+        markdown += `⬆️ Upgradeable to: ${cleanedUpgrades}\n`;
       }
       if (plan.downGradableTo && plan.downGradableTo.length > 0) {
-        markdown += `⬇️ Downgradeable to: ${plan.downGradableTo.join(', ')}\n`;
+        const cleanedDowngrades = plan.downGradableTo.map(stripPlanPrefix).join(', ');
+        markdown += `⬇️ Downgradeable to: ${cleanedDowngrades}\n`;
       }
 
       markdown += `\n**🔘 Select Plan**\n\n`;
@@ -990,8 +999,8 @@ export function formatMultiLineCartReview(cart, context) {
   markdown += `### 🎯 Next Actions\n\n`;
   if (missingPlans === 0 && missingSims === 0) {
     markdown += `✅ **Proceed to Checkout** - Complete your purchase\n`;
-    markdown += `   • Say: "Checkout" or "Proceed to checkout"\n`;
-    markdown += `   • You'll be asked for shipping and payment information\n\n`;
+    markdown += `   • Say: "I need to enter my shipping address" or use collect_shipping_address tool\n`;
+    markdown += `   • After shipping address is collected, use get_checkout_data to get complete order data\n\n`;
   }
   markdown += `✏️ **Edit Cart** - Modify any line or item\n`;
   markdown += `   • Say: "Edit cart" or "Change plan for line 1"\n\n`;
