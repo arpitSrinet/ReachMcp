@@ -61,6 +61,60 @@
       border-color: #d0d0d0;
     }
 
+    .device-card--loading {
+      pointer-events: none;
+    }
+
+    .device-card-skeleton {
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.5;
+      }
+    }
+
+    .skeleton-line {
+      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background-size: 200% 100%;
+      animation: loading 1.5s ease-in-out infinite;
+      border-radius: 4px;
+      height: 16px;
+      margin-bottom: 8px;
+    }
+
+    @keyframes loading {
+      0% {
+        background-position: 200% 0;
+      }
+      100% {
+        background-position: -200% 0;
+      }
+    }
+
+    .skeleton-image {
+      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background-size: 200% 100%;
+      animation: loading 1.5s ease-in-out infinite;
+      border-radius: 24px;
+      width: 100%;
+      height: 230px;
+    }
+
+    .skeleton-button {
+      background: linear-gradient(90deg, #e0e0e0 25%, #d0d0d0 50%, #e0e0e0 75%);
+      background-size: 200% 100%;
+      animation: loading 1.5s ease-in-out infinite;
+      border-radius: 999px;
+      width: 100%;
+      height: 48px;
+      margin-top: auto;
+    }
+
     .device-brand {
       font-size: 14px;
       color: #6b7280;
@@ -949,7 +1003,7 @@
   </div>
 
   <div class="devices-container" id="devices-container">
-    <p style="padding: 20px; text-align: center; color: #666;">Loading devices...</p>
+    <!-- Initial loading skeletons will be rendered by JavaScript -->
   </div>
 
   
@@ -1125,8 +1179,54 @@
       return [];
     }
 
+    // Function to check if device has minimum required data
+    function hasDeviceData(device) {
+      if (!device) return false;
+      
+      // Check for essential data: at least name or productNumber
+      const hasName = !!(device.name || device.translated?.name);
+      const hasId = !!(device.id || device.productNumber || device.ean);
+      
+      // Device is considered ready if it has at least an ID and name
+      return hasId && hasName;
+    }
+
+    // Function to render a loading skeleton card
+    function renderDeviceSkeleton() {
+      return `
+        <div class="device-card device-card--loading device-card-skeleton">
+          <div class="skeleton-line" style="width: 60%; height: 14px;"></div>
+          <div class="skeleton-line" style="width: 80%; height: 20px; margin-top: 6px;"></div>
+          <div class="skeleton-line" style="width: 40%; height: 13px; margin-top: 4px; margin-bottom: 16px;"></div>
+          
+          <div class="device-gallery">
+            <div class="device-image-wrapper">
+              <div class="device-image-container">
+                <div class="skeleton-image"></div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="device-pricing" style="margin-bottom: 10px;">
+            <div class="skeleton-line" style="width: 50%; height: 24px;"></div>
+          </div>
+          
+          <div class="financing-option" style="margin-bottom: 18px;">
+            <div class="skeleton-line" style="width: 70%; height: 13px;"></div>
+          </div>
+          
+          <div class="skeleton-button"></div>
+        </div>
+      `;
+    }
+
     // Function to render a single device card
     function renderDevice(device) {
+      // Check if device has data, if not render skeleton
+      if (!hasDeviceData(device)) {
+        return renderDeviceSkeleton();
+      }
+
       const deviceId = device.id || device.productNumber || device.ean || 'unknown';
 
       // Get brand from API
@@ -1598,7 +1698,8 @@
       const maxPrice = parseFloat(document.getElementById('filter-price')?.value) || null;
       const esimOnly = document.getElementById('filter-esim')?.checked || false;
 
-      let filtered = [...allDevices];
+      // Only filter devices that have data
+      let filtered = [...allDevices].filter(hasDeviceData);
 
       // Text search filter
       if (searchQuery) {
@@ -1665,7 +1766,8 @@
       const devices = extractDevices();
       if (devices.length === 0) return;
 
-      allDevices = devices;
+      // Only use devices with data for filtering
+      allDevices = devices.filter(hasDeviceData);
       const filtersContainer = document.getElementById('filters-container');
       const brandSelect = document.getElementById('filter-brand');
 
@@ -1914,27 +2016,75 @@
         console.log('✅ Lines updated:', currentLines.length, 'lines');
       }
 
+      // If no devices array exists yet, show loading skeletons
       if (devices.length === 0) {
+        // Check if toolOutput exists but is empty vs doesn't exist at all
+        const toolOutput = window.openai?.toolOutput;
+        const hasToolOutput = toolOutput !== null && toolOutput !== undefined;
+        
+        if (hasToolOutput) {
+          // toolOutput exists but no devices yet - show loading skeletons
+          const skeletonCount = 8; // Show 8 skeleton cards while loading
+          const skeletonsHtml = Array(skeletonCount).fill(null).map(() => renderDeviceSkeleton()).join('');
+          container.innerHTML = skeletonsHtml;
+          return 'loading'; // Return 'loading' instead of false to indicate we're waiting
+        }
+        
+        // No toolOutput at all - return false to indicate no data available
         return false;
       } else {
-        // Store devices and set up filters
-        allDevices = devices;
-        updateFilterUI();
+        // Filter devices that have data vs those that don't
+        const devicesWithData = devices.filter(hasDeviceData);
+        const devicesWithoutData = devices.filter(d => !hasDeviceData(d));
 
-        // Render all devices initially
-        const devicesHtml = devices.map(renderDevice).join('');
+        // Store devices and set up filters (only use devices with data for filtering)
+        allDevices = devicesWithData;
+        if (devicesWithData.length > 0) {
+          updateFilterUI();
+        }
+
+        // Render devices: show loading skeletons for devices without data, full cards for devices with data
+        const devicesHtml = devices.map(device => {
+          if (hasDeviceData(device)) {
+            return renderDevice(device);
+          } else {
+            return renderDeviceSkeleton();
+          }
+        }).join('');
+        
         container.innerHTML = devicesHtml;
 
         // Ensure logos are rendered (fallback for environments that block data URIs)
         ensureLogosRendered();
 
-        // Update results count
+        // Update results count (only count devices with data)
         const resultsCountDiv = document.getElementById('filter-results-count');
         if (resultsCountDiv) {
-          resultsCountDiv.innerHTML = `Showing all <strong>${devices.length}</strong> devices`;
+          if (devicesWithData.length > 0) {
+            resultsCountDiv.innerHTML = `Showing <strong>${devicesWithData.length}</strong> device${devicesWithData.length !== 1 ? 's' : ''}${devicesWithoutData.length > 0 ? ` (${devicesWithoutData.length} loading...)` : ''}`;
+          } else if (devicesWithoutData.length > 0) {
+            resultsCountDiv.innerHTML = `Loading devices...`;
+          }
         }
 
-        return true;
+        // If there are devices without data, check again after a delay
+        if (devicesWithoutData.length > 0) {
+          setTimeout(() => {
+            // Re-render to check if data is now available
+            const updatedDevices = extractDevices();
+            const nowHasData = updatedDevices.filter(hasDeviceData);
+            if (nowHasData.length > devicesWithData.length) {
+              console.log('✅ More device data available, re-rendering...');
+              renderAllDevices();
+            } else if (updatedDevices.length > 0 && nowHasData.length === 0) {
+              // Still loading, check again
+              renderAllDevices();
+            }
+          }, 500);
+        }
+
+        // Return true if we have devices with data, 'loading' if we're still waiting for data
+        return devicesWithData.length > 0 ? true : 'loading';
       }
     }
 
@@ -1943,10 +2093,14 @@
     let lastToolOutputValue = null;
     let lastLinesCount = 0;
     let checkCount = 0;
+    let lastDeviceCount = 0;
+    let toolOutputChangedRecently = false;
+    let lastToolOutputChangeTime = 0;
     const startTime = Date.now();
-    const maxChecks = 1000;
-    const minChecksBeforeError = 800;
-    const minTimeBeforeError = 20000;
+    const maxChecks = 5000; // Increased from 1000 to allow more time
+    const minChecksBeforeError = 2000; // Increased from 800 - wait longer before error
+    const minTimeBeforeError = 60000; // Increased from 20000 (20s) to 60000 (60s) - wait 1 minute before showing error
+    const toolOutputChangeTimeout = 10000; // Consider toolOutput "recently changed" if changed within last 10 seconds
 
     function watchForToolOutputChange() {
       checkCount++;
@@ -1960,42 +2114,117 @@
         currentLines = extractedLines;
         console.log('✅ Lines data updated, re-rendering devices:', currentLines.length, 'lines');
         // Re-render even if already rendered to update line checkboxes
-        const success = renderAllDevices();
-        if (success && !rendered) {
+        const result = renderAllDevices();
+        if (result === true && !rendered) {
           rendered = true;
         }
       }
 
       if (!rendered) {
-        if (hasValidToolOutput()) {
-          const success = renderAllDevices();
-          if (success) {
-            console.log('✅ Devices rendered successfully (toolOutput populated)');
-            rendered = true;
-            return;
+        // Check if toolOutput exists and has changed
+        const currentValue = window.openai?.toolOutput;
+        const toolOutputChanged = currentValue !== lastToolOutputValue;
+        
+        if (toolOutputChanged) {
+          lastToolOutputValue = currentValue;
+          lastToolOutputChangeTime = Date.now();
+          toolOutputChangedRecently = true;
+          // Reset the timer when toolOutput changes - we're actively loading
+          if (currentValue !== null && currentValue !== undefined) {
+            console.log('🔄 toolOutput changed, resetting error timer');
           }
         }
 
-        const currentValue = window.openai?.toolOutput;
-        if (currentValue !== lastToolOutputValue) {
-          lastToolOutputValue = currentValue;
+        // Check if devices array exists or is growing (indicates active loading)
+        const devices = extractDevices();
+        const deviceCountChanged = devices.length !== lastDeviceCount;
+        if (deviceCountChanged) {
+          lastDeviceCount = devices.length;
+          lastToolOutputChangeTime = Date.now();
+          toolOutputChangedRecently = true;
+          console.log(`🔄 Device count changed: ${devices.length} devices`);
+        }
 
-          if (currentValue !== null && currentValue !== undefined) {
-            console.log('toolOutput changed from null to:', typeof currentValue);
-            const success = renderAllDevices();
-            if (success) {
-              console.log('✅ Devices rendered (value change detected)');
-              rendered = true;
-              return;
-            }
+        // Check if toolOutput changed recently (within timeout period)
+        const timeSinceLastChange = Date.now() - lastToolOutputChangeTime;
+        if (timeSinceLastChange < toolOutputChangeTimeout) {
+          toolOutputChangedRecently = true;
+        } else {
+          toolOutputChangedRecently = false;
+        }
+
+        if (hasValidToolOutput()) {
+          const result = renderAllDevices();
+          if (result === true) {
+            console.log('✅ Devices rendered successfully (toolOutput populated)');
+            rendered = true;
+            return;
+          } else if (result === 'loading') {
+            console.log('⏳ Devices are loading, showing skeletons...');
+            // Continue watching, don't mark as rendered yet
           }
+        } else if (currentValue !== null && currentValue !== undefined) {
+          // toolOutput exists but might not have devices yet - try rendering
+          const result = renderAllDevices();
+          if (result === true) {
+            console.log('✅ Devices rendered (value change detected)');
+            rendered = true;
+            return;
+          } else if (result === 'loading') {
+            console.log('⏳ Devices are loading, showing skeletons...');
+            // Continue watching, don't mark as rendered yet
+          }
+        }
+      }
+
+      // Continue watching if not rendered yet
+      if (!rendered) {
+        // Check if we're still loading (showing skeletons)
+        const result = renderAllDevices();
+        if (result === 'loading') {
+          // Still loading, continue watching - NEVER show error while loading
+          if (checkCount < maxChecks) {
+            setTimeout(watchForToolOutputChange, 25);
+          } else {
+            // Max checks reached but still loading - show skeletons, don't show error
+            setTimeout(watchForToolOutputChange, 100);
+          }
+          return;
+        }
+
+        // If toolOutput changed recently or devices are being loaded, never show error
+        if (toolOutputChangedRecently) {
+          console.log('⏳ ToolOutput or devices changed recently, continuing to wait...');
+          setTimeout(watchForToolOutputChange, 100);
+          return;
         }
       }
 
       if (checkCount < maxChecks) {
         setTimeout(watchForToolOutputChange, 25);
       } else if (!rendered && checkCount >= maxChecks) {
-        if (checkCount >= minChecksBeforeError && elapsedTime >= minTimeBeforeError) {
+        // Only show error if ALL of these conditions are met:
+        // 1. We've waited long enough (checks AND time)
+        // 2. There's no toolOutput at all (not just empty, but doesn't exist)
+        // 3. ToolOutput hasn't changed recently (not actively loading)
+        // 4. No devices are being loaded
+        // 5. Enough time has passed since last toolOutput change
+        const toolOutput = window.openai?.toolOutput;
+        const hasToolOutput = toolOutput !== null && toolOutput !== undefined;
+        const devices = extractDevices();
+        const hasDevices = devices.length > 0;
+        const timeSinceLastChange = Date.now() - lastToolOutputChangeTime;
+        const toolOutputStale = lastToolOutputChangeTime === 0 || timeSinceLastChange > toolOutputChangeTimeout;
+        
+        // Only show error if we've waited VERY long AND nothing is happening AND toolOutput is stale
+        const shouldShowError = checkCount >= minChecksBeforeError && 
+                                elapsedTime >= minTimeBeforeError && 
+                                !hasToolOutput && 
+                                !hasDevices &&
+                                !toolOutputChangedRecently &&
+                                toolOutputStale;
+        
+        if (shouldShowError) {
           const container = document.getElementById('devices-container');
           if (container) {
             const debugInfo = window.openai ?
@@ -2012,7 +2241,10 @@
             container.innerHTML = debugInfo + '<p style="padding: 20px; text-align: center; color: #d32f2f;">⚠️ Unable to load devices. Please try again.</p>';
           }
         } else {
-          setTimeout(watchForToolOutputChange, 25);
+          // Still waiting or something is happening, continue checking
+          // Increase delay as we wait longer to reduce CPU usage
+          const delay = elapsedTime > 30000 ? 500 : (elapsedTime > 10000 ? 200 : 100);
+          setTimeout(watchForToolOutputChange, delay);
         }
       }
     }
@@ -2041,10 +2273,12 @@
 
               setTimeout(() => {
                 if (!rendered) {
-                  const success = renderAllDevices();
-                  if (success) {
+                  const result = renderAllDevices();
+                  if (result === true) {
                     rendered = true;
                     console.log('✅ Devices rendered (property setter detected)');
+                  } else if (result === 'loading') {
+                    console.log('⏳ Devices are loading, showing skeletons...');
                   }
                 }
               }, 10);
@@ -2060,6 +2294,17 @@
       }
     }
 
+    // Show initial loading skeletons immediately
+    (function showInitialSkeletons() {
+      const container = document.getElementById('devices-container');
+      if (container) {
+        const skeletonCount = 8;
+        const skeletonsHtml = Array(skeletonCount).fill(null).map(() => renderDeviceSkeleton()).join('');
+        container.innerHTML = skeletonsHtml;
+        console.log('⏳ Showing initial loading skeletons...');
+      }
+    })();
+
     // Start the permanent solution immediately
     setupToolOutputWatcher();
     watchForToolOutputChange();
@@ -2068,10 +2313,12 @@
     window.addEventListener("load", () => {
       console.log('📥 Load event fired, attempting to render devices');
       if (!rendered) {
-        const success = renderAllDevices();
-        if (success) {
+        const result = renderAllDevices();
+        if (result === true) {
           rendered = true;
           console.log('✅ Devices rendered on load event');
+        } else if (result === 'loading') {
+          console.log('⏳ Devices are loading, showing skeletons...');
         }
       }
     });
@@ -2081,20 +2328,24 @@
       document.addEventListener('DOMContentLoaded', () => {
         console.log('📥 DOMContentLoaded fired, attempting to render devices');
         if (!rendered) {
-          const success = renderAllDevices();
-          if (success) {
+          const result = renderAllDevices();
+          if (result === true) {
             rendered = true;
             console.log('✅ Devices rendered on DOMContentLoaded');
+          } else if (result === 'loading') {
+            console.log('⏳ Devices are loading, showing skeletons...');
           }
         }
       });
     } else {
       console.log('📥 DOM already loaded, attempting immediate render');
       if (!rendered) {
-        const success = renderAllDevices();
-        if (success) {
+        const result = renderAllDevices();
+        if (result === true) {
           rendered = true;
           console.log('✅ Devices rendered (DOM already loaded)');
+        } else if (result === 'loading') {
+          console.log('⏳ Devices are loading, showing skeletons...');
         }
       }
     }
