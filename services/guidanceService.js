@@ -40,7 +40,7 @@ export function formatThreeSectionResponse(response, suggestions, nextSteps) {
 export function getNextStepsForIntent(context, intent) {
   try {
     if (!context || !context.sessionId) {
-      return `**Getting Started:**\n\n1. Tell me how many lines you need (e.g., "I need 2 lines")\n2. Select plans for each line (required for checkout)\n3. Choose SIM types (eSIM or Physical) per line\n4. (Optional) Add devices and device protection\n5. Review cart and checkout`;
+      return `**Getting Started:**\n\n1. Tell me how many lines you need (e.g., "I need 2 lines")\n2. Select plans for each line (required for checkout)\n3. (Optional) Add devices and device protection\n4. Review cart and checkout`;
     }
     
     let progress;
@@ -48,7 +48,7 @@ export function getNextStepsForIntent(context, intent) {
       progress = getFlowProgress(context.sessionId);
     } catch (error) {
       logger.error('Error getting flow progress in getNextStepsForIntent', { error: error.message });
-      progress = { lineCount: 0, missing: { plans: [], devices: [], sim: [] } };
+      progress = { lineCount: 0, missing: { plans: [], devices: [] } };
     }
     
     if (!progress) {
@@ -74,16 +74,12 @@ export function getNextStepsForIntent(context, intent) {
       
       const missingPlans = progress.missing?.plans || [];
       if (missingPlans.length > 0) {
-        return `**Action Required:** Click \"Add to Cart\" on a plan above for ${missingPlans.length} line${missingPlans.length > 1 ? 's' : ''}.\n**Options:** You can choose the same plan for all lines or different plans per line.\n\n**After selecting plans:** Select SIM types (required) → Add devices (optional) → Checkout`;
+        return `**Action Required:** Click \"Add to Cart\" on a plan above for ${missingPlans.length} line${missingPlans.length > 1 ? 's' : ''}.\n**Options:** You can choose the same plan for all lines or different plans per line.\n\n**After selecting plans:** Add devices (optional) → Checkout`;
       }
       
       // Plans complete - what's next?
-      const missingSims = progress.missing?.sim || [];
-      if (missingSims.length > 0) {
-        return "**Plans selected!** ✅\n\n**Mandatory Next:** Select SIM type (eSIM or Physical) for each line. Say \"Show SIM options\".\n**Optional:** Add devices before SIM selection. Say \"Show devices\".";
-      }
-      
-      return "**Plans selected!** ✅\n\n**You can:**\n• Add devices (optional): \"Show me devices\"\n• Select SIM types (required): \"Show SIM options\"\n• Review cart: \"Show my cart\"";
+      // Note: eSIM is automatically added when plans are added
+      return "**Plans selected!** ✅\n\n**You can:**\n• Add devices (optional): \"Show me devices\"\n• Review cart: \"Show my cart\"\n• Proceed to checkout";
     }
     
     // After showing devices
@@ -107,7 +103,7 @@ export function getNextStepsForIntent(context, intent) {
       }
       
       if (hasDevices) {
-        return "**After adding device:** ✅\n\n**You can:**\n• **Add protection (optional):** \"I want device protection\"\n• **Continue with plans:** \"Show me plans\" (if not done)\n• **Select SIM types:** \"Show SIM options\" (required before checkout)\n• **View device details:** Click on device cards for full specifications";
+        return "**After adding device:** ✅\n\n**You can:**\n• **Add protection (optional):** \"I want device protection\"\n• **Continue with plans:** \"Show me plans\" (if not done)\n• **View device details:** Click on device cards for full specifications\n• **Proceed to checkout:** \"Checkout\"";
       }
       
       return "**Device browsing:**\n\n**You can:**\n• Click \"Add to Cart\" to add a device\n• Click device cards to see detailed specifications\n• Say \"Show me plans\" to continue (plans required before checkout)";
@@ -120,35 +116,21 @@ export function getNextStepsForIntent(context, intent) {
     
     // After protection
     if (intentStr === 'protection') {
-      const missingSims = progress.missing?.sim || [];
-      if (missingSims.length > 0) {
-        return "✅ **Protection added!**\n\n**Next Required:** Select SIM types for your lines. Say \"Show SIM options\".";
-      }
+      // Note: eSIM is automatically added when plans are added
       return "✅ **Protection added!**\n\n**Ready to:**\n• Review cart: \"Show my cart\"\n• Proceed to checkout: \"Checkout\"";
     }
     
-    // After SIM selection
-    if (intentStr === 'sim') {
-      const missingSims = progress.missing?.sim || [];
-      if (missingSims.length === 0) {
-        return "✅ **All prerequisites complete!**\n\n**Ready for checkout:**\n• Review your cart: \"Show my cart\"\n• Proceed to checkout: \"I'm ready to checkout\"";
-      }
-      return `**SIM type selected!** ✅\n\nSelect SIM types for ${missingSims.length} more line${missingSims.length > 1 ? 's' : ''}, then proceed to checkout.`;
-    }
+    // SIM selection removed - eSIM is automatically set when plan is added
     
     // Checkout intent
     if (intentStr === 'checkout') {
       const missingPlans = progress.missing?.plans || [];
-      const missingSims = progress.missing?.sim || [];
       
       if (missingPlans.length > 0) {
         return `**⚠️ Cannot Checkout Yet**\n\nYou need to select plans for ${missingPlans.length} line${missingPlans.length > 1 ? 's' : ''} first.\n**Action:** Say \"Show me plans\" to continue.`;
       }
       
-      if (missingSims.length > 0) {
-        return `**⚠️ Cannot Checkout Yet**\n\nYou need to select SIM types for ${missingSims.length} line${missingSims.length > 1 ? 's' : ''}.\n**Action:** Say \"Show SIM options\" to continue.`;
-      }
-      
+      // Note: eSIM is automatically added when plans are added, so SIM check is not needed
       return "✅ **Ready for checkout!**\n\nReview your cart and proceed.";
     }
     
@@ -198,11 +180,8 @@ export function getGuidanceForStep(step, context) {
       return "Would you like to add device protection? You can apply it to all lines with devices, or select per line.";
     
     case 'sim_selection':
-      const missingSims = progress.missing?.sim || [];
-      if (missingSims.length > 0) {
-        return `You need to select SIM types for ${missingSims.length} line${missingSims.length > 1 ? 's' : ''} (${missingSims.join(', ')}). Choose eSIM or Physical SIM for each line.`;
-      }
-      return "All lines have SIM types selected. Ready for checkout?";
+      // SIM selection removed - eSIM is automatically set when plan is added
+      return "Your cart is ready. Proceed to checkout.";
     
     case 'checkout':
       return "Reviewing your cart and checking prerequisites...";
@@ -240,7 +219,7 @@ export function getNextStepSuggestions(context) {
       progress = getFlowProgress(context.sessionId);
     } catch (error) {
       logger.error('Error getting flow progress', { error: error.message, sessionId: context.sessionId });
-      progress = { lineCount: 0, missing: { plans: [], devices: [], sim: [] } };
+      progress = { lineCount: 0, missing: { plans: [], devices: [] } };
     }
 
     const suggestions = [];
@@ -309,25 +288,12 @@ export function getNextStepSuggestions(context) {
       // Don't return here - continue to check SIM
     }
 
-    // Flow Step 5: SIM Selection (mandatory for checkout)
-    const missingSims = (progress.missing?.sim || []).filter(s => s && s > 0 && s <= progress.lineCount);
-    if (missingSims.length > 0) {
-      nextStep = 'sim_selection';
-      guidance = `**Step 5: SIM Type Selection**\n\nYou need to select SIM types for ${missingSims.length} line${missingSims.length > 1 ? 's' : ''} (${missingSims.join(', ')}). Choose eSIM or Physical SIM for each line. This is required before checkout.`;
-      suggestions.push("Select SIM type", "Choose eSIM or Physical SIM", "Set SIM for all lines");
-      actionablePrompts.push(
-        "Say: 'Show SIM options'",
-        "Say: 'eSIM for all lines'",
-        "Say: 'Physical SIM for line 1, eSIM for line 2'"
-      );
-      return { nextStep, suggestions, guidance, actionablePrompts };
-    }
+    // SIM selection removed - eSIM is automatically set when plan is added
 
     // NEW: Check if all required items complete, suggest protection before checkout
     const allRequiredComplete = 
       progress.lineCount > 0 &&
-      (!progress.missing?.plans || progress.missing.plans.length === 0) &&
-      (!progress.missing?.sim || progress.missing.sim.length === 0);
+      (!progress.missing?.plans || progress.missing.plans.length === 0);
     
     if (allRequiredComplete && linesWithDevices.length > 0 && linesNeedingProtection.length > 0 && nextStep === null) {
       // All required items complete, suggest optional protection before checkout
@@ -446,15 +412,12 @@ export function generateNudgeMessage(context, intent, data = {}) {
         return `📋 **Plans added!** You still need to select plans for ${progress.missing.plans.length} more line${progress.missing.plans.length > 1 ? 's' : ''}. Would you like to continue?`;
       }
       // All plans selected - suggest next step
-      const missingSims = progress.missing?.sim || [];
-      if (missingSims.length > 0) {
-        return "✅ **All plans selected!** Next step: Select SIM types for your lines.";
-      }
+      // Note: eSIM is automatically added when plans are added
       const missingDevices = progress.missing?.devices || [];
       if (missingDevices.length > 0) {
-        return "✅ **Plans selected!** Next: Add devices (optional) or select SIM types.";
+        return "✅ **Plans selected!** Next: Add devices (optional) or proceed to checkout.";
       }
-      return "✅ **Plans selected!** Your cart is ready. Add devices (optional) or proceed to SIM selection.";
+      return "✅ **Plans selected!** Your cart is ready. Add devices (optional) or proceed to checkout.";
     
     case 'device':
       if (!progress.missing?.plans || progress.missing.plans.length === 0) {
@@ -464,26 +427,20 @@ export function generateNudgeMessage(context, intent, data = {}) {
           line.deviceSelected && !line.protectionSelected
         ) || [];
         if (linesNeedingProtection.length > 0) {
-          return "✅ **Device added!** Would you like to add device protection, or proceed to SIM selection?";
+          return "✅ **Device added!** Would you like to add device protection, or proceed to checkout?";
         }
-        return "✅ **Device added!** Next: Select SIM types for your lines.";
+        return "✅ **Device added!** Your cart is ready. Proceed to checkout or add more items.";
       } else {
         return "✅ **Device added!** Remember: You'll need to select plans before checkout. Would you like to see plans now?";
       }
     
     case 'protection':
-      // After protection, suggest SIM or checkout
-      const missingSimsAfterProtection = progress.missing?.sim || [];
-      if (missingSimsAfterProtection.length > 0) {
-        return "✅ **Protection added!** Next step: Select SIM types for your lines.";
-      }
+      // After protection, proceed to checkout
       return "✅ **Protection added!** Your cart is ready. Proceed to checkout or add more items.";
     
     case 'sim':
-      if (progress.missing?.sim && progress.missing.sim.length === 0) {
-        return "✅ **SIM types selected!** Your cart is complete and ready for checkout!";
-      }
-      return "✅ **SIM type selected!** Continue selecting SIM types for remaining lines, or proceed to checkout.";
+      // SIM selection removed - eSIM is automatically set when plan is added
+      return "✅ **eSIM is automatically set when you add a plan.** Your cart is ready. Proceed to checkout.";
     
     default:
       return "What would you like to do next?";
@@ -601,10 +558,7 @@ export function getCheckoutGuidance(context) {
     missing.push('plans');
   }
 
-  const missingSims = progress.missing?.sim || [];
-  if (missingSims.length > 0) {
-    missing.push('sim');
-  }
+  // SIM removed - eSIM is automatically set when plan is added
 
   // Check shipping address
   const hasShippingAddress = context.shippingAddress && context.checkoutDataCollected;
@@ -626,21 +580,29 @@ export function getCheckoutGuidance(context) {
       guidance += `2. ❌ **Select plans for ${missingPlans.length} line${missingPlans.length > 1 ? 's' : ''}** (${missingPlans.join(', ')})\n`;
       actionablePrompts.push("Say: 'Show me plans'");
     } else {
-      guidance += "2. ✅ Plans selected\n";
+      guidance += "2. ✅ Plans selected (eSIM automatically set)\n";
     }
     
-    if (missing.includes('sim')) {
-      guidance += `3. ❌ **Select SIM types for ${missingSims.length} line${missingSims.length > 1 ? 's' : ''}** (${missingSims.join(', ')})\n`;
-      actionablePrompts.push("Say: 'Show SIM options'");
-    } else {
-      guidance += "3. ✅ SIM types selected\n";
-    }
+    // eSIM is automatically set when plans are added, so no SIM check needed
     
     if (missing.includes('shipping_address')) {
-      guidance += "4. ❌ **Provide shipping address**\n";
+      guidance += "3. ❌ **Provide shipping address**\n";
+      if (shippingStep && shippingStep !== 'complete') {
+        // Show current step
+        if (shippingStep === 'name') {
+          guidance += "   → Currently on Step 1: Provide first name and last name\n";
+        } else if (shippingStep === 'contact') {
+          guidance += "   → Currently on Step 2: Provide phone number and email\n";
+        } else if (shippingStep === 'address') {
+          guidance += "   → Currently on Step 3: Provide street address, city, state, ZIP code (US only)\n";
+          guidance += "   📍 Tip: You can use location services to auto-fill your address!\n";
+        }
+      } else {
+        guidance += "   → Use collect_shipping_address tool (3 steps: name → contact → address)\n";
+      }
       actionablePrompts.push("Say: 'I need to enter my shipping address' or use collect_shipping_address tool");
-    } else if (!missing.includes('line_count') && !missing.includes('plans') && !missing.includes('sim')) {
-      guidance += "4. ✅ Shipping address collected\n";
+    } else if (!missing.includes('line_count') && !missing.includes('plans')) {
+      guidance += "3. ✅ Shipping address collected\n";
     }
 
     return {
@@ -654,7 +616,7 @@ export function getCheckoutGuidance(context) {
   return {
     ready: true,
     missing: [],
-    guidance: "✅ **Your cart is ready for checkout!**\n\nAll required items are selected:\n1. ✅ Line count set\n2. ✅ Plans selected\n3. ✅ SIM types selected\n4. ✅ Shipping address collected",
+    guidance: "✅ **Your cart is ready for checkout!**\n\nAll required items are selected:\n1. ✅ Line count set\n2. ✅ Plans selected (eSIM automatically set)\n3. ✅ Shipping address collected",
     actionablePrompts: ["Say: 'Get checkout data'", "Say: 'Proceed to payment'"]
   };
 }
@@ -680,9 +642,7 @@ export function formatMissingPrerequisites(progress) {
     missing.push(`Plans for line${missingItems.plans.length > 1 ? 's' : ''} ${missingItems.plans.join(', ')}`);
   }
 
-  if (missingItems.sim && missingItems.sim.length > 0) {
-    missing.push(`SIM types for line${missingItems.sim.length > 1 ? 's' : ''} ${missingItems.sim.join(', ')}`);
-  }
+  // SIM removed - eSIM is automatically set when plan is added
 
   if (missing.length === 0) {
     return "✅ All required items are complete!";

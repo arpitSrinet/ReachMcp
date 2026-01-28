@@ -50,12 +50,15 @@ const INTENT_PATTERNS = {
     /checkout/i, /proceed/i, /complete/i, /finish/i, /finalize/i,
     /place order/i, /buy now/i, /purchase/i, /order/i, /submit/i,
     /ready to checkout/i, /go to checkout/i, /review and checkout/i,
-    /complete purchase/i, /final review/i
+    /complete purchase/i, /final review/i, /review.*cart/i, /show.*cart/i,
+    /see.*cart/i, /view.*cart/i, /check.*cart/i
   ],
   [INTENT_TYPES.EDIT]: [
     /change/i, /edit/i, /update/i, /modify/i, /remove/i, /delete/i,
     /switch/i, /replace/i, /swap/i, /different/i, /instead/i,
-    /change plan/i, /remove device/i, /edit cart/i, /update line/i
+    /change plan/i, /remove device/i, /edit cart/i, /update line/i,
+    /clear.*cart/i, /empty.*cart/i, /reset.*cart/i, /remove.*all/i,
+    /start.*over/i
   ],
   [INTENT_TYPES.SIM]: [
     /sim/i, /esim/i, /physical sim/i, /psim/i, /sim card/i,

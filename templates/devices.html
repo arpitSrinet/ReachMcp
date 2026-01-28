@@ -2007,6 +2007,23 @@
         return false;
       }
 
+      // STRICT CHECK: Hide devices UI ONLY when mode is selected (not 'initial')
+      // Update selectionMode from toolOutput first
+      const toolOutput = window.openai ? window.openai.toolOutput : null;
+      if (toolOutput && toolOutput.structuredContent) {
+        selectionMode = toolOutput.structuredContent.selectionMode || 'initial';
+      }
+      
+      // Hide devices container if mode is selected (strict check)
+      if (selectionMode === 'applyAll' || selectionMode === 'sequential') {
+        container.style.display = 'none';
+        console.log('🚫 Devices UI hidden - mode is selected:', selectionMode);
+        return false;
+      } else {
+        // Show devices container when mode is 'initial' or undefined
+        container.style.display = '';
+      }
+
       const devices = extractDevices();
 
       // Update current lines from toolOutput
@@ -2019,7 +2036,6 @@
       // If no devices array exists yet, show loading skeletons
       if (devices.length === 0) {
         // Check if toolOutput exists but is empty vs doesn't exist at all
-        const toolOutput = window.openai?.toolOutput;
         const hasToolOutput = toolOutput !== null && toolOutput !== undefined;
         
         if (hasToolOutput) {
@@ -2105,6 +2121,24 @@
     function watchForToolOutputChange() {
       checkCount++;
       const elapsedTime = Date.now() - startTime;
+
+      // STRICT CHECK: Hide devices UI if mode is selected
+      const toolOutput = window.openai ? window.openai.toolOutput : null;
+      if (toolOutput && toolOutput.structuredContent) {
+        const currentSelectionMode = toolOutput.structuredContent.selectionMode || 'initial';
+        if (currentSelectionMode === 'applyAll' || currentSelectionMode === 'sequential') {
+          const container = document.getElementById('devices-container');
+          if (container) {
+            container.style.display = 'none';
+            console.log('🚫 Devices UI hidden - mode is selected:', currentSelectionMode);
+          }
+          // Continue watching but don't render devices
+          if (checkCount < maxChecks) {
+            setTimeout(watchForToolOutputChange, 100);
+          }
+          return;
+        }
+      }
 
       // Check if lines data has changed
       const extractedLines = extractLines();
@@ -2298,6 +2332,20 @@
     (function showInitialSkeletons() {
       const container = document.getElementById('devices-container');
       if (container) {
+        // STRICT CHECK: Hide devices UI if mode is already selected
+        const toolOutput = window.openai ? window.openai.toolOutput : null;
+        let initialSelectionMode = 'initial';
+        if (toolOutput && toolOutput.structuredContent) {
+          initialSelectionMode = toolOutput.structuredContent.selectionMode || 'initial';
+        }
+        
+        // Hide devices container if mode is selected (strict check)
+        if (initialSelectionMode === 'applyAll' || initialSelectionMode === 'sequential') {
+          container.style.display = 'none';
+          console.log('🚫 Devices UI hidden on init - mode is selected:', initialSelectionMode);
+          return;
+        }
+        
         const skeletonCount = 8;
         const skeletonsHtml = Array(skeletonCount).fill(null).map(() => renderDeviceSkeleton()).join('');
         container.innerHTML = skeletonsHtml;

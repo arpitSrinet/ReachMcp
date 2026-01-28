@@ -10,6 +10,20 @@ export const tenantConfig = {
     partnerTenantId: process.env.REACH_PARTNER_TENANT_ID || "REACH@nu",
     reachMvne: process.env.REACH_MVNE || "ATT",
     reachSrc: process.env.REACH_SRC || "web|||customer|codex|node",
+    // Purchase API endpoints (configurable via environment variables)
+    purchaseEndpoints: {
+      quote: process.env.REACH_PURCHASE_QUOTE_ENDPOINT || '/apisvc/v0/product/quote',
+      purchase: process.env.REACH_PURCHASE_ENDPOINT || '/apisvc/v0/product',
+      status: process.env.REACH_PURCHASE_STATUS_ENDPOINT || '/apisvc/v0/product/status'
+    },
+    // Purchase defaults (configurable via environment variables)
+    purchaseDefaults: {
+      redirectUrl: process.env.PAYMENT_REDIRECT_URL || process.env.APP_BASE_URL || 'https://www.google.com/',
+      agentId: process.env.PURCHASE_AGENT_ID || (process.env.ENVIRONMENT ? `${process.env.ENVIRONMENT}_AGENT` : 'AGENT1234'),
+      shipmentType: process.env.DEFAULT_SHIPMENT_TYPE || 'usps_first_class_mail',
+      paymentType: process.env.DEFAULT_PAYMENT_TYPE || 'CARD',
+      acquisitionSrc: process.env.ACQUISITION_SOURCE || 'Online'
+    }
   },
 };
 

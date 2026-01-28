@@ -166,42 +166,16 @@ function routeProtectionFlow(entities, context) {
 }
 
 /**
- * Route SIM flow
+ * Route SIM flow - DEPRECATED: eSIM is automatically set when plan is added
  */
 function routeSimFlow(entities, context) {
-  if (!context) {
-    return {
-      route: 'sim',
-      action: 'get_sim_types',
-      prerequisites: { allowed: false, reason: 'Please select plans first' },
-      guidance: "SIM selection requires plans. Would you like to select plans first?",
-      redirectTo: 'plan'
-    };
-  }
-
-  const simPrereq = checkPrerequisites(context.sessionId, 'select_sim');
-  const progress = getFlowProgress(context.sessionId);
-  
-  if (!simPrereq.allowed) {
-    return {
-      route: 'sim',
-      action: 'get_sim_types',
-      prerequisites: simPrereq,
-      guidance: simPrereq.reason,
-      redirectTo: 'plan'
-    };
-  }
-
-  const missingSims = progress.missing?.sim || [];
-  
+  // SIM selection is no longer needed - eSIM is automatically set when plan is added
   return {
     route: 'sim',
     action: 'get_sim_types',
-    prerequisites: simPrereq,
-    guidance: missingSims.length > 0
-      ? `Select SIM type for line${missingSims.length > 1 ? 's' : ''} ${missingSims.join(', ')}. Choose eSIM or Physical SIM.`
-      : "All lines have SIM types. Ready for checkout?",
-    lineNumber: entities.lineNumber || null
+    prerequisites: { allowed: false, reason: 'SIM selection is no longer required. eSIM is automatically set when you add a plan.' },
+    guidance: "✅ **eSIM is automatically set** when you add a plan. No SIM selection needed!",
+    redirectTo: 'plan'
   };
 }
 
@@ -227,9 +201,8 @@ function routeCheckoutFlow(entities, context) {
     if (!checkoutGuidance.missing.includes('line_count')) {
       if (checkoutGuidance.missing.includes('plans')) {
         redirectTo = 'plan';
-      } else if (checkoutGuidance.missing.includes('sim')) {
-        redirectTo = 'sim';
       }
+      // SIM removed - eSIM is automatically set when plan is added
     }
 
     return {
@@ -341,7 +314,8 @@ export function checkPrerequisitesForIntent(intent, context) {
       return checkPrerequisites(context.sessionId, 'add_protection');
     
     case INTENT_TYPES.SIM:
-      return checkPrerequisites(context.sessionId, 'select_sim');
+      // SIM selection removed - eSIM is automatically set when plan is added
+      return { allowed: false, reason: 'SIM selection is no longer required. eSIM is automatically set when you add a plan.' };
     
     case INTENT_TYPES.CHECKOUT:
       return checkPrerequisites(context.sessionId, 'checkout');
@@ -387,7 +361,7 @@ function getActionForStep(step) {
     'plan_selection': 'get_plans',
     'device_selection': 'get_devices',
     'protection_selection': 'get_protection_plan',
-    'sim_selection': 'get_sim_types',
+    // 'sim_selection': 'get_sim_types', // Removed - eSIM is automatically set when plan is added
     'checkout': 'review_cart'
   };
 

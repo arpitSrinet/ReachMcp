@@ -425,7 +425,7 @@ export function formatCoverageAsCard(coverage) {
     markdown += `✅ **Coverage is available** in ZIP code ${coverage.zipCode}\n\n`;
     markdown += `**Next Steps:**\n`;
     markdown += `• You can proceed to select a mobile plan\n`;
-    markdown += `• Choose between eSIM or Physical SIM (if both available)\n`;
+    markdown += `• eSIM is automatically set when you add a plan\n`;
     if (coverage.compatibility4G || coverage.compatibility4g || coverage.lteCompatible) {
       markdown += `• 4G/LTE network is available for reliable data connectivity\n`;
     }
@@ -722,11 +722,7 @@ export function formatFlowStatus(progress, context) {
       markdown += `Lines ${missing.protection.join(', ')} have devices but no protection\n\n`;
     }
 
-    if (missing.sim && missing.sim.length > 0) {
-      hasMissing = true;
-      markdown += `### 📲 Missing SIM Type\n\n`;
-      markdown += `Lines ${missing.sim.join(', ')} need SIM type selection\n\n`;
-    }
+    // SIM removed - eSIM is automatically set when plan is added
 
     if (!hasMissing && progress.lineCount > 0) {
       markdown += `### ✅ All Complete!\n\n`;
@@ -744,8 +740,6 @@ export function formatFlowStatus(progress, context) {
     markdown += `1. Add devices for lines ${progress.missing.devices.join(', ')} (optional)\n`;
   } else if (progress.missing.protection && progress.missing.protection.length > 0) {
     markdown += `1. Add protection for lines ${progress.missing.protection.join(', ')} (optional)\n`;
-  } else if (progress.missing.sim && progress.missing.sim.length > 0) {
-    markdown += `1. Select SIM type for lines ${progress.missing.sim.join(', ')}\n`;
   } else {
     markdown += `1. Review your cart\n`;
     markdown += `2. Proceed to checkout\n`;
@@ -784,8 +778,6 @@ export function formatGuidanceMessage(action, context, progress) {
       message = "✅ Plan selected! ";
       if (progress.missing.devices && progress.missing.devices.length > 0) {
         message += `Would you like to add a device for ${progress.missing.devices.length > 1 ? 'these lines' : 'this line'}?`;
-      } else if (progress.missing.sim && progress.missing.sim.length > 0) {
-        message += "Ready to select SIM type?";
       } else {
         message += "Great! Ready to review your cart?";
       }
@@ -795,8 +787,6 @@ export function formatGuidanceMessage(action, context, progress) {
       message = "✅ Device added! ";
       if (progress.missing.protection && progress.missing.protection.length > 0) {
         message += "Want to protect it with device protection?";
-      } else if (progress.missing.sim && progress.missing.sim.length > 0) {
-        message += "Ready to select SIM type?";
       } else {
         message += "Ready to review your cart?";
       }
@@ -812,7 +802,8 @@ export function formatGuidanceMessage(action, context, progress) {
       break;
 
     case 'sim':
-      message = "✅ SIM type selected! ";
+      // SIM selection removed - eSIM is automatically set when plan is added
+      message = "✅ eSIM is automatically set when you add a plan. ";
       message += "Ready to review your cart and proceed to checkout?";
       break;
 
@@ -946,7 +937,7 @@ export function formatMultiLineCartReview(cart, context) {
       }
       markdown += `\n`;
     } else {
-      markdown += `**⚠️ SIM Type:** Not selected (required for activation)\n\n`;
+      markdown += `**📲 SIM Type:** eSIM (automatically set when plan is added)\n\n`;
     }
 
     // Line total
@@ -970,21 +961,17 @@ export function formatMultiLineCartReview(cart, context) {
   markdown += `### ✅ Order Status\n\n`;
 
   const missingPlans = cart.lines.filter(l => !l.plan).length;
-  const missingSims = cart.lines.filter(l => !l.sim || !l.sim.simType).length;
+  // SIM removed - eSIM is automatically set when plan is added
 
-  if (missingPlans === 0 && missingSims === 0) {
+  if (missingPlans === 0) {
     markdown += `✅ **Ready for Checkout!**\n\n`;
     markdown += `All required items are selected:\n`;
-    markdown += `• All lines have plans\n`;
-    markdown += `• All lines have SIM types\n`;
+    markdown += `• All lines have plans (eSIM automatically set)\n`;
     markdown += `• Optional items (devices, protection) can be added or skipped\n\n`;
   } else {
     markdown += `⚠️ **Not Ready for Checkout**\n\n`;
     if (missingPlans > 0) {
       markdown += `• Missing plans for ${missingPlans} line${missingPlans > 1 ? 's' : ''} (required)\n`;
-    }
-    if (missingSims > 0) {
-      markdown += `• Missing SIM types for ${missingSims} line${missingSims > 1 ? 's' : ''} (required)\n`;
     }
     markdown += `\nPlease complete the missing items before proceeding to checkout.\n\n`;
   }
@@ -997,7 +984,7 @@ export function formatMultiLineCartReview(cart, context) {
 
   // Next actions
   markdown += `### 🎯 Next Actions\n\n`;
-  if (missingPlans === 0 && missingSims === 0) {
+  if (missingPlans === 0) {
     markdown += `✅ **Proceed to Checkout** - Complete your purchase\n`;
     markdown += `   • Say: "I need to enter my shipping address" or use collect_shipping_address tool\n`;
     markdown += `   • After shipping address is collected, use get_checkout_data to get complete order data\n\n`;

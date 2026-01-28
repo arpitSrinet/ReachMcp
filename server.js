@@ -27,7 +27,7 @@ import { checkCoverage } from "./services/coverageService.js";
 import { fetchOffers, fetchServices } from "./services/productService.js";
 import { validateDevice, fetchDevices, fetchProtectionPlans } from "./services/deviceService.js";
 import { getAuthToken, getAuthTokensMap } from "./services/authService.js";
-import { getFlowContext, updateFlowContext, resetFlowContext, checkPrerequisites, getFlowProgress, setResumeStep, getResumeStep, updateLastIntent, addConversationHistory, updateMissingPrerequisites, getGlobalContextFlags } from "./services/flowContextService.js";
+import { getFlowContext, updateFlowContext, resetFlowContext, checkPrerequisites, getFlowProgress, setResumeStep, getResumeStep, updateLastIntent, addConversationHistory, updateMissingPrerequisites, getGlobalContextFlags, updatePurchaseState, getPurchaseState, clearPurchaseState } from "./services/flowContextService.js";
 import { normalizeDeviceImageUrl } from "./utils/formatter.js";
 import { calculateProtectionPrice, getProtectionCoverage } from "./utils/protectionPricing.js";
 import { swapSim, validateIccId } from "./services/simService.js";
@@ -39,6 +39,8 @@ import { determineOptimalLineAssignment, getLineAssignmentSummary } from "./serv
 import { logger } from "./utils/logger.js";
 import { startTokenRefreshCron, stopTokenRefreshCron, setAuthTokensAccessor, ensureTokenOnToolCall } from "./services/tokenRefreshCron.js";
 import { init as initStorage, close as closeStorage } from "./utils/storage.js";
+import { purchasePlansFlow, purchaseStatus, PurchaseValidationError, PurchaseFlowError } from "./services/purchaseService.js";
+import { geocodeAddress, normalizeGeocodeResult, isGeocodingAvailable } from "./utils/geocodingService.js";
 import {
   formatPlansAsCards,
   formatOffersAsCards,
@@ -57,6 +59,22 @@ import {
 
 function normalizePlanName(name = '') {
   return String(name).toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Normalize plan name for display/storage: remove data amounts and convert to lowercase
+ * Example: "Unlimited Plus (50GB)" -> "unlimited plus"
+ */
+function normalizePlanNameForDisplay(name = '') {
+  if (!name || typeof name !== 'string') return name;
+  // Remove data amounts like "(50GB)", "(50 GB)", "50GB", etc.
+  let normalized = name
+    .replace(/\([\d.]+[\s]*[GMK]?B\)/gi, '') // Remove (50GB), (50 GB), etc.
+    .replace(/[\d.]+[\s]*[GMK]?B/gi, '') // Remove standalone 50GB, 50 GB, etc.
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+  return normalized;
 }
 
 async function findPlanByNameOrId(tenant, planIdOrName) {
@@ -98,13 +116,14 @@ function buildPlanCartPayload(lines = [], selectedPlanByLine = {}) {
 }
 
 async function addPlansToCartBySelections(sessionId, tenant, selections) {
+  const lineNumbers = [];
   for (const entry of selections) {
     const planItem = await findPlanByNameOrId(tenant, entry.planId);
     if (!planItem) continue;
     const normalizedPlan = {
       ...planItem,
       id: planItem.id || planItem.uniqueIdentifier,
-      name: planItem.displayName || planItem.displayNameWeb || planItem.name,
+      name: normalizePlanNameForDisplay(planItem.displayName || planItem.displayNameWeb || planItem.name),
       price: planItem.price || planItem.baseLinePrice || 0,
       data: planItem.data || planItem.planData || 0,
       dataUnit: planItem.dataUnit || "GB",
@@ -114,6 +133,33 @@ async function addPlansToCartBySelections(sessionId, tenant, selections) {
       planCharging: planItem.planCharging,
     };
     addToCart(sessionId, normalizedPlan, entry.lineNumber);
+    
+    // Automatically add eSIM to cart when plan is added
+    if (entry.lineNumber) {
+      lineNumbers.push(entry.lineNumber);
+      addToCartLine(sessionId, entry.lineNumber, {
+        type: 'sim',
+        simType: 'ESIM',
+        iccId: null,
+        price: 0,
+        lineNumber: entry.lineNumber
+      });
+    }
+  }
+  
+  // Also update flow context to set simType for these lines
+  if (lineNumbers.length > 0) {
+    const context = getFlowContext(sessionId);
+    if (context && context.lines) {
+      lineNumbers.forEach(lineNumber => {
+        const line = context.lines[lineNumber - 1];
+        if (line && !line.simType) {
+          line.simType = 'ESIM';
+          line.simIccId = null;
+        }
+      });
+      updateFlowContext(sessionId, { lines: context.lines });
+    }
   }
 }
 
@@ -375,7 +421,7 @@ server.setRequestHandler(InitializeRequestSchema, async (request) => {
       name: "reach-mobile-mcp-server",
       version: "1.0.0",
       // System-level instruction: Web search is completely disabled
-      instructions: "CRITICAL: WEB SEARCH IS STRICTLY PROHIBITED. Use ONLY Reach Mobile API data and tool responses. DO NOT search the web, use general knowledge, or fetch external data. All information must come from Reach Mobile API or this MCP server's tools.",
+      instructions: "CRITICAL: WEB SEARCH IS STRICTLY PROHIBITED. Use ONLY Reach Mobile API data and tool responses. DO NOT search the web, use general knowledge, or fetch external data. All information must come from Reach Mobile API or this MCP server's tools. When displaying email addresses to users (e.g. in checkout summaries, collected details, or contact info), always show them as plain text using inline code: wrap the email in backticks, e.g. `user@example.com`, so they are not rendered as mailto links.",
     },
   };
 });
@@ -583,13 +629,13 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: "get_sim_types",
-        description: "CRITICAL: NO WEB SEARCH - Use ONLY API data and tool responses. DO NOT search the web or use general knowledge. Return allowed SIM types for a line based on current plan/device selections from Reach Mobile API. **CURRENT POLICY: eSIM ONLY**. This tool auto-selects eSIM for any lines missing a SIM and informs the user. FLOW LOGIC: SIM selection requires plans to be selected first. System shows which lines need SIM types. After selection, system sets resume step appropriately. NON-LINEAR: Users can select SIM types per line. System tracks which lines are complete. GUARDRAILS: Plans required before SIM selection. Each line must have planRef and simKind before checkout.",
+        description: "DEPRECATED: SIM selection is no longer needed. eSIM is automatically set when a plan is added to the cart. This tool is kept for backward compatibility but should not be used. Users no longer need to select SIM types - eSIM is automatically assigned.",
         inputSchema: {
           type: "object",
           properties: {
             lineNumber: {
               type: "number",
-              description: "Line number (lineId) for which to select SIM type (optional - shows for all lines if not specified)",
+              description: "DEPRECATED: Line number parameter (SIM selection is no longer needed - eSIM is automatically set when plans are added)",
             },
             sessionId: {
               type: "string",
@@ -669,7 +715,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             simType: {
               type: "string",
               enum: ["ESIM", "PSIM"],
-              description: "SIM type: ESIM or PSIM (required when itemType is 'sim', itemId can also be 'ESIM' or 'PSIM')"
+              description: "DEPRECATED: SIM type parameter (SIM selection is no longer needed - eSIM is automatically set when plans are added)"
             },
             iccId: {
               type: "string",
@@ -747,7 +793,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: "select_sim_type",
-        description: "CRITICAL: NO WEB SEARCH - Use ONLY API data and tool responses. DO NOT search the web or use general knowledge. Select SIM type (ESIM or PSIM) for one or more lines using Reach Mobile API. **BATCH MODE (Recommended for multiple lines):** When user specifies multiple lines (e.g., 'Line 1 eSIM, Line 2 eSIM, Line 3 physical SIM'), use 'selections' array: [{lineNumber: 1, simType: 'ESIM'}, {lineNumber: 2, simType: 'ESIM'}, {lineNumber: 3, simType: 'PSIM'}]. **SINGLE MODE:** For one line, provide lineNumber and simType directly. Optionally provide newIccId for PSIM swaps. If customerId and newIccId are provided, will call SIM swap API. Auto-initializes purchase flow if none exists.",
+        description: "DEPRECATED: SIM selection is no longer needed. eSIM is automatically set when a plan is added to the cart. This tool is kept for backward compatibility but should not be used. Users no longer need to select SIM types - eSIM is automatically assigned when plans are added.",
         inputSchema: {
           type: "object",
           properties: {
@@ -758,11 +804,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             simType: {
               type: "string",
               enum: ["ESIM", "PSIM"],
-              description: "SIM type: ESIM or PSIM - for single line selection. If 'selections' array is provided, this is ignored."
+              description: "DEPRECATED: SIM type parameter (SIM selection is no longer needed - eSIM is automatically set when plans are added)"
             },
             selections: {
               type: "array",
-              description: "Array of SIM type selections for multiple lines. Format: [{lineNumber: number, simType: 'ESIM'|'PSIM', newIccId?: string}]. Use this for batch selection (e.g., 'Line 1 eSIM, Line 2 eSIM, Line 3 physical SIM').",
+              description: "DEPRECATED: Array of SIM selections (SIM selection is no longer needed - eSIM is automatically set when plans are added)",
               items: {
                 type: "object",
                 properties: {
@@ -800,7 +846,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: "review_cart",
-        description: "CRITICAL: NO WEB SEARCH - Use ONLY API data and tool responses. DO NOT search the web or use general knowledge. Review the complete multi-line cart before checkout. Shows all lines with plans, devices, protection, and SIM types. CHECKOUT GATE: Enforces prerequisites in order - 1) Line count set, 2) Plans selected for all lines, 3) SIM types selected for all lines. If prerequisites fail, routes to missing step. If all pass, shows final review ready for checkout. NON-LINEAR FLOW: Users can review cart anytime. System validates and guides to missing items.",
+        description: "CRITICAL: NO WEB SEARCH - Use ONLY API data and tool responses. DO NOT search the web or use general knowledge. Review the complete multi-line cart before checkout. Shows all lines with plans, devices, protection, and SIM types. CHECKOUT GATE: Enforces prerequisites in order - 1) Line count set, 2) Plans selected for all lines (eSIM is automatically set when plans are added - no SIM selection needed). If prerequisites fail, routes to missing step. If all pass, shows final review ready for checkout. NON-LINEAR FLOW: Users can review cart anytime. System validates and guides to missing items. IMPORTANT: SIM selection is no longer required - eSIM is automatically assigned when plans are added to the cart.",
         inputSchema: {
           type: "object",
           properties: {
@@ -813,7 +859,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: "collect_shipping_address",
-        description: "CRITICAL: NO WEB SEARCH - Use ONLY API data and tool responses. DO NOT search the web or use general knowledge. Collect shipping address information for checkout. Cart must be ready (plans and SIM types selected) before collecting shipping address. Stores shipping address in session for payment processing.",
+        description: "CRITICAL: NO WEB SEARCH - Use ONLY API data and tool responses. DO NOT search the web or use general knowledge. Collect shipping address information step-by-step for checkout (US addresses only). Cart must be ready (plans selected for all lines - eSIM is automatically set when plans are added) before collecting shipping address. Collects in 3 sequential steps: (1) First name & Last name, (2) Phone & Email, (3) Street address, City, State, ZIP code. Must complete steps in order - cannot skip steps. Only US addresses are supported - country will default to 'US'. Stores shipping address in session for payment processing. IMPORTANT: SIM selection is no longer required - eSIM is automatically assigned when plans are added. IMPORTANT FOR STEP 3: When prompting for Step 3 (address), ALWAYS use the tool's response which includes location services option. The tool response will ask users to turn on location services to auto-fill address, or manually provide address. DO NOT generate your own Step 3 prompt - use the tool's response exactly as returned.",
         inputSchema: {
           type: "object",
           properties: {
@@ -823,42 +869,66 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
             firstName: {
               type: "string",
-              description: "First name (required)"
+              description: "First name (required for step 1, optional if providing all at once)"
             },
             lastName: {
               type: "string",
-              description: "Last name (required)"
+              description: "Last name (required for step 1, optional if providing all at once)"
             },
             street: {
               type: "string",
-              description: "Street address (required)"
+              description: "Street address (required for step 3, optional if providing all at once). If only street address is provided (without city/state/zip), the system will attempt to geocode and auto-fill the remaining fields."
             },
             city: {
               type: "string",
-              description: "City (required)"
+              description: "City (required for step 3, optional if providing all at once)"
             },
             state: {
               type: "string",
-              description: "State (required)"
+              description: "State code (required for step 3, optional if providing all at once). Must be 2-letter US state code."
             },
             zipCode: {
               type: "string",
-              description: "ZIP code (required)"
+              description: "ZIP code (required for step 3, optional if providing all at once). Must be 5 digits or 5+4 format."
             },
             country: {
               type: "string",
-              description: "Country code (optional, default: 'US')"
+              description: "Country code (optional, always defaults to 'US' - only US addresses supported)"
+            },
+            useLocation: {
+              type: "boolean",
+              description: "Set to true if user wants to use location services to auto-fill address (optional, for step 3)"
+            },
+            locationAddress: {
+              type: "object",
+              description: "Complete address object from geolocation/location services (optional, for step 3). Should contain: street, city, state, zipCode. If provided, will auto-fill address fields."
+            },
+            latitude: {
+              type: "number",
+              description: "Latitude from geolocation (optional, for step 3). Used with longitude to reverse geocode address."
+            },
+            longitude: {
+              type: "number",
+              description: "Longitude from geolocation (optional, for step 3). Used with latitude to reverse geocode address."
             },
             phone: {
               type: "string",
-              description: "Phone number (required)"
+              description: "Phone number (required for step 2, optional if providing all at once)"
             },
             email: {
               type: "string",
-              description: "Email address (required)"
+              description: "Email address (required for step 2, optional if providing all at once)"
+            },
+            confirm: {
+              type: ["boolean", "string"],
+              description: "Set to true or 'yes' to confirm auto-filled address from location (optional, for step 3)"
+            },
+            confirmed: {
+              type: ["boolean", "string"],
+              description: "Alternative parameter name for confirming auto-filled address (optional, for step 3)"
             }
           },
-          required: ["firstName", "lastName", "street", "city", "state", "zipCode", "phone", "email"]
+          required: []
         },
       },
       {
@@ -870,6 +940,44 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             sessionId: {
               type: "string",
               description: "Session ID (optional - will use most recent session if not provided)"
+            }
+          }
+        },
+      },
+      {
+        name: "purchase_plans",
+        description: "CRITICAL: NO WEB SEARCH - Use ONLY API data and tool responses. DO NOT search the web or use general knowledge. Purchase plans (plan-only orders, no devices). Triggers purchase quote → purchase product → purchase status flow automatically. Only works when cart contains only plans (eSIM is automatically included when plans are added, no devices). Automatically handles polling and returns payment URL when ready. Use this after collecting shipping address and confirming cart is ready. IMPORTANT: SIM selection is no longer required - eSIM is automatically assigned when plans are added.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            sessionId: {
+              type: "string",
+              description: "Session ID (optional - uses most recent session if not provided)"
+            },
+            redirectUrl: {
+              type: "string",
+              description: "Payment redirect URL after payment completion (optional, defaults to env/config)"
+            },
+            skipPolling: {
+              type: "boolean",
+              description: "Skip status polling and return immediately after purchase initiation (default: false)"
+            }
+          }
+        },
+      },
+      {
+        name: "check_purchase_status",
+        description: "CRITICAL: NO WEB SEARCH - Use ONLY API data and tool responses. DO NOT search the web or use general knowledge. Check the status of an existing purchase and retrieve payment URL if available. Use this when a purchase was initiated but payment URL wasn't returned, or when user asks to retry payment or check payment status. Automatically uses transaction ID from the current session's purchase state if available.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            sessionId: {
+              type: "string",
+              description: "Session ID (optional - uses most recent session if not provided)"
+            },
+            transactionId: {
+              type: "string",
+              description: "Transaction ID (optional - will use transaction ID from session's purchase state if not provided)"
             }
           }
         },
@@ -911,7 +1019,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: "edit_cart_item",
-        description: "CRITICAL: NO WEB SEARCH - Use ONLY API data and tool responses. DO NOT search the web or use general knowledge. Edit or remove items from the cart. Supports changing plans, removing devices, updating line assignments, etc. Use this when user wants to modify their selections (e.g., 'change plan on line 2', 'remove device from line 1', 'switch to eSIM').",
+        description: "CRITICAL: NO WEB SEARCH - Use ONLY API data and tool responses. DO NOT search the web or use general knowledge. Edit or remove items from the cart. Supports changing plans, removing devices, updating line assignments, etc. Use this when user wants to modify their selections (e.g., 'change plan on line 2', 'remove device from line 1'). Note: SIM selection is no longer needed - eSIM is automatically set when plans are added.",
         inputSchema: {
           type: "object",
           properties: {
@@ -952,7 +1060,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: "clear_cart",
-        description: "CRITICAL: NO WEB SEARCH - Use ONLY API data and tool responses. DO NOT search the web or use general knowledge. Clear all items from the cart and reset the flow context. This completely removes all plans, devices, protection, and SIM selections from all lines. Use this when user says 'clear cart', 'empty cart', 'reset cart', 'start over', or 'remove everything'. FLOW LOGIC: Clears both cart storage and flow context. Resets lineCount to null and clears all line selections. After clearing, user can start fresh with a new purchase flow.",
+        description: "CRITICAL: NO WEB SEARCH - Use ONLY API data and tool responses. DO NOT search the web or use general knowledge. Clear all items from the cart and reset the flow context. This completely removes all plans, devices, protection, and SIM items from all lines. Use this when user says 'clear cart', 'empty cart', 'reset cart', 'start over', or 'remove everything'. FLOW LOGIC: Clears both cart storage and flow context. Resets lineCount to null and clears all line selections. After clearing, user can start fresh with a new purchase flow. Note: SIM selection is no longer needed - eSIM is automatically set when plans are added.",
         inputSchema: {
           type: "object",
           properties: {
@@ -1026,7 +1134,7 @@ server.setRequestHandler(ListResourcesRequestSchema, async () => {
       {
         uri: "ui://widget/sim.html",
         name: "SIM Types Widget",
-        description: "Widget for displaying SIM type options (eSIM and Physical SIM) with selection buttons",
+        description: "DEPRECATED: Widget for SIM type selection (SIM selection is no longer needed - eSIM is automatically set when plans are added)",
         mimeType: "text/html+skybridge",
       },
     ],
@@ -1209,7 +1317,9 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
 // Handle Tool Calls
 // CRITICAL: All tool handlers must use ONLY API data - NO WEB SEARCH
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const { name, arguments: args } = request.params;
+  const { name: rawName, arguments: args } = request.params;
+  // Normalize tool name (trim whitespace, handle edge cases)
+  const name = typeof rawName === 'string' ? rawName.trim() : rawName;
 
   // System-level enforcement: Log that web search is disabled (DEBUG level to reduce noise)
   logger.debug(`🔧 Tool called: ${name}`, {
@@ -1219,6 +1329,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     allowedDataSources: SYSTEM_INSTRUCTIONS.ALLOWED_DATA_SOURCES,
     note: "WEB SEARCH IS STRICTLY PROHIBITED - Use ONLY Reach Mobile API and tool responses"
   });
+
+  // Debug: Log tool name details for add_to_cart specifically
+  if (name === "add_to_cart" || name?.includes("add_to_cart")) {
+    logger.info("🔍 add_to_cart tool call detected", {
+      name,
+      nameType: typeof name,
+      nameLength: name?.length,
+      nameValue: JSON.stringify(name),
+      argsKeys: Object.keys(args || {})
+    });
+  }
 
   try {
 
@@ -1274,7 +1395,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       "initialize_session",
       "start_session",
       "select_sim_type",
-      "update_line_count"
+      "update_line_count",
+      "purchase_plans",
+      "check_purchase_status"
     ];
 
     // Tools that use different APIs (no Reach auth needed)
@@ -1317,6 +1440,165 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       // Get or create flow context
       const context = getFlowContext(sessionId);
       const isNewSession = !context.lastUpdated || (Date.now() - context.lastUpdated) > 60000; // 1 minute threshold
+
+      // Check if cart has items (has lines with plans or devices)
+      const cartHasItems = cart && cart.lines && cart.lines.length > 0 && 
+        cart.lines.some(line => line.plan || line.device || line.protection);
+
+      // If starting a new conversation/session and cart has items, check if user already specified action
+      if (isNewSession && cartHasItems) {
+        // Check if user's prompt already includes clear/review cart action
+        if (userPrompt) {
+          const message = userPrompt.toLowerCase().trim();
+          const wantsToClear = /clear.*cart|empty.*cart|reset.*cart|remove.*all|start.*over/i.test(message);
+          const wantsToReview = /review.*cart|show.*cart|see.*cart|view.*cart|check.*cart/i.test(message);
+          
+          if (wantsToClear) {
+            // User wants to clear cart - handle it immediately
+            clearCart(sessionId);
+            resetFlowContext(sessionId);
+            logger.info("Cart cleared by user on new session", { sessionId });
+            
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: `✅ **Cart cleared!** Starting fresh.\n\n` +
+                        `How can I help you today? You can:\n\n` +
+                        `• Check coverage: "What's coverage in my area?"\n` +
+                        `• See plans: "Show me plans"\n` +
+                        `• Browse devices: "Show me devices"\n` +
+                        `• Check device compatibility: "Check if my device works"`
+                }
+              ],
+              _meta: {
+                sessionId: sessionId,
+                intent: INTENT_TYPES.OTHER,
+                cartCleared: true
+              }
+            };
+          } else if (wantsToReview) {
+            // User wants to review cart - let normal flow handle it
+            // Intent detection will route to review_cart
+          } else {
+            // User didn't specify cart action - prompt them
+            setCurrentQuestion(
+              sessionId,
+              QUESTION_TYPES.CART_ACTION,
+              "You have items in your cart from a previous session. Would you like to clear the cart and start fresh, or review the cart?",
+              { cartAction: true }
+            );
+
+            const itemCount = cart.lines.filter(line => line.plan || line.device).length;
+            const itemText = itemCount === 1 ? 'item' : 'items';
+
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: `🛒 **You have ${itemCount} ${itemText} in your cart from a previous session.**\n\n` +
+                        `What would you like to do?\n\n` +
+                        `• **Clear cart** - Start fresh with a new purchase\n` +
+                        `• **Review cart** - See what's already added and continue\n\n` +
+                        `Please say "Clear cart" or "Review cart".`
+                }
+              ],
+              _meta: {
+                sessionId: sessionId,
+                intent: INTENT_TYPES.OTHER,
+                cartActionPrompt: true
+              }
+            };
+          }
+        } else {
+          // No user prompt - ask what to do with cart
+          setCurrentQuestion(
+            sessionId,
+            QUESTION_TYPES.CART_ACTION,
+            "You have items in your cart from a previous session. Would you like to clear the cart and start fresh, or review the cart?",
+            { cartAction: true }
+          );
+
+          const itemCount = cart.lines.filter(line => line.plan || line.device).length;
+          const itemText = itemCount === 1 ? 'item' : 'items';
+
+          return {
+            content: [
+              {
+                type: "text",
+                text: `🛒 **You have ${itemCount} ${itemText} in your cart from a previous session.**\n\n` +
+                      `What would you like to do?\n\n` +
+                      `• **Clear cart** - Start fresh with a new purchase\n` +
+                      `• **Review cart** - See what's already added and continue\n\n` +
+                      `Please say "Clear cart" or "Review cart".`
+              }
+            ],
+            _meta: {
+              sessionId: sessionId,
+              intent: INTENT_TYPES.OTHER,
+              cartActionPrompt: true
+            }
+          };
+        }
+      }
+
+      // Handle user response to cart action question (when question was already set)
+      if (userPrompt && context?.currentQuestion?.type === QUESTION_TYPES.CART_ACTION) {
+        const message = userPrompt.toLowerCase().trim();
+        const wantsToClear = /clear|empty|reset|remove.*all|start.*over/i.test(message);
+        const wantsToReview = /review|show.*cart|see.*cart|view.*cart|check.*cart/i.test(message);
+
+        if (wantsToClear) {
+          // Clear the cart
+          clearCart(sessionId);
+          clearCurrentQuestion(sessionId);
+          // Reset flow context
+          resetFlowContext(sessionId);
+          
+          logger.info("Cart cleared by user", { sessionId });
+
+          return {
+            content: [
+              {
+                type: "text",
+                text: `✅ **Cart cleared!** Starting fresh.\n\n` +
+                      `How can I help you today? You can:\n\n` +
+                      `• Check coverage: "What's coverage in my area?"\n` +
+                      `• See plans: "Show me plans"\n` +
+                      `• Browse devices: "Show me devices"\n` +
+                      `• Check device compatibility: "Check if my device works"`
+              }
+            ],
+            _meta: {
+              sessionId: sessionId,
+              intent: INTENT_TYPES.OTHER,
+              cartCleared: true
+            }
+          };
+        } else if (wantsToReview) {
+          // Clear the question and let normal flow handle review cart
+          clearCurrentQuestion(sessionId);
+          // Continue with normal flow - intent detection will pick up "review cart" and route to review_cart
+        } else {
+          // User didn't provide clear answer, redirect them
+          const redirectCheck = checkAndRedirect(userPrompt, sessionId);
+          if (redirectCheck.shouldRedirect) {
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: redirectCheck.redirectMessage
+                }
+              ],
+              _meta: {
+                sessionId: sessionId,
+                intent: redirectCheck.detectedIntent,
+                redirected: true
+              }
+            };
+          }
+        }
+      }
 
       // Update flow context
       let intent = INTENT_TYPES.OTHER;
@@ -1632,7 +1914,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             return { 
               content: [{ 
                 type: "text", 
-                text: `${esimNote}✅ **${planName}** applied to all ${updatedContext.lineCount} lines.\n\nNext: choose SIM types, add devices, or review cart.`
+                text: `${esimNote}✅ **${planName}** applied to all ${updatedContext.lineCount} lines.\n\nNext: add devices (optional) or review cart.`
               }] 
             };
           }
@@ -1753,7 +2035,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             return { 
               content: [{ 
                 type: "text", 
-                text: `${esimNote}✅ **${planName}** applied to all ${updatedContext.lineCount} lines.\n\nNext: choose SIM types, add devices, or review cart.`
+                text: `${esimNote}✅ **${planName}** applied to all ${updatedContext.lineCount} lines.\n\nNext: add devices (optional) or review cart.`
               }] 
             };
           }
@@ -1927,18 +2209,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
 
         const missingPlans = progress.missing?.plans || [];
-        const missingSims = progress.missing?.sim || [];
+        // SIM removed - eSIM is automatically set when plan is added
 
         suggestions = `**Current Status:**\n`;
-        suggestions += `• Plans: ${finalLineCount - missingPlans.length}/${finalLineCount} line${finalLineCount > 1 ? 's' : ''}\n`;
-        suggestions += `• SIM Types: ${finalLineCount - missingSims.length}/${finalLineCount} line${finalLineCount > 1 ? 's' : ''}\n\n`;
+        suggestions += `• Plans: ${finalLineCount - missingPlans.length}/${finalLineCount} line${finalLineCount > 1 ? 's' : ''} (eSIM automatically set)\n\n`;
 
         nextSteps = `**→ Next Steps:**\n`;
         if (missingPlans.length > 0) {
           nextSteps += `1. **Select Plans** - Required for ${missingPlans.length} line${missingPlans.length > 1 ? 's' : ''} (say "Show me plans")\n`;
-        }
-        if (missingSims.length > 0) {
-          nextSteps += `${missingPlans.length > 0 ? '2' : '1'}. **Choose SIM Types** - Required for ${missingSims.length} line${missingSims.length > 1 ? 's' : ''} (say "Show me SIM types")\n`;
         }
         nextSteps += `• **Add Devices** - Optional (say "Show me devices")\n`;
         nextSteps += `• **Add Protection** - Optional, requires device\n`;
@@ -2155,6 +2433,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           selectedPlansPerLine[String(i)] = lastChosenPlanId;
         }
         await addPlansToCartBySelections(sessionId, tenant, buildPlanCartPayload(updatedLines, selectedPlansPerLine));
+        
+        // Update flow context with eSIM set (addPlansToCartBySelections now handles eSIM automatically)
+        updatedLines.forEach(line => {
+          if (line.planSelected && !line.simType) {
+            line.simType = 'ESIM';
+            line.simIccId = null;
+          }
+        });
+        
         updateFlowContext(sessionId, {
           planMode: 'APPLY_TO_ALL',
           planSelectionMode: 'applyAll',
@@ -2162,7 +2449,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           lines: updatedLines
         });
         return {
-          content: [{ type: "text", text: `✅ Plan applied to all ${lineCount} lines.` }]
+          content: [{ type: "text", text: `✅ Plan applied to all ${lineCount} lines. eSIM automatically set for all lines.` }]
         };
       }
       
@@ -2221,7 +2508,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return {
           content: [{ 
             type: "text", 
-            text: `${esimNote}✅ Plan applied to all ${lineCount} lines.\n\nNext: choose SIM types, add devices, or review cart.`
+            text: `${esimNote}✅ Plan applied to all ${lineCount} lines.\n\nNext: add devices (optional) or review cart.`
           }]
         };
       }
@@ -2379,7 +2666,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             }
           });
 
-          const confirmText = `✅ **${planItem.name}** applied to all ${lineCount} lines.\n\nNext: choose SIM types, add devices, or review cart.`;
+          const confirmText = `✅ **${planItem.name}** applied to all ${lineCount} lines.\n\nNext: add devices (optional) or review cart.`;
 
           return {
             content: [{ type: "text", text: `${esimNote}${confirmText}` }]
@@ -2446,22 +2733,44 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
             const updatedLines = Array.isArray(context.lines) ? [...context.lines] : [];
             while (updatedLines.length < lineCount) {
+              const newLineNumber = updatedLines.length + 1;
               updatedLines.push({
-                lineNumber: updatedLines.length + 1,
+                lineNumber: newLineNumber,
                 planSelected: false,
                 planId: null,
                 deviceSelected: false,
                 deviceId: null,
                 protectionSelected: false,
                 protectionId: null,
-                simType: null,
+                simType: 'ESIM', // Auto-select eSIM as default since we only provide eSIM
                 simIccId: null
+              });
+              
+              // Automatically add eSIM to cart for new lines
+              addToCartLine(sessionId, newLineNumber, {
+                type: 'sim',
+                simType: 'ESIM',
+                iccId: null,
+                price: 0,
+                lineNumber: newLineNumber
               });
             }
             const lineEntry = updatedLines[targetLine - 1];
             if (lineEntry) {
               lineEntry.planSelected = true;
               lineEntry.planId = planItem.id;
+              // Ensure eSIM is set if not already
+              if (!lineEntry.simType) {
+                lineEntry.simType = 'ESIM';
+                lineEntry.simIccId = null;
+                addToCartLine(sessionId, targetLine, {
+                  type: 'sim',
+                  simType: 'ESIM',
+                  iccId: null,
+                  price: 0,
+                  lineNumber: targetLine
+                });
+              }
             }
 
             updateFlowContext(sessionId, {
@@ -4000,51 +4309,25 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
 
     if (name === "get_sim_types") {
+      // SIM selection is no longer needed - eSIM is automatically set when plan is added
       const sessionId = getOrCreateSessionId(args.sessionId || null);
-      const lineNumber = args.lineNumber || null;
       let context = sessionId ? getFlowContext(sessionId) : null;
-      let progress = sessionId ? getFlowProgress(sessionId) : null;
-
-      // If no flow context exists, auto-initialize with 1 line to allow SIM selection
-      if (!context || !context.lineCount) {
-        logger.info('Auto-initializing purchase flow for SIM type selection', { sessionId });
-        updateFlowContext(sessionId, {
-          lineCount: 1,
-          flowStage: 'planning',
-          lines: [{
-            lineNumber: 1,
-            planSelected: false,
-            planId: null,
-            deviceSelected: false,
-            deviceId: null,
-            protectionSelected: false,
-            protectionId: null,
-            simType: null,
-            simIccId: null
-          }]
-        });
-        context = getFlowContext(sessionId);
-        progress = getFlowProgress(sessionId);
-      }
-
-      // Get lines that need SIM types if context exists
-      let linesNeedingSim = [];
-      if (context && context.lines) {
-        linesNeedingSim = context.lines
-          .map((line, idx) => ({ line: line, index: idx + 1 }))
-          .filter(({ line }) => !line.simType)
-          .map(({ index }) => index);
-      }
-
-      const targetLines = lineNumber ? [lineNumber] : linesNeedingSim;
-      const esimResult = autoAssignEsimForLines(sessionId, context, targetLines);
-      if (esimResult?.updatedContext) {
-        context = esimResult.updatedContext;
-        progress = getFlowProgress(sessionId);
-      }
-
-      const assignedLines = esimResult?.assignedLines || [];
-      const alreadySetLines = targetLines.filter(line => !assignedLines.includes(line));
+      
+      // Inform user that SIM selection is no longer needed
+      return {
+        content: [{
+          type: "text",
+          text: `✅ **SIM Selection No Longer Needed**\n\n` +
+            `eSIM is automatically set when you add a plan to your cart. You don't need to select SIM types manually.\n\n` +
+            `**How it works:**\n` +
+            `• When you add a plan to a line, eSIM is automatically assigned\n` +
+            `• No action required from you\n` +
+            `• Your cart is ready for checkout once plans are selected\n\n` +
+            (context && context.lines?.some(l => l.planSelected) 
+              ? `✅ Your plans already have eSIM automatically set. Ready to checkout!`
+              : `**Next step:** Add plans to your cart, and eSIM will be set automatically.`)
+        }]
+      };
 
       let mainResponse = "";
       if (assignedLines.length > 0) {
@@ -4060,7 +4343,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       if (!hasPlan) {
         suggestions = `**Next step:** Select a plan for your line${context?.lineCount > 1 ? 's' : ''}. Say "Show me plans".`;
       } else {
-        suggestions = `You're all set with eSIM. You can continue with devices, protection, or checkout.`;
+        suggestions = `You can continue with devices, protection, or checkout.`;
       }
 
       const nextSteps = getNextStepsForIntent(context, INTENT_TYPES.SIM);
@@ -4140,6 +4423,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
 
     if (name === "add_to_cart") {
+      logger.debug("add_to_cart handler reached", { name, toolName: name, nameType: typeof name });
       const itemType = args.itemType || 'plan';
       const lineNumber = args.lineNumber || null;
       const lineNumbersArg = Array.isArray(args.lineNumbers) ? args.lineNumbers : null;
@@ -4164,10 +4448,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           type: 'plan',
           id: item.id || item.uniqueIdentifier,
           uniqueIdentifier: item.uniqueIdentifier || item.id,
-          name: item.displayName || item.displayNameWeb || item.name,
+          name: normalizePlanNameForDisplay(item.displayName || item.displayNameWeb || item.name),
+          // Store original displayName/displayNameWeb for Purchase API (needs exact format)
+          displayName: item.displayName,
+          displayNameWeb: item.displayNameWeb,
           price: item.price || item.baseLinePrice || 0,
           data: item.data || item.planData,
           dataUnit: item.dataUnit || 'GB',
+          serviceCode: item.serviceCode, // Store serviceCode for purchase API
+          planType: item.planType,
+          planCharging: item.planCharging,
         };
       } else if (itemType === 'device') {
         // Fetch devices - use maximum allowed limit (100) and no brand filter first
@@ -4269,7 +4559,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           highlights: coverageInfo.highlights
         };
       } else if (itemType === 'sim') {
-        // SIM selection - supports ESIM and PSIM
+        // DEPRECATED: SIM selection is no longer needed - eSIM is automatically set when plan is added
+        // This code path is kept for backward compatibility only
         const simType = args.simType || args.itemId; // itemId can be 'ESIM' or 'PSIM'
         if (!simType || (simType !== 'ESIM' && simType !== 'PSIM')) {
           throw new Error(`Invalid SIM type: ${simType}. Must be 'ESIM' or 'PSIM'.`);
@@ -4429,17 +4720,29 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           // Ensure line exists (but only up to lineCount)
           const maxLines = flowContext.lineCount || targetLineNumber;
           while (flowContext.lines.length < targetLineNumber && flowContext.lines.length < maxLines) {
+            const newLineNumber = flowContext.lines.length + 1;
             flowContext.lines.push({
-              lineNumber: flowContext.lines.length + 1,
+              lineNumber: newLineNumber,
               planSelected: false,
               planId: null,
               deviceSelected: false,
               deviceId: null,
               protectionSelected: false,
               protectionId: null,
-              simType: null,
+              simType: itemType === 'plan' ? 'ESIM' : null, // Auto-select eSIM only when adding plans
               simIccId: null
             });
+            
+            // Automatically add eSIM to cart only when adding plans (not devices)
+            if (itemType === 'plan') {
+              addToCartLine(sessionIdForContext, newLineNumber, {
+                type: 'sim',
+                simType: 'ESIM',
+                iccId: null,
+                price: 0,
+                lineNumber: newLineNumber
+              });
+            }
           }
 
           // Update line state
@@ -4448,9 +4751,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             if (itemType === 'plan') {
               line.planSelected = true;
               line.planId = item.id;
+              // Auto-assign eSIM if not already set
+              if (!line.simType) {
+                line.simType = 'ESIM';
+                line.simIccId = null;
+                addToCartLine(sessionIdForContext, targetLineNumber, {
+                  type: 'sim',
+                  simType: 'ESIM',
+                  iccId: null,
+                  price: 0,
+                  lineNumber: targetLineNumber
+                });
+              }
             } else if (itemType === 'device') {
               line.deviceSelected = true;
               line.deviceId = item.id;
+              // Note: eSIM is only auto-assigned when plans are added, not devices
             } else if (itemType === 'protection') {
               line.protectionSelected = true;
               line.protectionId = item.id;
@@ -4484,17 +4800,29 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       if (flowContext && targetLineNumbers && targetLineNumbers.length > 0) {
         const maxLines = flowContext.lineCount || targetLineNumbers.length;
         while (flowContext.lines.length < maxLines) {
+          const newLineNumber = flowContext.lines.length + 1;
           flowContext.lines.push({
-            lineNumber: flowContext.lines.length + 1,
+            lineNumber: newLineNumber,
             planSelected: false,
             planId: null,
             deviceSelected: false,
             deviceId: null,
             protectionSelected: false,
             protectionId: null,
-            simType: null,
+            simType: itemType === 'plan' ? 'ESIM' : null, // Auto-select eSIM only when adding plans
             simIccId: null
           });
+          
+          // Automatically add eSIM to cart only when adding plans (not devices)
+          if (itemType === 'plan') {
+            addToCartLine(sessionIdForContext, newLineNumber, {
+              type: 'sim',
+              simType: 'ESIM',
+              iccId: null,
+              price: 0,
+              lineNumber: newLineNumber
+            });
+          }
         }
 
         targetLineNumbers.forEach(lineNum => {
@@ -4503,9 +4831,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           if (itemType === 'plan') {
             line.planSelected = true;
             line.planId = item.id;
+            // Auto-assign eSIM if not already set
+            if (!line.simType) {
+              line.simType = 'ESIM';
+              line.simIccId = null;
+              addToCartLine(sessionIdForContext, lineNum, {
+                type: 'sim',
+                simType: 'ESIM',
+                iccId: null,
+                price: 0,
+                lineNumber: lineNum
+              });
+            }
           } else if (itemType === 'device') {
             line.deviceSelected = true;
             line.deviceId = item.id;
+            // Note: eSIM is only auto-assigned when plans are added, not devices
           } else if (itemType === 'protection') {
             line.protectionSelected = true;
             line.protectionId = item.id;
@@ -4680,7 +5021,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         } else if (itemType === 'protection') {
           setResumeStep(finalSessionId, 'protection_selection');
         } else if (itemType === 'sim') {
-          setResumeStep(finalSessionId, 'sim_selection');
+          // SIM selection removed - eSIM is automatically set when plan is added
+          // No resume step needed
         }
       }
 
@@ -4750,7 +5092,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             if (missingPlans.length > 1) {
               suggestions += `**→ You can:** Apply the same plan to all lines or choose different plans per line\n\n`;
             }
-            suggestions += `**→ After selecting plans:** Choose SIM types → Complete checkout`;
+            suggestions += `**→ After selecting plans:** Complete checkout`;
           } else {
             // Plans are complete
             suggestions += `**Note:** Plans are already selected for all lines.\n\n`;
@@ -4765,20 +5107,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               suggestions += `**Would you like to add device protection?** You can say:\n`;
               suggestions += `• "Show me protection options" or "I want device protection"\n`;
               suggestions += `• "Add protection to all devices" or "Add protection to line X"\n\n`;
-              suggestions += `**Note:** Protection is optional. You can also proceed to SIM selection or checkout.`;
+              suggestions += `**Note:** Protection is optional. You can also proceed to checkout.`;
             } else {
-              suggestions += `Devices are optional - you can add more devices, or proceed to SIM selection.`;
+              suggestions += `Devices are optional - you can add more devices, or proceed to checkout.`;
             }
           }
         } else if (itemType === 'protection') {
           suggestions = `Device protection added for line ${lineNumber || targetLineNumber}. This covers accidental damage, loss, and theft for your device.`;
         } else if (itemType === 'sim') {
-          const missingSims = progress.missing?.sim || [];
-          if (missingSims.length > 0) {
-            suggestions = `SIM type selected for line ${lineNumber || targetLineNumber}. You still need to select SIM types for ${missingSims.length} more line${missingSims.length > 1 ? 's' : ''}.`;
-          } else {
-            suggestions = `All lines now have SIM types selected! This is required for activation and shipping.`;
-          }
+          // SIM selection removed - eSIM is automatically set when plan is added
+          suggestions = `eSIM automatically set for line ${lineNumber || targetLineNumber} when plan was added.`;
         }
       } else {
         suggestions = `Item added successfully. Continue building your cart or review your selections.`;
@@ -4798,9 +5136,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       if (itemType === 'device' && progress && progress.missing && progress.missing.plans && progress.missing.plans.length > 0) {
         // After device is added, if plans are missing, suggest get_plans tool
         suggestedTool = 'get_plans';
-      } else if (itemType === 'plan' && progress && progress.missing && progress.missing.sim && progress.missing.sim.length > 0) {
-        // After plan is added, if SIM is missing, suggest get_sim_types tool
-        suggestedTool = 'get_sim_types';
+        // Note: eSIM is automatically added when plans are added, no need to suggest SIM selection
       }
 
       if (itemType === 'plan' && finalContext && progress && progress.missing?.plans?.length > 0 && finalContext.planSelectionMode === 'sequential') {
@@ -4920,7 +5256,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               `**Would you like to add device protection?** You can say:\n` +
               `• "Show me protection options" or "I want device protection"\n` +
               `• "Add protection to all devices" or "Add protection to line X"\n\n` +
-              `**Note:** Protection is optional. You can also proceed to SIM selection or checkout.`;
+              `**Note:** Protection is optional. You can proceed to checkout.`;
             
             return {
               content: [{
@@ -4994,46 +5330,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (progress && progress.missing) {
           const missing = progress.missing;
 
-          // If SIM is missing, show detailed cart format like user's example
-          if (missing.sim && missing.sim.length > 0 && missing.sim.length === 1) {
-            headerText = `Here's your cart (Session: ${cartMultiLine.sessionId || 'default'}):\n\n`;
-
-            // Show detailed cart summary for each line
-            cartMultiLine.lines.forEach((line, idx) => {
-              const lineNum = line.lineNumber || (idx + 1);
-              headerText += `**Line ${lineNum}**\n\n`;
-
-              if (line.plan) {
-                headerText += `Plan: ${line.plan.name} — $${line.plan.price}/mo`;
-                if (line.plan.data) {
-                  headerText += ` (${line.plan.data}${line.plan.dataUnit || 'GB'})`;
-                }
-                headerText += `\n\n`;
-              }
-
-              if (line.device) {
-                const deviceName = line.device.brand ? `${line.device.brand} ${line.device.name}` : line.device.name;
-                headerText += `Device: ${deviceName} — $${line.device.price}\n\n`;
-              }
-
-              if (line.protection) {
-                headerText += `Protection: ${line.protection.name} — $${line.protection.price}\n\n`;
-              } else if (line.device) {
-                headerText += `Protection: Not added\n\n`;
-              }
-
-              if (line.sim && line.sim.simType) {
-                headerText += `SIM: ${line.sim.simType === 'ESIM' ? 'eSIM' : 'Physical SIM'}\n\n`;
-              } else {
-                headerText += `SIM: Not selected yet\n\n`;
-              }
-
-              const lineTotal = (line.plan?.price || 0) + (line.device?.price || 0) + (line.protection?.price || 0);
-              headerText += `Total: $${lineTotal.toFixed(2)}\n\n`;
-            });
-
-            headerText += `Want eSIM or physical SIM (pSIM) for Line ${missing.sim[0]}?`;
-          } else {
+          // Note: eSIM is automatically added when plans are added, so SIM missing check is not needed
+          {
             // For other missing items, show summary
             const missingItems = [];
             if (missing.plans && missing.plans.length > 0) {
@@ -5045,9 +5343,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             if (missing.protection && missing.protection.length > 0) {
               missingItems.push(`protection for line${missing.protection.length > 1 ? 's' : ''} ${missing.protection.join(', ')} (optional)`);
             }
-            if (missing.sim && missing.sim.length > 1) {
-              missingItems.push(`SIM types for lines ${missing.sim.join(', ')}`);
-            }
+            // Note: eSIM is automatically added when plans are added, no need to show SIM as missing
 
             if (missingItems.length > 0) {
               headerText = `Here's your cart. **Still need:** ${missingItems.join(', ')}.`;
@@ -5335,265 +5631,45 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
 
     if (name === "select_sim_type") {
+      // SIM selection is no longer needed - eSIM is automatically set when plan is added
+      // This tool is kept for backward compatibility but automatically sets eSIM
       const sessionId = getOrCreateSessionId(args.sessionId || null);
-      const selections = args.selections; // Batch selection array
-      const customerId = args.customerId;
-
-      // Check if batch selection or single selection
-      let simSelections = [];
-
-      if (selections && Array.isArray(selections) && selections.length > 0) {
-        // Batch selection mode
-        simSelections = selections.map(sel => ({
-          lineNumber: sel.lineNumber,
-          simType: sel.simType?.toUpperCase(),
-          newIccId: sel.newIccId || null
-        }));
-
-        // Validate all selections
-        for (const sel of simSelections) {
-          if (!sel.lineNumber || sel.lineNumber < 1) {
-            throw new Error(`Invalid line number: ${sel.lineNumber}. Line number must be at least 1.`);
-          }
-          if (!sel.simType || !['ESIM', 'PSIM'].includes(sel.simType)) {
-            throw new Error(`Invalid SIM type for line ${sel.lineNumber}: ${sel.simType}. Must be ESIM or PSIM.`);
-          }
-        }
-      } else {
-        // Single selection mode (backward compatible)
-        const lineNumber = args.lineNumber;
-        const simType = args.simType?.toUpperCase();
-        const newIccId = args.newIccId;
-
-        if (!lineNumber || lineNumber < 1) {
-          throw new Error('Line number must be at least 1');
-        }
-
-        if (!simType || !['ESIM', 'PSIM'].includes(simType)) {
-          throw new Error('SIM type must be ESIM or PSIM');
-        }
-
-        simSelections = [{
-          lineNumber,
-          simType,
-          newIccId: newIccId || null
-        }];
-      }
-
       let context = getFlowContext(sessionId);
-
-      // Determine max line number needed
-      const maxLineNumber = Math.max(...simSelections.map(s => s.lineNumber));
-
-      // If no flow context exists, try to initialize from existing cart
-      if (!context || !context.lineCount) {
-        const cart = getCartMultiLine(sessionId);
-
-        // If cart has lines, auto-initialize flow context
-        if (cart && cart.lines && cart.lines.length > 0) {
-          const inferredLineCount = Math.max(cart.lines.length, maxLineNumber);
-          logger.info('Auto-initializing flow context from cart', { sessionId, inferredLineCount });
-
-          // Create flow context from cart
-          const lines = cart.lines.map((line, index) => ({
-            lineNumber: line.lineNumber || (index + 1),
-            planSelected: !!line.plan,
-            planId: line.plan?.id || null,
-            deviceSelected: !!line.device,
-            deviceId: line.device?.id || null,
-            protectionSelected: !!line.protection,
-            protectionId: line.protection?.id || null,
-            simType: line.sim?.simType || null,
-            simIccId: line.sim?.iccId || null
-          }));
-
-          updateFlowContext(sessionId, {
-            lineCount: inferredLineCount,
-            lines: lines,
-            flowStage: 'configuring'
-          });
-
-          context = getFlowContext(sessionId);
-        } else {
-          // No cart either - auto-initialize with max line number needed
-          logger.info('Auto-initializing purchase flow for SIM selection', { sessionId, maxLineNumber });
-          const initialLines = [];
-          for (let i = 1; i <= maxLineNumber; i++) {
-            initialLines.push({
-              lineNumber: i,
-              planSelected: false,
-              planId: null,
-              deviceSelected: false,
-              deviceId: null,
-              protectionSelected: false,
-              protectionId: null,
-              simType: null,
-              simIccId: null
-            });
-          }
-
-          updateFlowContext(sessionId, {
-            lineCount: maxLineNumber,
-            flowStage: 'planning',
-            lines: initialLines
-          });
-
-          context = getFlowContext(sessionId);
+      
+      // Determine which lines need eSIM (all lines with plans but no SIM)
+      let linesToSet = [];
+      if (context && context.lines) {
+        linesToSet = context.lines
+          .map((line, idx) => ({ line, lineNumber: idx + 1 }))
+          .filter(({ line }) => line && line.planSelected && !line.simType)
+          .map(({ lineNumber }) => lineNumber);
+      }
+      
+      // If selections provided, use those line numbers (but always set to eSIM)
+      if (args.selections && Array.isArray(args.selections) && args.selections.length > 0) {
+        linesToSet = args.selections.map(sel => sel.lineNumber).filter(n => n && n > 0);
+      } else if (args.lineNumber) {
+        linesToSet = [args.lineNumber];
+      }
+      
+      // Automatically set eSIM for all specified lines
+      if (linesToSet.length > 0) {
+        const esimResult = autoAssignEsimForLines(sessionId, context, linesToSet);
+        if (esimResult?.updatedContext) {
+          context = esimResult.updatedContext;
         }
       }
-
-      // Ensure all needed lines exist
-      while (context.lines.length < maxLineNumber) {
-        context.lines.push({
-          lineNumber: context.lines.length + 1,
-          planSelected: false,
-          planId: null,
-          deviceSelected: false,
-          deviceId: null,
-          protectionSelected: false,
-          protectionId: null,
-          simType: null,
-          simIccId: null
-        });
-      }
-
-      // Update lineCount if needed
-      if (maxLineNumber > context.lineCount) {
-        updateFlowContext(sessionId, {
-          lineCount: maxLineNumber
-        });
-        context = getFlowContext(sessionId);
-      }
-
-      // Process all SIM selections
-      const results = [];
-      const swapResults = [];
-
-      for (const sel of simSelections) {
-        const { lineNumber, simType, newIccId } = sel;
-
-        // Update flow context
-        const line = context.lines[lineNumber - 1];
-        if (line) {
-          line.simType = simType;
-          if (newIccId) {
-            line.simIccId = newIccId;
-          }
-        }
-
-        // Update cart with SIM selection
-        const simItem = {
-          type: 'sim',
-          simType: simType,
-          iccId: newIccId || null,
-          price: 0,
-          lineNumber: lineNumber
-        };
-
-        addToCartLine(sessionId, lineNumber, simItem);
-
-        // Perform SIM swap if needed
-        if (customerId && newIccId && simType === 'PSIM') {
-          try {
-            const swapResult = await swapSim(customerId, newIccId, simType, tenant);
-            swapResults.push({ lineNumber, success: swapResult?.success || false });
-          } catch (error) {
-            logger.error('SIM swap failed', { error: error.message, lineNumber });
-            swapResults.push({ lineNumber, success: false, error: error.message });
-          }
-        }
-
-        results.push({
-          lineNumber,
-          simType,
-          newIccId
-        });
-      }
-
-      // Update flow context with all changes
-      updateFlowContext(sessionId, {
-        lines: context.lines
-      });
-
-      // Build response text
-      let responseText = "";
-
-      if (simSelections.length === 1) {
-        // Single selection response
-        const sel = simSelections[0];
-        responseText = `✅ **SIM type selected for Line ${sel.lineNumber}!**\n\n` +
-          `**SIM Type:** ${sel.simType === 'ESIM' ? 'eSIM' : 'Physical SIM (pSIM)'}\n`;
-
-        if (sel.newIccId) {
-          responseText += `**ICCID:** ${sel.newIccId}\n`;
-        }
-
-        const swapResult = swapResults.find(sr => sr.lineNumber === sel.lineNumber);
-        if (swapResult && swapResult.success) {
-          responseText += `\n✅ SIM swap completed successfully!\n`;
-        } else if (customerId && sel.newIccId && sel.simType === 'PSIM') {
-          responseText += `\n⚠️ SIM swap was not performed. Please contact support if needed.\n`;
-        }
-      } else {
-        // Batch selection response
-        responseText = `✅ **SIM types selected for ${simSelections.length} line${simSelections.length > 1 ? 's' : ''}!**\n\n`;
-
-        for (const sel of simSelections) {
-          const simTypeName = sel.simType === 'ESIM' ? 'eSIM' : 'Physical SIM';
-          responseText += `**Line ${sel.lineNumber}:** ${simTypeName}`;
-          if (sel.newIccId) {
-            responseText += ` (ICCID: ${sel.newIccId})`;
-          }
-          responseText += `\n`;
-        }
-
-        // Check for swap results
-        const successfulSwaps = swapResults.filter(sr => sr.success);
-        if (successfulSwaps.length > 0) {
-          responseText += `\n✅ SIM swap${successfulSwaps.length > 1 ? 's' : ''} completed successfully for line${successfulSwaps.length > 1 ? 's' : ''} ${successfulSwaps.map(sr => sr.lineNumber).join(', ')}!\n`;
-        }
-      }
-
-      const progress = getFlowProgress(sessionId);
-      const flowContext = getFlowContext(sessionId);
-
-      // Use improved guidance service for next steps
-      if (flowContext) {
-        const intent = INTENT_TYPES.SIM;
-        const guidance = generateConversationalResponse("", flowContext, intent, {
-          itemType: 'sim',
-          lineNumber: simSelections.length === 1 ? simSelections[0].lineNumber : null,
-          simType: simSelections.length === 1 ? simSelections[0].simType : null
-        });
-        if (guidance) {
-          responseText += `\n\n${guidance}`;
-        }
-      }
-
-      // Check if plan is needed (required for checkout)
-      const hasPlan = flowContext && flowContext.lines && flowContext.lines.some(l => l && l.planSelected);
-
-      if (!hasPlan && !responseText.includes("plan")) {
-        responseText += `\n\n📱 **Next Step:** Select mobile plan${simSelections.length > 1 ? 's' : ''} to continue.\n`;
-        responseText += `Say **"Show me plans"** to browse and select plan${simSelections.length > 1 ? 's' : ''} for your line${simSelections.length > 1 ? 's' : ''}. Plans are required before checkout.`;
-      }
-
-      // Fallback to old format if guidance service doesn't provide enough info
-      const allComplete = progress.lineCount > 0 &&
-        (!progress.missing.sim || progress.missing.sim.length === 0) &&
-        (!progress.missing.plans || progress.missing.plans.length === 0);
-
-      if (allComplete && !responseText.includes("Ready for checkout")) {
-        responseText += `\n\n🎉 **All lines are configured!** Ready to proceed to checkout.`;
-      }
-
+      
       return {
-        content: [
-          {
-            type: "text",
-            text: responseText
-          }
-        ]
+        content: [{
+          type: "text",
+          text: `✅ **eSIM Automatically Set**\n\n` +
+            `SIM selection is no longer needed - eSIM is automatically set when you add a plan.\n\n` +
+            (linesToSet.length > 0 
+              ? `✅ eSIM has been set for line${linesToSet.length > 1 ? 's' : ''} ${linesToSet.join(', ')}.\n\n`
+              : ``) +
+            `**Note:** You don't need to manually select SIM types. When you add a plan, eSIM is automatically assigned.`
+        }]
       };
     }
 
@@ -5672,7 +5748,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
       }
 
-      suggestions += `• SIM types selected for all lines\n\n`;
+      // Note: eSIM is automatically added when plans are added
       // Check if shipping address is collected
       const hasShippingAddress = context.shippingAddress && context.checkoutDataCollected;
       
@@ -5716,66 +5792,512 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const sessionId = getOrCreateSessionId(args.sessionId || null);
       const context = getFlowContext(sessionId);
 
+      logger.debug('Collect shipping address called', {
+        sessionId,
+        hasContext: !!context,
+        hasArgs: !!args,
+        currentStep: context?.shippingAddressStep,
+        providedFields: Object.keys(args || {}).filter(k => args[k] && k !== 'sessionId')
+      });
+
       if (!context) {
+        logger.error('No flow context found for collect_shipping_address', { sessionId });
         throw new Error('No flow context found. Please start a purchase flow first.');
       }
 
       // Validate prerequisites - cart must be ready
       const shippingPrereq = checkPrerequisites(sessionId, 'collect_shipping');
-      if (!shippingPrereq.allowed) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `**⚠️ Cannot collect shipping address yet.**\n\n${shippingPrereq.reason}\n\nPlease complete your cart first (plans and SIM types for all lines).`
-            }
-          ]
-        };
-      }
-
-      // Validate required fields
-      const requiredFields = ['firstName', 'lastName', 'street', 'city', 'state', 'zipCode', 'phone', 'email'];
-      const missingFields = requiredFields.filter(field => !args[field] || args[field].trim() === '');
-      
-      if (missingFields.length > 0) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `**⚠️ Missing required fields:**\n\n${missingFields.map(f => `• ${f}`).join('\n')}\n\nPlease provide all required shipping address information.`
-            }
-          ]
-        };
-      }
-
-      // Store shipping address in flow context
-      const shippingAddress = {
-        firstName: args.firstName.trim(),
-        lastName: args.lastName.trim(),
-        street: args.street.trim(),
-        city: args.city.trim(),
-        state: args.state.trim(),
-        zipCode: args.zipCode.trim(),
-        country: (args.country || 'US').trim(),
-        phone: args.phone.trim(),
-        email: args.email.trim()
-      };
-
-      updateFlowContext(sessionId, {
-        shippingAddress,
-        checkoutDataCollected: true,
-        flowStage: 'checkout',
-        lastAction: 'collect_shipping_address'
+      logger.debug('Shipping prerequisites check', {
+        sessionId,
+        allowed: shippingPrereq.allowed,
+        reason: shippingPrereq.reason,
+        gate: shippingPrereq.gate,
+        missing: shippingPrereq.missing,
+        lineCount: context.lineCount,
+        linesWithPlans: context.lines?.filter(l => l?.planSelected).length || 0
       });
 
-      return {
-        content: [
-          {
-            type: "text",
-            text: `✅ **Shipping address collected successfully!**\n\n**Shipping Address:**\n${shippingAddress.firstName} ${shippingAddress.lastName}\n${shippingAddress.street}\n${shippingAddress.city}, ${shippingAddress.state} ${shippingAddress.zipCode}\n${shippingAddress.country}\n\n**Contact:**\nPhone: ${shippingAddress.phone}\nEmail: ${shippingAddress.email}\n\n**Next Step:** Use \`get_checkout_data\` tool to get complete order information (cart, shipping, billing, user info) ready for your payment API.`
-          }
-        ]
+      if (!shippingPrereq.allowed) {
+        logger.warn('Shipping address collection blocked by prerequisites', {
+          sessionId,
+          reason: shippingPrereq.reason,
+          gate: shippingPrereq.gate
+        });
+        return {
+          content: [
+            {
+              type: "text",
+              text: `**⚠️ Cannot collect shipping address yet.**\n\n${shippingPrereq.reason}\n\nPlease complete your cart first (plans for all lines - eSIM is automatically set when plans are added).`
+            }
+          ]
+        };
+      }
+
+      // US-only validation: Always set country to 'US'
+      const countryCode = (args.country || 'US').trim().toUpperCase();
+      if (countryCode !== 'US' && countryCode !== 'USA') {
+        logger.warn('Non-US country code provided, defaulting to US', {
+          sessionId,
+          providedCountry: countryCode
+        });
+      }
+      const finalCountry = 'US';
+
+      // Get current step or initialize
+      let currentStep = context.shippingAddressStep || 'name';
+      const existingAddress = context.shippingAddress || {};
+
+      // Helper function to validate US ZIP code format
+      const validateZipCode = (zip) => {
+        if (!zip) return false;
+        const zipStr = zip.trim();
+        return /^\d{5}(-\d{4})?$/.test(zipStr);
       };
+
+      // Helper function to validate US state code (2 letters)
+      const validateStateCode = (state) => {
+        if (!state) return false;
+        const stateStr = state.trim().toUpperCase();
+        return /^[A-Z]{2}$/.test(stateStr);
+      };
+
+      // Step-by-step collection only - enforce sequential steps (no flexible mode)
+      let updatedAddress = { ...existingAddress };
+      let nextStep = currentStep;
+      let responseText = '';
+      let isComplete = false;
+
+      // Enforce step order - reject fields from future steps
+      if (currentStep === 'name' && (args.phone || args.email || args.street || args.city || args.state || args.zipCode)) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `**⚠️ Please complete steps in order.**\n\nYou're currently on **Step 1 of 3: Name Information**.\n\nPlease provide only your **first name** and **last name** first.\n\nExample: "John Smith" or "First name: Jane, Last name: Doe"\n\nAfter completing Step 1, you'll be prompted for Step 2 (phone and email).`
+            }
+          ]
+        };
+      }
+
+      if (currentStep === 'contact' && (args.street || args.city || args.state || args.zipCode)) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `**⚠️ Please complete steps in order.**\n\nYou're currently on **Step 2 of 3: Contact Information**.\n\nPlease provide only your **phone number** and **email address** first.\n\nExample: "Phone: 555-123-4567, Email: john@example.com"\n\nAfter completing Step 2, you'll be prompted for Step 3 (address details).`
+            }
+          ]
+        };
+      }
+
+      // Process step 1: Collect name
+      if (currentStep === 'name') {
+        if (!args.firstName || !args.lastName) {
+          setCurrentQuestion(sessionId, QUESTION_TYPES.SHIPPING_NAME, 
+            "Please provide your first name and last name.", 
+            { firstName: true, lastName: true });
+          return {
+            content: [
+              {
+                type: "text",
+                text: `**Step 1 of 3: Name Information**\n\nPlease provide your **first name** and **last name**.\n\nExample: "John Smith" or "First name: Jane, Last name: Doe"`
+              }
+            ]
+          };
+        }
+
+        updatedAddress.firstName = args.firstName.trim();
+        updatedAddress.lastName = args.lastName.trim();
+        updatedAddress.country = finalCountry; // Set US country early
+        nextStep = 'contact';
+        responseText = `✅ **Step 1 Complete:** Name collected (${updatedAddress.firstName} ${updatedAddress.lastName})\n\n`;
+        setCurrentQuestion(sessionId, QUESTION_TYPES.SHIPPING_CONTACT, 
+          "Please provide your phone number and email address.", 
+          { phone: true, email: true });
+      }
+
+      // Process step 2: Collect contact (only if we're on contact step)
+      if (currentStep === 'contact') {
+        if (!args.phone || !args.email) {
+          setCurrentQuestion(sessionId, QUESTION_TYPES.SHIPPING_CONTACT, 
+            "Please provide your phone number and email address.", 
+            { phone: true, email: true });
+          return {
+            content: [
+              {
+                type: "text",
+                text: `${responseText}**Step 2 of 3: Contact Information**\n\nPlease provide your **phone number** and **email address**.\n\nExample: "Phone: 555-123-4567, Email: john@example.com"`
+              }
+            ]
+          };
+        }
+
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(args.email.trim())) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `**⚠️ Invalid email format.**\n\nPlease provide a valid email address.\n\nExample: "john@example.com"`
+              }
+            ]
+          };
+        }
+
+        updatedAddress.phone = args.phone.trim();
+        updatedAddress.email = args.email.trim();
+        nextStep = 'address';
+        responseText += `✅ **Step 2 Complete:** Contact information collected\n\n`;
+        responseText += `Phone: ${updatedAddress.phone}\nEmail: \`${updatedAddress.email}\`\n\n`;
+        setCurrentQuestion(sessionId, QUESTION_TYPES.SHIPPING_ADDRESS, 
+          "Please provide your street address, city, state, and ZIP code. You can use location services to auto-fill.", 
+          { street: true, city: true, state: true, zipCode: true });
+      }
+
+      // Process step 3: Collect address (only if we're on address step)
+      if (currentStep === 'address') {
+        // Check if user wants to use location services
+        const wantsLocation = args.useLocation === true || args.locationAddress || (args.latitude && args.longitude);
+        const hasLocationData = !!(args.locationAddress || (args.latitude && args.longitude));
+        
+        // Handle location-based address auto-fill
+        if (wantsLocation && hasLocationData) {
+          let locationBasedAddress = {};
+          
+          // If full address object provided from location
+          if (args.locationAddress) {
+            locationBasedAddress = {
+              street: args.locationAddress.street || args.locationAddress.address1 || args.locationAddress.address,
+              city: args.locationAddress.city,
+              state: args.locationAddress.state,
+              zipCode: args.locationAddress.zipCode || args.locationAddress.zip || args.locationAddress.postalCode
+            };
+          } 
+          // If coordinates provided, we'd need reverse geocoding (for now, prompt user to provide address from location)
+          else if (args.latitude && args.longitude) {
+            // In a real implementation, you'd call a reverse geocoding API here
+            // For now, we'll ask the user to provide the address from their location
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: `${responseText}📍 **Location detected!**\n\nI've received your location (${args.latitude}, ${args.longitude}).\n\nPlease provide your address details from your location:\n\n- **Street address**\n- **City**\n- **State** (2-letter code)\n- **ZIP code**\n\nOr you can manually enter: "123 Main St, New York, NY 10001"`
+                }
+              ]
+            };
+          }
+          
+          // If we have location-based address, auto-fill and show for confirmation
+          if (locationBasedAddress.street && locationBasedAddress.city && locationBasedAddress.state && locationBasedAddress.zipCode) {
+            // Validate the auto-filled address
+            if (!validateZipCode(locationBasedAddress.zipCode)) {
+              return {
+                content: [
+                  {
+                    type: "text",
+                    text: `**⚠️ Invalid ZIP code from location.**\n\nThe ZIP code "${locationBasedAddress.zipCode}" doesn't match the required format. Please provide a valid US ZIP code (5 digits or 5+4 format, e.g., "12345" or "12345-6789").\n\nYou can edit the address or provide it manually.`
+                  }
+                ]
+              };
+            }
+            
+            if (!validateStateCode(locationBasedAddress.state)) {
+              return {
+                content: [
+                  {
+                    type: "text",
+                    text: `**⚠️ Invalid state code from location.**\n\nThe state code "${locationBasedAddress.state}" is not valid. Please provide a valid 2-letter US state code (e.g., "NY", "CA", "TX").\n\nYou can edit the address or provide it manually.`
+                  }
+                ]
+              };
+            }
+            
+            // Auto-fill address from location
+            updatedAddress.street = locationBasedAddress.street.trim();
+            updatedAddress.city = locationBasedAddress.city.trim();
+            updatedAddress.state = locationBasedAddress.state.trim().toUpperCase();
+            updatedAddress.zipCode = locationBasedAddress.zipCode.trim();
+            updatedAddress.country = finalCountry;
+            updatedAddress.fromLocation = true; // Track that this was auto-filled
+            
+            // Save auto-filled address to context (but don't mark as complete yet - waiting for confirmation)
+            const contextUpdates = {
+              shippingAddress: updatedAddress,
+              shippingAddressStep: 'address', // Stay on address step until confirmed
+              lastAction: 'collect_shipping_address'
+            };
+            updateFlowContext(sessionId, contextUpdates);
+            
+            // Show auto-filled address and ask for confirmation/editing
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: `${responseText}📍 **Address auto-filled from your location!**\n\n**Detected Address:**\n${updatedAddress.street}\n${updatedAddress.city}, ${updatedAddress.state} ${updatedAddress.zipCode}\n\n**Please review and confirm:**\n\n✅ If this looks correct, say "yes" or "confirm" to proceed.\n\n✏️ If you need to make changes, please provide the corrected address details:\n- Street address\n- City\n- State (2-letter code)\n- ZIP code\n\nExample: "Street: 123 Main St, City: New York, State: NY, ZIP: 10001"`
+                }
+              ]
+            };
+          }
+        }
+        
+        // Check if user is confirming auto-filled address
+        const isConfirming = args.confirm === true || args.confirmed === true || 
+                            (typeof args.confirm === 'string' && args.confirm.toLowerCase().includes('yes')) ||
+                            (typeof args.confirmed === 'string' && args.confirmed.toLowerCase().includes('yes'));
+        
+        // If user has a pending auto-filled address and confirms it (from location or geocoding)
+        if (isConfirming && (existingAddress.fromLocation || existingAddress.fromGeocoding) && existingAddress.street && existingAddress.city && existingAddress.state && existingAddress.zipCode) {
+          // Address already auto-filled, just confirm and complete
+          updatedAddress = { ...existingAddress };
+          updatedAddress.country = finalCountry;
+          nextStep = 'complete';
+          isComplete = true;
+          const source = existingAddress.fromLocation ? 'location' : 'address lookup';
+          responseText += `✅ **Step 3 Complete:** Address confirmed from ${source}\n\n`;
+          responseText += `**Complete Shipping Address:**\n${updatedAddress.firstName} ${updatedAddress.lastName}\n${updatedAddress.street}\n${updatedAddress.city}, ${updatedAddress.state} ${updatedAddress.zipCode}\n${updatedAddress.country}\n\n`;
+          clearCurrentQuestion(sessionId);
+        }
+        // Check if user provided only street address (without city/state/zip) - try geocoding
+        else if (args.street && !args.city && !args.state && !args.zipCode) {
+          // Try to geocode the street address to get city, state, ZIP
+          logger.info('Street address only provided, attempting geocoding', { 
+            sessionId, 
+            street: args.street,
+            geocodingAvailable: isGeocodingAvailable()
+          });
+
+          if (isGeocodingAvailable()) {
+            try {
+              const geocodeResult = await geocodeAddress(args.street.trim(), finalCountry);
+              
+              if (geocodeResult) {
+                const normalized = normalizeGeocodeResult(geocodeResult);
+                
+                if (normalized && normalized.city && normalized.state && normalized.zipCode) {
+                  // Validate the geocoded address
+                  if (!validateZipCode(normalized.zipCode)) {
+                    return {
+                      content: [
+                        {
+                          type: "text",
+                          text: `**⚠️ Could not validate ZIP code from address lookup.**\n\nThe address "${args.street}" was found, but the ZIP code "${normalized.zipCode}" doesn't match the required format.\n\nPlease provide your complete address manually:\n- Street address\n- City\n- State (2-letter code)\n- ZIP code`
+                        }
+                      ]
+                    };
+                  }
+
+                  if (!validateStateCode(normalized.state)) {
+                    return {
+                      content: [
+                        {
+                          type: "text",
+                          text: `**⚠️ Could not validate state code from address lookup.**\n\nThe address "${args.street}" was found, but the state code "${normalized.state}" is not valid.\n\nPlease provide your complete address manually:\n- Street address\n- City\n- State (2-letter code)\n- ZIP code`
+                        }
+                      ]
+                    };
+                  }
+
+                  // Auto-fill address from geocoding
+                  updatedAddress.street = normalized.street || args.street.trim();
+                  updatedAddress.city = normalized.city;
+                  updatedAddress.state = normalized.state;
+                  updatedAddress.zipCode = normalized.zipCode;
+                  updatedAddress.country = finalCountry;
+                  updatedAddress.fromGeocoding = true; // Track that this was auto-filled from geocoding
+                  
+                  // Save auto-filled address to context (but don't mark as complete yet - waiting for confirmation)
+                  const contextUpdates = {
+                    shippingAddress: updatedAddress,
+                    shippingAddressStep: 'address', // Stay on address step until confirmed
+                    lastAction: 'collect_shipping_address'
+                  };
+                  updateFlowContext(sessionId, contextUpdates);
+                  
+                  // Show auto-filled address and ask for confirmation/editing
+                  return {
+                    content: [
+                      {
+                        type: "text",
+                        text: `${responseText}📍 **Address found!**\n\nI found the address details for "${args.street}":\n\n**Detected Address:**\n${updatedAddress.street}\n${updatedAddress.city}, ${updatedAddress.state} ${updatedAddress.zipCode}\n\n**Please review and confirm:**\n\n✅ If this looks correct, say "yes" or "confirm" to proceed.\n\n✏️ If you need to make changes, please provide the corrected address details:\n- Street address\n- City\n- State (2-letter code)\n- ZIP code\n\nExample: "Street: 123 Main St, City: New York, State: NY, ZIP: 10001"`
+                      }
+                    ]
+                  };
+                } else {
+                  // Geocoding returned incomplete data
+                  logger.warn('Geocoding returned incomplete address', { geocodeResult, normalized });
+                  return {
+                    content: [
+                      {
+                        type: "text",
+                        text: `**⚠️ Could not find complete address details for "${args.street}".**\n\nPlease provide your complete address:\n\n- **Street address**\n- **City**\n- **State** (2-letter code)\n- **ZIP code**\n\nExample: "123 Main St, New York, NY 10001" or "Street: 123 Main St, City: New York, State: NY, ZIP: 10001"`
+                      }
+                    ]
+                  };
+                }
+              } else {
+                // Geocoding failed or returned no results
+                logger.warn('Geocoding failed or returned no results', { street: args.street });
+                return {
+                  content: [
+                    {
+                      type: "text",
+                      text: `**⚠️ Could not find address details for "${args.street}".**\n\nPlease provide your complete address:\n\n- **Street address**\n- **City**\n- **State** (2-letter code)\n- **ZIP code**\n\nExample: "123 Main St, New York, NY 10001" or "Street: 123 Main St, City: New York, State: NY, ZIP: 10001"`
+                    }
+                  ]
+                };
+              }
+            } catch (error) {
+              logger.error('Geocoding error', { error: error.message, street: args.street, stack: error.stack });
+              return {
+                content: [
+                  {
+                    type: "text",
+                    text: `**⚠️ Error looking up address.**\n\nPlease provide your complete address manually:\n\n- **Street address**\n- **City**\n- **State** (2-letter code)\n- **ZIP code**\n\nExample: "123 Main St, New York, NY 10001" or "Street: 123 Main St, City: New York, State: NY, ZIP: 10001"`
+                  }
+                ]
+              };
+            }
+          } else {
+            // Geocoding not available
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: `**Please provide your complete address:**\n\nI received your street address: "${args.street}"\n\nTo complete the address, please also provide:\n\n- **City**\n- **State** (2-letter code)\n- **ZIP code**\n\nExample: "City: New York, State: NY, ZIP: 10001" or provide all at once: "123 Main St, New York, NY 10001"`
+                }
+              ]
+            };
+          }
+        }
+        // If user is providing complete address (either manually or editing auto-filled)
+        else if (args.street && args.city && args.state && args.zipCode) {
+          // Validate US-specific formats
+          if (!validateZipCode(args.zipCode)) {
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: `**⚠️ Invalid ZIP code format.**\n\nPlease provide a valid US ZIP code (5 digits or 5+4 format, e.g., "12345" or "12345-6789").`
+                }
+              ]
+            };
+          }
+
+          if (!validateStateCode(args.state)) {
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: `**⚠️ Invalid state code.**\n\nPlease provide a valid 2-letter US state code (e.g., "NY", "CA", "TX").`
+                }
+              ]
+            };
+          }
+
+          updatedAddress.street = args.street.trim();
+          updatedAddress.city = args.city.trim();
+          updatedAddress.state = args.state.trim().toUpperCase();
+          updatedAddress.zipCode = args.zipCode.trim();
+          updatedAddress.country = finalCountry;
+          updatedAddress.fromLocation = false; // User provided manually or edited
+          updatedAddress.fromGeocoding = false;
+          nextStep = 'complete';
+          isComplete = true;
+          responseText += `✅ **Step 3 Complete:** Address collected\n\n`;
+          responseText += `**Complete Shipping Address:**\n${updatedAddress.firstName} ${updatedAddress.lastName}\n${updatedAddress.street}\n${updatedAddress.city}, ${updatedAddress.state} ${updatedAddress.zipCode}\n${updatedAddress.country}\n\n`;
+          clearCurrentQuestion(sessionId);
+        }
+        // No address provided yet - prompt for location or manual entry
+        else {
+          setCurrentQuestion(sessionId, QUESTION_TYPES.SHIPPING_ADDRESS, 
+            "Please provide your street address, city, state, and ZIP code.", 
+            { street: true, city: true, state: true, zipCode: true });
+          
+          // Check if we have a pending auto-filled address waiting for confirmation (from location or geocoding)
+          if ((existingAddress.fromLocation || existingAddress.fromGeocoding) && existingAddress.street && existingAddress.city && existingAddress.state && existingAddress.zipCode) {
+            const source = existingAddress.fromLocation ? 'your location' : 'address lookup';
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: `${responseText}📍 **Address auto-filled from ${source}!**\n\n**Detected Address:**\n${existingAddress.street}\n${existingAddress.city}, ${existingAddress.state} ${existingAddress.zipCode}\n\n**Please review and confirm:**\n\n✅ If this looks correct, say "yes" or "confirm" to proceed.\n\n✏️ If you need to make changes, please provide the corrected address details:\n- Street address\n- City\n- State (2-letter code)\n- ZIP code\n\nExample: "Street: 123 Main St, City: New York, State: NY, ZIP: 10001"`
+                }
+              ]
+            };
+          }
+          
+          // First time prompt - ask for location permission
+          return {
+            content: [
+              {
+                type: "text",
+                text: `${responseText}**Step 3 of 3: Address Information (US Only)**\n\n📍 **Quick Options:**\n\n1. **Turn on location services** to automatically fill your address\n2. **Provide just your street address** - I'll look up the city, state, and ZIP code for you\n\n**Or manually provide:**\n\nPlease provide your **street address**, **city**, **state** (2-letter code), and **ZIP code**.\n\nExample: "123 Main St, New York, NY 10001" or "Street: 123 Main St, City: New York, State: NY, ZIP: 10001"\n\n💡 **Tip:** You can also just provide your street address (e.g., "123 Main St") and I'll look up the rest!`
+              }
+            ]
+          };
+        }
+      }
+
+      // Update flow context with current progress
+      const contextUpdates = {
+        shippingAddress: updatedAddress,
+        shippingAddressStep: nextStep,
+        lastAction: 'collect_shipping_address'
+      };
+
+      if (isComplete) {
+        contextUpdates.checkoutDataCollected = true;
+        contextUpdates.flowStage = 'checkout';
+      }
+
+      updateFlowContext(sessionId, contextUpdates);
+
+      logger.info('Shipping address step progress', {
+        sessionId,
+        previousStep: currentStep,
+        nextStep,
+        isComplete,
+        hasName: !!updatedAddress.firstName && !!updatedAddress.lastName,
+        hasContact: !!updatedAddress.phone && !!updatedAddress.email,
+        hasAddress: !!updatedAddress.street && !!updatedAddress.city && !!updatedAddress.state && !!updatedAddress.zipCode
+      });
+
+      // Generate response based on step
+      if (isComplete) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `${responseText}**Contact:**\nPhone: ${updatedAddress.phone}\nEmail: \`${updatedAddress.email}\`\n\n✅ **All steps complete!** Shipping address is ready.\n\n**Next Step:** Use \`get_checkout_data\` tool to get complete order information (cart, shipping, billing, user info) ready for your payment API.`
+            }
+          ]
+        };
+      } else {
+        // Show progress and next step
+        const stepNumber = nextStep === 'contact' ? 2 : nextStep === 'address' ? 3 : 1;
+        
+        // If transitioning to Step 3, show the full Step 3 prompt with location services
+        if (nextStep === 'address') {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `${responseText}**Step 3 of 3: Address Information (US Only)**\n\n📍 **Quick Options:**\n\n1. **Turn on location services** to automatically fill your address\n2. **Provide just your street address** - I'll look up the city, state, and ZIP code for you\n\n**Or manually provide:**\n\nPlease provide your **street address**, **city**, **state** (2-letter code), and **ZIP code**.\n\nExample: "123 Main St, New York, NY 10001" or "Street: 123 Main St, City: New York, State: NY, ZIP: 10001"\n\n💡 **Tip:** You can also just provide your street address (e.g., "123 Main St") and I'll look up the rest!`
+              }
+            ]
+          };
+        }
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: `${responseText}**Progress:** Step ${stepNumber} of 3 completed.\n\n**Next:** ${nextStep === 'contact' ? 'Please provide your phone number and email address.' : '📍 Turn on location services to auto-fill your address, or manually provide your street address, city, state, and ZIP code (US addresses only).'}`
+            }
+          ]
+        };
+      }
     }
 
     if (name === "get_checkout_data") {
@@ -5795,19 +6317,44 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [
             {
               type: "text",
-              text: `**⚠️ Cart not ready for checkout.**\n\n${cartPrereq.reason}\n\nPlease complete your cart first (plans and SIM types for all lines).`
+              text: `**⚠️ Cart not ready for checkout.**\n\n${cartPrereq.reason}\n\nPlease complete your cart first (plans for all lines - eSIM is automatically set when plans are added).`
             }
           ]
         };
       }
 
-      // Check shipping address
-      if (!context.shippingAddress || !context.checkoutDataCollected) {
+      // Check shipping address - support step-by-step collection
+      const shippingStep = context.shippingAddressStep;
+      const hasCompleteAddress = context.shippingAddress && context.checkoutDataCollected;
+      
+      if (!hasCompleteAddress) {
+        // Check if we're in the middle of step-by-step collection
+        if (shippingStep && shippingStep !== 'complete') {
+          let stepMessage = '';
+          if (shippingStep === 'name') {
+            stepMessage = `**Step 1 of 3: Name Information**\n\nPlease provide your **first name** and **last name**.\n\nExample: "John Smith" or "First name: Jane, Last name: Doe"`;
+          } else if (shippingStep === 'contact') {
+            stepMessage = `**Step 2 of 3: Contact Information**\n\nPlease provide your **phone number** and **email address**.\n\nExample: "Phone: 555-123-4567, Email: john@example.com"`;
+          } else if (shippingStep === 'address') {
+            stepMessage = `**Step 3 of 3: Address Information (US Only)**\n\n📍 **Quick Options:**\n\n1. **Turn on location services** to automatically fill your address\n2. **Provide just your street address** - I'll look up the city, state, and ZIP code for you\n\n**Or manually provide:**\n\nPlease provide your **street address**, **city**, **state** (2-letter code), and **ZIP code**.\n\nExample: "123 Main St, New York, NY 10001"\n\n💡 **Tip:** You can also just provide your street address (e.g., "123 Main St") and I'll look up the rest!`;
+          }
+          
+          return {
+            content: [
+              {
+                type: "text",
+                text: `**⚠️ Shipping address collection in progress.**\n\n${stepMessage}\n\nPlease complete the current step before proceeding.`
+              }
+            ]
+          };
+        }
+        
+        // No address collection started yet
         return {
           content: [
             {
               type: "text",
-              text: `**⚠️ Shipping address not collected.**\n\nPlease collect shipping address first using \`collect_shipping_address\` tool before getting checkout data.`
+              text: `**⚠️ Shipping address not collected.**\n\nPlease collect shipping address using \`collect_shipping_address\` tool. The system will guide you through 3 sequential steps:\n\n1. **First name & Last name**\n2. **Phone number & Email address**\n3. **Street address, City, State, ZIP code** (US addresses only)\n\nSteps must be completed in order.`
             }
           ]
         };
@@ -5862,11 +6409,39 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         timestamp: Date.now()
       };
 
+      logger.info('═══════════════════════════════════════════════════════════');
+      logger.info('STEP 2: BUILDING CHECKOUT DATA');
+      logger.info('═══════════════════════════════════════════════════════════');
+      logger.info('Checkout data built successfully', {
+        sessionId,
+        timestamp: new Date().toISOString(),
+        checkoutData: {
+          sessionId: checkoutData.sessionId,
+          cart: {
+            lineCount: checkoutData.cart.lines.length,
+            lines: checkoutData.cart.lines.map((line, idx) => ({
+              lineIndex: idx + 1,
+              planId: line.plan?.id || line.plan?.uniqueIdentifier || line.plan?.name || 'N/A',
+              planName: line.plan?.name || 'N/A',
+              simType: line.sim?.simType || 'N/A',
+              hasDevice: !!line.device,
+              deviceName: line.device?.name || null
+            })),
+            totals: checkoutData.cart.totals
+          },
+          shippingAddress: checkoutData.shippingAddress,
+          billingAddress: checkoutData.billingAddress,
+          userInfo: checkoutData.userInfo,
+          orderSummary: checkoutData.orderSummary
+        }
+      });
+      logger.info('═══════════════════════════════════════════════════════════');
+
       return {
         content: [
           {
             type: "text",
-            text: `✅ **Complete Checkout Data Ready for Payment API**\n\nAll order information has been collected and is ready for payment processing.\n\n**Order Summary:**\n• ${context.lineCount} line${context.lineCount > 1 ? 's' : ''}\n• Monthly Total: $${monthlyTotal.toFixed(2)}/mo\n• One-Time Total: $${oneTimeTotal.toFixed(2)}\n• Total Due Today: $${totalDueToday.toFixed(2)}\n\n**Shipping Address:**\n${context.shippingAddress.firstName} ${context.shippingAddress.lastName}\n${context.shippingAddress.street}\n${context.shippingAddress.city}, ${context.shippingAddress.state} ${context.shippingAddress.zipCode}\n\n**Contact:** ${context.shippingAddress.email} | ${context.shippingAddress.phone}\n\n**Complete data structure is available in the response for your payment API integration.**`
+            text: `✅ **Complete Checkout Data Ready for Payment API**\n\nAll order information has been collected and is ready for payment processing.\n\n**Order Summary:**\n• ${context.lineCount} line${context.lineCount > 1 ? 's' : ''}\n• Monthly Total: $${monthlyTotal.toFixed(2)}/mo\n• One-Time Total: $${oneTimeTotal.toFixed(2)}\n• Total Due Today: $${totalDueToday.toFixed(2)}\n\n**Shipping Address:**\n${context.shippingAddress.firstName} ${context.shippingAddress.lastName}\n${context.shippingAddress.street}\n${context.shippingAddress.city}, ${context.shippingAddress.state} ${context.shippingAddress.zipCode}\n\n**Contact:** \`${context.shippingAddress.email ?? 'N/A'}\` | ${context.shippingAddress.phone ?? 'N/A'}\n\n**Complete data structure is available in the response for your payment API integration.**`
           }
         ],
         // Include structured data for programmatic access
@@ -5874,6 +6449,530 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           checkoutData: checkoutData
         }
       };
+    }
+
+    if (name === "purchase_plans") {
+      const sessionId = getOrCreateSessionId(args.sessionId || null);
+      const context = getFlowContext(sessionId);
+      const cart = getCartMultiLine(sessionId);
+
+      logger.info('═══════════════════════════════════════════════════════════');
+      logger.info('STEP 3: PURCHASE PLANS TOOL CALLED');
+      logger.info('═══════════════════════════════════════════════════════════');
+      logger.info('Purchase plans tool invoked', {
+        sessionId,
+        timestamp: new Date().toISOString(),
+        hasContext: !!context,
+        hasCart: !!cart,
+        cartLines: cart?.lines?.length || 0,
+        hasShippingAddress: !!context?.shippingAddress,
+        checkoutDataCollected: context?.checkoutDataCollected,
+        shippingAddressKeys: context?.shippingAddress ? Object.keys(context.shippingAddress) : []
+      });
+
+      if (!context) {
+        logger.error('No flow context found for purchase_plans', { sessionId });
+        throw new Error('No flow context found. Please start a purchase flow first.');
+      }
+
+      // Pre-flight validations
+      // 1. Validate cart exists and has lines
+      if (!cart || !cart.lines || cart.lines.length === 0) {
+        logger.warn('Purchase plans validation failed: empty cart', { sessionId });
+        return {
+          content: [{
+            type: "text",
+            text: `**⚠️ Cart is empty.**\n\nPlease add plans to your cart before purchasing. eSIM is automatically set when you add plans.`
+          }]
+        };
+      }
+
+      // 2. Validate all lines have plans
+      const missingPlans = cart.lines.filter(line => !line.plan || !line.plan.id);
+      if (missingPlans.length > 0) {
+        logger.warn('Purchase plans validation failed: missing plans', {
+          sessionId,
+          missingPlansCount: missingPlans.length
+        });
+        return {
+          content: [{
+            type: "text",
+            text: `**⚠️ Missing plans.**\n\nSome lines are missing plans. Please select plans for all lines before purchasing.`
+          }]
+        };
+      }
+
+      // 3. SIM validation removed - eSIM is automatically set when plan is added
+
+      // 4. CRITICAL: Check for devices (plan-only purchase doesn't allow devices)
+      const hasDevices = cart.lines.some(line => line.device);
+      if (hasDevices) {
+        logger.warn('Purchase plans validation failed: devices in cart', { sessionId });
+        return {
+          content: [{
+            type: "text",
+            text: `**⚠️ Plan-only purchase cannot include devices.**\n\nYour cart contains devices. The purchase_plans tool is only for plan-only orders (plans + SIM, no devices). Please remove devices from your cart or use a different purchase flow.`
+          }]
+        };
+      }
+
+      // 5. Validate checkout data is collected
+      logger.debug('Purchase plans shipping address check', {
+        sessionId,
+        hasShippingAddress: !!context.shippingAddress,
+        checkoutDataCollected: context.checkoutDataCollected,
+        shippingAddressKeys: context.shippingAddress ? Object.keys(context.shippingAddress) : []
+      });
+
+      // Check shipping address - support step-by-step collection
+      const shippingStep = context.shippingAddressStep;
+      const hasCompleteAddress = context.shippingAddress && context.checkoutDataCollected;
+      
+      if (!hasCompleteAddress) {
+        logger.warn('Purchase plans validation failed: shipping address not collected', {
+          sessionId,
+          hasShippingAddress: !!context.shippingAddress,
+          checkoutDataCollected: context.checkoutDataCollected,
+          shippingAddressStep: shippingStep
+        });
+        
+        // Check if we're in the middle of step-by-step collection
+        if (shippingStep && shippingStep !== 'complete') {
+          let stepMessage = '';
+          if (shippingStep === 'name') {
+            stepMessage = `**Step 1 of 3: Name Information**\n\nPlease provide your **first name** and **last name**.\n\nExample: "John Smith"`;
+          } else if (shippingStep === 'contact') {
+            stepMessage = `**Step 2 of 3: Contact Information**\n\nPlease provide your **phone number** and **email address**.\n\nExample: "Phone: 555-123-4567, Email: john@example.com"`;
+          } else if (shippingStep === 'address') {
+            // Check if there's a pending auto-filled address (from location or geocoding)
+            const existingAddress = context.shippingAddress || {};
+            if ((existingAddress.fromLocation || existingAddress.fromGeocoding) && existingAddress.street && existingAddress.city && existingAddress.state && existingAddress.zipCode) {
+              const source = existingAddress.fromLocation ? 'your location' : 'address lookup';
+              stepMessage = `**Step 3 of 3: Address Information (US Only)**\n\n📍 **Address auto-filled from ${source}!**\n\n**Detected Address:**\n${existingAddress.street}\n${existingAddress.city}, ${existingAddress.state} ${existingAddress.zipCode}\n\n**Please review and confirm:**\n\n✅ If this looks correct, say "yes" or "confirm" to proceed.\n\n✏️ If you need to make changes, please provide the corrected address details.`;
+            } else {
+              stepMessage = `**Step 3 of 3: Address Information (US Only)**\n\n📍 **Quick Options:**\n\n1. **Turn on location services** to automatically fill your address\n2. **Provide just your street address** - I'll look up the city, state, and ZIP code for you\n\n**Or manually provide:**\n\nPlease provide your **street address**, **city**, **state** (2-letter code), and **ZIP code**.\n\nExample: "123 Main St, New York, NY 10001"\n\n💡 **Tip:** You can also just provide your street address (e.g., "123 Main St") and I'll look up the rest!`;
+            }
+          }
+          
+          return {
+            content: [{
+              type: "text",
+              text: `**⚠️ Shipping address collection in progress.**\n\n${stepMessage}\n\nPlease complete the current step before proceeding.`
+            }]
+          };
+        }
+        
+        // No address collection started yet
+        return {
+          content: [{
+            type: "text",
+            text: `**⚠️ Shipping address not collected.**\n\nBefore completing checkout, please provide your shipping address using \`collect_shipping_address\` tool.\n\nThe system will guide you through 3 sequential steps:\n\n1. **First name & Last name**\n2. **Phone number & Email address**\n3. **Street address, City, State, ZIP code** (US addresses only)\n   📍 You can use location services to auto-fill your address in Step 3!\n\nSteps must be completed in order.`
+          }]
+        };
+      }
+
+      // 6. Check if purchase already in progress
+      const existingPurchase = getPurchaseState(sessionId);
+      if (existingPurchase && existingPurchase.state && 
+          (existingPurchase.state === 'POLLING' || existingPurchase.state === 'PURCHASING' || existingPurchase.state === 'QUOTING')) {
+        return {
+          content: [{
+            type: "text",
+            text: `**⏳ Purchase already in progress.**\n\nA purchase is currently being processed.\n\n**Transaction ID:** ${existingPurchase.transactionId || 'N/A'}\n**Status:** ${existingPurchase.state}\n**Payment Status:** ${existingPurchase.paymentStatus || 'N/A'}\n\nPlease wait for the current purchase to complete.`
+          }]
+        };
+      }
+
+      // 7. Check if purchase already completed
+      if (existingPurchase && existingPurchase.state === 'COMPLETED' && existingPurchase.paymentUrl) {
+        return {
+          content: [{
+            type: "text",
+            text: `**✅ Purchase already completed.**\n\nYour purchase has already been processed.\n\n**Payment Link:**\n${existingPurchase.paymentUrl}\n\n**Transaction ID:** ${existingPurchase.transactionId}\n**Customer ID:** ${existingPurchase.customerId || 'N/A'}\n\n**Need Help?**\n${existingPurchase.supportUrl || 'N/A'}`
+          }],
+          structuredContent: {
+            purchaseResult: {
+              success: true,
+              transactionId: existingPurchase.transactionId,
+              paymentUrl: existingPurchase.paymentUrl,
+              paymentUrlExpiry: existingPurchase.paymentUrlExpiry,
+              customerId: existingPurchase.customerId,
+              supportUrl: existingPurchase.supportUrl,
+              state: "COMPLETED"
+            }
+          }
+        };
+      }
+
+      try {
+        // Get checkout data (reuse logic from get_checkout_data)
+        let monthlyTotal = 0;
+        let deviceTotal = 0;
+        let protectionTotal = 0;
+
+        if (cart && cart.lines && cart.lines.length > 0) {
+          cart.lines.forEach(line => {
+            if (line.plan) monthlyTotal += line.plan.price || 0;
+            if (line.device) deviceTotal += line.device.price || 0;
+            if (line.protection) protectionTotal += line.protection.price || 0;
+          });
+        }
+
+        const checkoutData = {
+          sessionId: sessionId,
+          cart: {
+            lines: cart.lines || [],
+            totals: {
+              monthlyTotal: monthlyTotal,
+              deviceTotal: deviceTotal,
+              protectionTotal: protectionTotal,
+              handlingFee: 10.00,
+              shippingFee: (deviceTotal > 0 || protectionTotal > 0) ? 15.00 : 0,
+              oneTimeTotal: deviceTotal + protectionTotal + 10.00 + ((deviceTotal > 0 || protectionTotal > 0) ? 15.00 : 0),
+              totalDueToday: deviceTotal + protectionTotal + 10.00 + ((deviceTotal > 0 || protectionTotal > 0) ? 15.00 : 0)
+            }
+          },
+          shippingAddress: { ...context.shippingAddress },
+          billingAddress: { ...context.shippingAddress },
+          userInfo: {
+            email: context.shippingAddress.email,
+            phone: context.shippingAddress.phone,
+            name: `${context.shippingAddress.firstName} ${context.shippingAddress.lastName}`
+          },
+          orderSummary: {
+            monthlyTotal: monthlyTotal,
+            oneTimeTotal: deviceTotal + protectionTotal + 10.00 + ((deviceTotal > 0 || protectionTotal > 0) ? 15.00 : 0),
+            totalDueToday: deviceTotal + protectionTotal + 10.00 + ((deviceTotal > 0 || protectionTotal > 0) ? 15.00 : 0),
+            lineCount: context.lineCount || 0
+          },
+          timestamp: Date.now()
+        };
+
+        logger.info('═══════════════════════════════════════════════════════════');
+        logger.info('STEP 4: INITIATING PURCHASE FLOW');
+        logger.info('═══════════════════════════════════════════════════════════');
+        logger.info('Checkout data prepared for purchase flow', {
+          sessionId,
+          timestamp: new Date().toISOString(),
+          checkoutData: {
+            sessionId: checkoutData.sessionId,
+            cart: {
+              lineCount: checkoutData.cart.lines.length,
+              lines: checkoutData.cart.lines.map((line, idx) => ({
+                lineIndex: idx + 1,
+                planId: line.plan?.id || line.plan?.uniqueIdentifier || line.plan?.name || 'N/A',
+                planName: line.plan?.name || 'N/A',
+                simType: line.sim?.simType || 'N/A',
+                hasDevice: !!line.device
+              })),
+              totals: checkoutData.cart.totals
+            },
+            shippingAddress: checkoutData.shippingAddress,
+            billingAddress: checkoutData.billingAddress,
+            userInfo: checkoutData.userInfo
+          },
+          tenant
+        });
+
+        // Update purchase state to QUOTING
+        updatePurchaseState(sessionId, {
+          state: 'QUOTING',
+          initiatedAt: Date.now()
+        });
+
+        logger.info('Purchase state updated to QUOTING, calling purchasePlansFlow...', {
+          sessionId,
+          state: 'QUOTING'
+        });
+
+        // Call purchase flow (triggers all 3 APIs)
+        const result = await purchasePlansFlow(checkoutData, tenant, {
+          redirectUrl: args.redirectUrl,
+          skipPolling: args.skipPolling || false
+        });
+
+        logger.info('═══════════════════════════════════════════════════════════');
+        logger.info('STEP 8: PURCHASE FLOW COMPLETED - PROCESSING RESULT');
+        logger.info('═══════════════════════════════════════════════════════════');
+        logger.info('Purchase flow result received', {
+          sessionId,
+          timestamp: new Date().toISOString(),
+          result: {
+            success: result.success,
+            state: result.state,
+            transactionId: result.transactionId,
+            clientAccountId: result.clientAccountId,
+            paymentStatus: result.paymentStatus,
+            status: result.status,
+            hasPaymentUrl: !!result.paymentUrl,
+            paymentUrl: result.paymentUrl ? result.paymentUrl.substring(0, 100) + '...' : null,
+            fullPaymentUrl: result.paymentUrl || null,
+            paymentUrlExpiry: result.paymentUrlExpiry,
+            customerId: result.customerId,
+            supportUrl: result.supportUrl,
+            pollAttempts: result.pollAttempts,
+            polled: result.polled,
+            error: result.error
+          }
+        });
+
+        // Update purchase state with result
+        updatePurchaseState(sessionId, {
+          transactionId: result.transactionId,
+          clientAccountId: result.clientAccountId,
+          state: result.state,
+          paymentStatus: result.paymentStatus,
+          status: result.status,
+          paymentUrl: result.paymentUrl,
+          paymentUrlExpiry: result.paymentUrlExpiry,
+          customerId: result.customerId,
+          supportUrl: result.supportUrl,
+          quote: result.quote,
+          pollAttempts: result.pollAttempts,
+          completedAt: result.state === 'COMPLETED' ? Date.now() : null,
+          error: result.error || null,
+          errorType: result.error ? 'FLOW_ERROR' : null
+        });
+
+        // Build response based on result
+        // PRIORITY: If payment URL exists, show it immediately regardless of status
+        if (result.paymentUrl) {
+          // Payment URL found - show it immediately
+          const expiryText = result.paymentUrlExpiry 
+            ? `\n**Payment link expires:** ${new Date(result.paymentUrlExpiry).toLocaleString()}`
+            : '';
+          
+          const statusText = result.paymentStatus === 'SUCCESS' || result.paymentStatus === 'APPROVED' 
+            ? '✅ **Purchase Completed Successfully!**' 
+            : result.paymentStatus === 'PENDING'
+            ? '⏳ **Payment Link Ready!**'
+            : '✅ **Purchase Initiated Successfully!**';
+          
+          logger.info('═══════════════════════════════════════════════════════════');
+          logger.info('RETURNING PAYMENT URL TO USER');
+          logger.info('═══════════════════════════════════════════════════════════');
+          logger.info('Payment URL will be shown in chat', {
+            sessionId,
+            transactionId: result.transactionId,
+            paymentUrl: result.paymentUrl,
+            paymentStatus: result.paymentStatus,
+            status: result.status
+          });
+          
+          // Format payment URL as clickable link
+          const paymentLinkText = `[Click here to complete payment](${result.paymentUrl})`;
+          
+          return {
+            content: [{
+              type: "text",
+              text: `${statusText}\n\n**🔗 PAYMENT LINK:**\n${paymentLinkText}\n\n**Direct Link:**\n${result.paymentUrl}\n\nPlease click the link above to complete your payment and activate your plan.\n\n**Order Details:**${expiryText}\n• Transaction ID: ${result.transactionId}\n• Customer ID: ${result.customerId || 'N/A'}\n• Payment Status: ${result.paymentStatus || 'PENDING'}\n• Order Status: ${result.status || 'PENDING'}\n\n**Need Help?**\n${result.supportUrl || 'N/A'}`
+            }],
+            structuredContent: {
+              purchaseResult: {
+                success: true,
+                transactionId: result.transactionId,
+                paymentUrl: result.paymentUrl,
+                paymentUrlExpiry: result.paymentUrlExpiry,
+                customerId: result.customerId,
+                supportUrl: result.supportUrl,
+                state: result.state,
+                paymentStatus: result.paymentStatus,
+                status: result.status
+              }
+            }
+          };
+        } else if (result.paymentStatus === 'PENDING' && !result.paymentUrl) {
+          // Pending payment (no URL yet)
+          return {
+            content: [{
+              type: "text",
+              text: `⏳ **Purchase Initiated - Payment Pending**\n\nYour order has been created and is waiting for payment.\n\n**Transaction ID:** ${result.transactionId}\n**Customer ID:** ${result.customerId || 'N/A'}\n\n**Next Steps:**\n• Payment link is being generated - this usually takes a few seconds\n• You can say "retry payment" or "check payment status" to get the payment link\n• You may also receive payment instructions via email\n\n**Support:** ${result.supportUrl || 'N/A'}`
+            }]
+          };
+        } else if (result.success && !result.paymentUrl && result.state === 'POLLING_TIMEOUT') {
+          // Polling timed out but purchase was initiated
+          return {
+            content: [{
+              type: "text",
+              text: `⏳ **Purchase Initiated - Payment Link Pending**\n\nYour order has been successfully created, but the payment link is still being generated.\n\n**Transaction ID:** ${result.transactionId}\n**Customer ID:** ${result.customerId || 'N/A'}\n**Status:** ${result.paymentStatus || 'PENDING'}\n\n**What happened:**\nThe payment link is taking longer than usual to generate. This is normal and usually resolves within a few seconds.\n\n**Next Steps:**\n• Say "retry payment" or "check payment status" to get the payment link\n• The payment link will be available shortly\n• You may receive payment instructions via email\n\n**Support:** ${result.supportUrl || 'N/A'}`
+            }]
+          };
+        } else if (result.success && !result.paymentUrl) {
+          // Success but no payment URL (completed without payment URL or still pending)
+          return {
+            content: [{
+              type: "text",
+              text: `✅ **Purchase Initiated Successfully!**\n\nYour order has been processed.\n\n**Transaction ID:** ${result.transactionId}\n**Customer ID:** ${result.customerId || 'N/A'}\n**Status:** ${result.status || 'N/A'}\n**Payment Status:** ${result.paymentStatus || 'PENDING'}\n\n**Next Steps:**\n• Payment link is being generated\n• Say "retry payment" or "check payment status" to get the payment link\n• You may receive payment instructions via email\n\n**Support:** ${result.supportUrl || 'N/A'}`
+            }]
+          };
+        } else {
+          // Error or failure
+          return {
+            content: [{
+              type: "text",
+              text: `❌ **Purchase Failed**\n\n${result.error || 'An error occurred during purchase'}\n\n**Transaction ID:** ${result.transactionId || 'N/A'}\n\n**What you can do:**\n• Check your cart and shipping information\n• Try again in a few moments\n• Contact support: ${result.supportUrl || 'N/A'}`
+            }]
+          };
+        }
+      } catch (error) {
+        logger.error('Purchase plans tool error', {
+          sessionId,
+          error: error.message,
+          errorType: error.errorType || error.name,
+          stack: error.stack
+        });
+
+        // Update purchase state with error
+        updatePurchaseState(sessionId, {
+          state: 'FAILED',
+          error: error.message,
+          errorType: error.errorType || error.name || 'UNKNOWN_ERROR'
+        });
+
+        // Handle specific error types
+        if (error instanceof PurchaseValidationError) {
+          return {
+            content: [{
+              type: "text",
+              text: `❌ **Purchase Validation Failed**\n\n${error.message}\n\n**Validation Errors:**\n${error.validationErrors.map(e => `• ${e}`).join('\n')}\n\nPlease fix these issues and try again.`
+            }]
+          };
+        }
+
+        if (error instanceof PurchaseFlowError) {
+          return {
+            content: [{
+              type: "text",
+              text: `❌ **Purchase Flow Error**\n\n${error.message}\n\n**State:** ${error.state}\n**Transaction ID:** ${error.transactionId || 'N/A'}\n\nPlease try again or contact support.`
+            }]
+          };
+        }
+
+        // Generic error
+        return {
+          content: [{
+            type: "text",
+            text: `❌ **Purchase Failed**\n\nAn error occurred: ${error.message}\n\nPlease try again or contact support.`
+          }]
+        };
+      }
+    }
+
+    if (name === "check_purchase_status") {
+      const sessionId = getOrCreateSessionId(args.sessionId || null);
+      const purchaseState = getPurchaseState(sessionId);
+      const transactionId = args.transactionId || (purchaseState && purchaseState.transactionId);
+
+      if (!transactionId) {
+        return {
+          content: [{
+            type: "text",
+            text: `**⚠️ No purchase found.**\n\nNo active purchase transaction found for this session. Please initiate a purchase first using the \`purchase_plans\` tool.`
+          }]
+        };
+      }
+
+      try {
+        // Get tenant from context or default
+        const context = getFlowContext(sessionId);
+        const tenant = context?.tenant || 'reach';
+
+        logger.info('Checking purchase status', {
+          sessionId,
+          transactionId,
+          tenant
+        });
+
+        // Call purchase status API
+        const statusResponse = await purchaseStatus(transactionId, tenant);
+
+        // Update purchase state with latest status
+        updatePurchaseState(sessionId, {
+          paymentStatus: statusResponse.paymentStatus,
+          status: statusResponse.status,
+          paymentUrl: statusResponse.paymentUrl,
+          paymentUrlExpiry: statusResponse.paymentUrlExpiry,
+          customerId: statusResponse.customerId,
+          supportUrl: statusResponse.supportUrl,
+          lastPollAt: Date.now(),
+          state: statusResponse.paymentStatus === 'SUCCESS' || statusResponse.paymentStatus === 'APPROVED' 
+            ? 'COMPLETED' 
+            : statusResponse.paymentStatus === 'PENDING' 
+            ? 'PENDING' 
+            : statusResponse.paymentStatus === 'FAILED'
+            ? 'FAILED'
+            : 'POLLING'
+        });
+
+        // Build response based on status
+        if (statusResponse.paymentUrl) {
+          const expiryText = statusResponse.paymentUrlExpiry 
+            ? `\n**Payment link expires:** ${new Date(statusResponse.paymentUrlExpiry).toLocaleString()}`
+            : '';
+          
+          return {
+            content: [{
+              type: "text",
+              text: `✅ **Payment Link Available!**\n\nYour payment link is ready.\n\n**Payment Link:**\n${statusResponse.paymentUrl}\n\n**Status:**\n• Payment Status: ${statusResponse.paymentStatus || 'N/A'}\n• Order Status: ${statusResponse.status || 'N/A'}${expiryText}\n\n**Transaction Details:**\n• Transaction ID: ${transactionId}\n• Customer ID: ${statusResponse.customerId || 'N/A'}\n\n**Need Help?**\n${statusResponse.supportUrl || 'N/A'}`
+            }],
+            structuredContent: {
+              purchaseStatus: {
+                success: true,
+                transactionId: transactionId,
+                paymentUrl: statusResponse.paymentUrl,
+                paymentUrlExpiry: statusResponse.paymentUrlExpiry,
+                paymentStatus: statusResponse.paymentStatus,
+                status: statusResponse.status,
+                customerId: statusResponse.customerId,
+                supportUrl: statusResponse.supportUrl
+              }
+            }
+          };
+        } else if (statusResponse.paymentStatus === 'PENDING') {
+          return {
+            content: [{
+              type: "text",
+              text: `⏳ **Payment Pending**\n\nYour purchase is still being processed.\n\n**Status:**\n• Payment Status: ${statusResponse.paymentStatus}\n• Order Status: ${statusResponse.status || 'N/A'}\n\n**Transaction Details:**\n• Transaction ID: ${transactionId}\n• Customer ID: ${statusResponse.customerId || 'N/A'}\n\n**Next Steps:**\n• Payment link will be available shortly\n• You may receive payment instructions via email\n• Check back in a few moments\n\n**Support:** ${statusResponse.supportUrl || 'N/A'}`
+            }]
+          };
+        } else if (statusResponse.paymentStatus === 'SUCCESS' || statusResponse.paymentStatus === 'APPROVED') {
+          return {
+            content: [{
+              type: "text",
+              text: `✅ **Payment Completed!**\n\nYour payment has been successfully processed.\n\n**Status:**\n• Payment Status: ${statusResponse.paymentStatus}\n• Order Status: ${statusResponse.status || 'N/A'}\n\n**Transaction Details:**\n• Transaction ID: ${transactionId}\n• Customer ID: ${statusResponse.customerId || 'N/A'}\n\n**Support:** ${statusResponse.supportUrl || 'N/A'}`
+            }]
+          };
+        } else if (statusResponse.paymentStatus === 'FAILED') {
+          return {
+            content: [{
+              type: "text",
+              text: `❌ **Payment Failed**\n\nYour payment could not be processed.\n\n**Status:**\n• Payment Status: ${statusResponse.paymentStatus}\n• Order Status: ${statusResponse.status || 'N/A'}\n\n**Transaction Details:**\n• Transaction ID: ${transactionId}\n• Customer ID: ${statusResponse.customerId || 'N/A'}\n\n**What you can do:**\n• Contact support for assistance\n• Try initiating a new purchase\n\n**Support:** ${statusResponse.supportUrl || 'N/A'}`
+            }]
+          };
+        } else {
+          return {
+            content: [{
+              type: "text",
+              text: `**Purchase Status**\n\n**Status:**\n• Payment Status: ${statusResponse.paymentStatus || 'N/A'}\n• Order Status: ${statusResponse.status || 'N/A'}\n\n**Transaction Details:**\n• Transaction ID: ${transactionId}\n• Customer ID: ${statusResponse.customerId || 'N/A'}\n\n**Support:** ${statusResponse.supportUrl || 'N/A'}`
+            }]
+          };
+        }
+      } catch (error) {
+        logger.error('Check purchase status error', {
+          sessionId,
+          transactionId,
+          error: error.message,
+          errorType: error.errorType || error.name,
+          stack: error.stack
+        });
+
+        return {
+          content: [{
+            type: "text",
+            text: `❌ **Error Checking Purchase Status**\n\nAn error occurred while checking the purchase status: ${error.message}\n\n**Transaction ID:** ${transactionId}\n\nPlease try again in a few moments or contact support.`
+          }]
+        };
+      }
     }
 
     if (name === "detect_intent") {
@@ -6119,7 +7218,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 `• All plans\n` +
                 `• All devices\n` +
                 `• All protection plans\n` +
-                `• All SIM selections\n` +
+                `• All SIM items (eSIM is automatically set when plans are added)\n` +
                 `• Flow context reset\n\n` +
                 `**What you can do now:**\n` +
                 `• Start a new purchase flow\n` +
@@ -6170,7 +7269,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 `• All plans\n` +
                 `• All devices\n` +
                 `• All protection plans\n` +
-                `• All SIM selections\n\n` +
+                `• All SIM items (eSIM is automatically set when plans are added)\n\n` +
                 `**Flow structure preserved:** Your line count and flow context remain intact.\n\n` +
                 `You can now add new items to your cart or modify your selections.`
             }
@@ -6184,6 +7283,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
     }
 
+    // Debug logging before throwing unknown tool error
+    logger.error(`Unknown tool reached - no handler matched`, { 
+      toolName: name, 
+      nameType: typeof name,
+      nameLength: name?.length,
+      availableHandlers: [
+        "start_session", "get_plans", "get_devices", "add_to_cart", "get_cart", 
+        "get_flow_status", "get_global_context", "update_line_count", "select_sim_type",
+        "review_cart", "collect_shipping_address", "get_checkout_data", "purchase_plans",
+        "check_purchase_status", "detect_intent", "get_next_step", "edit_cart_item", "clear_cart"
+      ]
+    });
     throw new Error(`Unknown tool: ${name}`);
   } catch (error) {
     logger.error(`Tool error: ${name}`, { error: error.message });
@@ -6257,7 +7368,7 @@ function autoAssignEsimForLines(sessionId, context, lineNumbers) {
       deviceId: null,
       protectionSelected: false,
       protectionId: null,
-      simType: null,
+      simType: 'ESIM', // Auto-select eSIM as default since we only provide eSIM
       simIccId: null
     });
   }
@@ -6412,10 +7523,9 @@ function getNextStepsForIntent(context, intent) {
   // No context - provide initial flow overview
   if (!context || !progress) {
     return `**Step 1:** Tell me how many lines you need (e.g., "I need 2 lines")\n` +
-      `**Step 2:** Select plans for each line (required for checkout)\n` +
-      `**Step 3:** Choose SIM types (eSIM or Physical) per line\n` +
-      `**Step 4 (Optional):** Add devices and device protection\n` +
-      `**Step 5:** Review cart and checkout`;
+      `**Step 2:** Select plans for each line (required for checkout - eSIM automatically added)\n` +
+      `**Step 3 (Optional):** Add devices and device protection\n` +
+      `**Step 4:** Review cart and checkout`;
   }
 
   // Check prerequisites and missing items using global flags
@@ -6426,7 +7536,7 @@ function getNextStepsForIntent(context, intent) {
   };
   const lineCount = progress.lineCount || 0;
   const missingPlans = progress.missing?.plans || [];
-  const missingSims = progress.missing?.sim || [];
+  // SIM removed - eSIM is automatically set when plan is added
   // Use global flags for quick checks, then get counts if needed
   const linesWithDevices = globalFlags.deviceSelected ? (context.lines || []).filter(l => l.deviceSelected).length : 0;
   const linesWithProtection = globalFlags.protectionSelected ? (context.lines || []).filter(l => l.protectionSelected).length : 0;
@@ -6437,7 +7547,7 @@ function getNextStepsForIntent(context, intent) {
   if (lineCount === 0) {
     steps += `**→ Required First:** Tell me how many lines you need\n`;
     steps += `   Say: "I need 2 lines" or "3 lines"\n\n`;
-    steps += `**→ Then:** Select plans → Choose SIM types → (Optional) Add devices → Checkout\n`;
+    steps += `**→ Then:** Select plans → (Optional) Add devices → Checkout\n`;
     return steps;
   }
 
@@ -6459,33 +7569,26 @@ function getNextStepsForIntent(context, intent) {
       if (missingPlans.length > 1) {
         steps += `**→ You can:** Apply the same plan to all lines or choose different plans per line\n\n`;
       }
-      steps += `**→ After selecting plans:** Choose SIM types → Complete checkout\n`;
+      steps += `**→ After selecting plans:** Complete checkout\n`;
     } else {
       steps += `**→ Required Now:** Select plans for ${missingPlans.length} line${missingPlans.length > 1 ? 's' : ''}\n`;
       steps += `   Say: "Show me plans" or click "Add to Cart" on a plan card\n\n`;
       if (missingPlans.length > 1) {
         steps += `**→ You can:** Apply same plan to all or mix & match different plans\n\n`;
       }
-      steps += `**→ After plans:** Choose SIM types → (Optional) Add devices → Checkout\n`;
+      steps += `**→ After plans:** (Optional) Add devices → Checkout\n`;
     }
     return steps;
   }
 
-  // SIM CHECK (required for most checkout scenarios)
-  if (missingSims.length > 0) {
-    steps += `**→ Required Next:** Select SIM types for ${missingSims.length} line${missingSims.length > 1 ? 's' : ''}\n`;
-    steps += `   Say: "Show me SIM types" or "I want eSIM"\n\n`;
-    steps += `**→ Optional:** Add devices ("Show me devices") or protection\n\n`;
-    steps += `**→ Then:** Review cart and checkout\n`;
-    return steps;
-  }
+  // SIM CHECK removed - eSIM is automatically set when plan is added
 
   // ALL REQUIRED ITEMS COMPLETE
   steps += `**✅ All Required Items Complete!**\n\n`;
   steps += `**→ Ready to Checkout:**\n`;
   steps += `   • ${lineCount} line${lineCount > 1 ? 's' : ''} configured\n`;
   steps += `   • Plans selected for all lines\n`;
-  steps += `   • SIM types selected for all lines\n\n`;
+  // Note: eSIM is automatically added when plans are added
 
   // Optional suggestions
   const devicesAvailable = lineCount - linesWithDevices;

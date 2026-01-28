@@ -18,6 +18,10 @@ export const QUESTION_TYPES = {
   SIM_TYPE: 'sim_type',               // "eSIM or Physical SIM?"
   PROTECTION: 'protection',           // "Would you like device protection?"
   CONFIRMATION: 'confirmation',        // "Are you ready to checkout?"
+  CART_ACTION: 'cart_action',         // "Would you like to clear cart or review cart?"
+  SHIPPING_NAME: 'shipping_name',     // "What's your first name and last name?"
+  SHIPPING_CONTACT: 'shipping_contact', // "What's your phone number and email?"
+  SHIPPING_ADDRESS: 'shipping_address', // "What's your street address, city, state, and ZIP code?"
   NONE: null                          // No active question
 };
 
@@ -218,6 +222,62 @@ export function checkIfOnTrack(userMessage, sessionId) {
       }
       break;
       
+    case QUESTION_TYPES.CART_ACTION:
+      // Expecting: clear cart or review cart
+      if (/clear|empty|reset|remove.*all|start.*over/i.test(message)) {
+        isOnTrack = true;
+        reason = 'User wants to clear cart';
+      } else if (/review|show.*cart|see.*cart|view.*cart|check.*cart/i.test(message)) {
+        isOnTrack = true;
+        reason = 'User wants to review cart';
+      } else if (intent === INTENT_TYPES.CHECKOUT || intent === INTENT_TYPES.EDIT) {
+        isOnTrack = true;
+        reason = 'User intent indicates cart action';
+      } else {
+        isOnTrack = false;
+        reason = 'Expected clear cart or review cart but got unrelated response';
+      }
+      break;
+      
+    case QUESTION_TYPES.SHIPPING_NAME:
+      // Expecting: first name and last name
+      if (entities.firstName || entities.lastName || /^[a-z]+\s+[a-z]+/i.test(message) || 
+          /first.*name|last.*name|name.*is/i.test(message)) {
+        isOnTrack = true;
+        reason = 'User provided name information';
+      } else {
+        isOnTrack = false;
+        reason = 'Expected first name and last name but got unrelated response';
+      }
+      break;
+      
+    case QUESTION_TYPES.SHIPPING_CONTACT:
+      // Expecting: phone number and email
+      if (entities.phone || entities.email || 
+          /\b\d{3}[-.]?\d{3}[-.]?\d{4}\b|\+?\d{10,}/.test(message) ||
+          /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/.test(message) ||
+          /phone|email|contact/i.test(message)) {
+        isOnTrack = true;
+        reason = 'User provided contact information';
+      } else {
+        isOnTrack = false;
+        reason = 'Expected phone number and email but got unrelated response';
+      }
+      break;
+      
+    case QUESTION_TYPES.SHIPPING_ADDRESS:
+      // Expecting: street address, city, state, ZIP code
+      if (entities.street || entities.city || entities.state || entities.zipCode ||
+          /\b\d{5}(?:-\d{4})?\b/.test(message) || // ZIP code pattern
+          /street|address|city|state|zip|postal/i.test(message)) {
+        isOnTrack = true;
+        reason = 'User provided address information';
+      } else {
+        isOnTrack = false;
+        reason = 'Expected address details but got unrelated response';
+      }
+      break;
+      
     default:
       // Unknown question type - assume on-track
       isOnTrack = true;
@@ -294,11 +354,8 @@ export function generateRedirectMessage(sessionId, userMessage = '') {
       break;
       
     case QUESTION_TYPES.SIM_TYPE:
-      redirectMessage += `**I'm still waiting for:** You to choose a SIM type.\n\n`;
-      if (progress && progress.missing?.sim) {
-        redirectMessage += `You need to select SIM types for ${progress.missing.sim.length} line${progress.missing.sim.length > 1 ? 's' : ''}. `;
-      }
-      redirectMessage += `Please choose eSIM or Physical SIM for each line.`;
+      // SIM selection removed - eSIM is automatically set when plan is added
+      redirectMessage += `**Note:** SIM selection is no longer needed. eSIM is automatically set when you add a plan.`;
       break;
       
     case QUESTION_TYPES.PROTECTION:
@@ -309,6 +366,27 @@ export function generateRedirectMessage(sessionId, userMessage = '') {
     case QUESTION_TYPES.CONFIRMATION:
       redirectMessage += `**I'm still waiting for:** Your confirmation.\n\n`;
       redirectMessage += `Please say "Yes" to proceed or "No" to cancel.`;
+      break;
+      
+    case QUESTION_TYPES.CART_ACTION:
+      redirectMessage += `**I'm still waiting for:** You to decide what to do with your existing cart.\n\n`;
+      redirectMessage += `Please say "Clear cart" to start fresh or "Review cart" to see what's already added.`;
+      break;
+      
+    case QUESTION_TYPES.SHIPPING_NAME:
+      redirectMessage += `**I'm still waiting for:** Your first name and last name.\n\n`;
+      redirectMessage += `Please provide your first name and last name (e.g., "John Smith" or "My name is Jane Doe").`;
+      break;
+      
+    case QUESTION_TYPES.SHIPPING_CONTACT:
+      redirectMessage += `**I'm still waiting for:** Your phone number and email address.\n\n`;
+      redirectMessage += `Please provide your phone number and email (e.g., "Phone: 555-123-4567, Email: john@example.com").`;
+      break;
+      
+    case QUESTION_TYPES.SHIPPING_ADDRESS:
+      redirectMessage += `**I'm still waiting for:** Your street address, city, state, and ZIP code.\n\n`;
+      redirectMessage += `📍 **Quick Option:** Turn on location services to automatically fill your address!\n\n`;
+      redirectMessage += `**Or manually provide:** Your complete US address (e.g., "123 Main St, New York, NY 10001").`;
       break;
       
     default:
@@ -344,7 +422,7 @@ export function checkAndRedirect(userMessage, sessionId) {
       const resumeStepIntentMap = {
         'plan_selection': INTENT_TYPES.PLAN,
         'device_selection': INTENT_TYPES.DEVICE,
-        'sim_selection': INTENT_TYPES.SIM,
+        // 'sim_selection': INTENT_TYPES.SIM, // Removed - SIM selection no longer needed
         'protection_selection': INTENT_TYPES.PROTECTION,
         'coverage_check': INTENT_TYPES.COVERAGE
       };
@@ -376,7 +454,7 @@ export function checkAndRedirect(userMessage, sessionId) {
         const resumeStepMessages = {
           'plan_selection': 'You were selecting plans. Would you like to continue?',
           'device_selection': 'You were browsing devices. Would you like to continue?',
-          'sim_selection': 'You were selecting SIM types. Would you like to continue?',
+          // 'sim_selection': 'SIM selection is no longer needed - eSIM is automatically set when plans are added.',
           'protection_selection': 'You were considering device protection. Would you like to continue?',
           'coverage_check': 'You were checking coverage. Would you like to continue?'
         };

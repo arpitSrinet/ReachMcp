@@ -90,7 +90,28 @@ export function getFlowContext(sessionId) {
       
       // Checkout/shipping data (checkout section)
       shippingAddress: null, // Shipping address object { firstName, lastName, street, city, state, zipCode, country, phone, email }
-      checkoutDataCollected: false, // true when shipping address is collected
+      shippingAddressStep: null, // Current step: 'name' | 'contact' | 'address' | 'complete'
+      checkoutDataCollected: false, // true when shipping address is collected (all steps complete)
+      
+      // Purchase/payment tracking (purchase section)
+      purchase: {
+        transactionId: null,           // Transaction ID from purchase API
+        clientAccountId: null,         // Client account ID from purchase
+        state: null,                   // Current purchase state (INITIAL, QUOTING, PURCHASING, POLLING, COMPLETED, FAILED)
+        paymentStatus: null,           // Payment status (PENDING, SUCCESS, FAILED, APPROVED)
+        status: null,                  // Overall status (PENDING, DONE, FAILED)
+        paymentUrl: null,              // Payment URL when available
+        paymentUrlExpiry: null,        // Payment URL expiration timestamp
+        customerId: null,              // Customer ID from purchase
+        supportUrl: null,              // Support URL for customer
+        quote: null,                   // Quote response (for reference)
+        initiatedAt: null,             // Timestamp when purchase was initiated
+        completedAt: null,             // Timestamp when purchase completed
+        lastPollAt: null,              // Timestamp of last status poll
+        pollAttempts: 0,               // Number of poll attempts made
+        error: null,                   // Error message if purchase failed
+        errorType: null                // Error type (QUOTE_ERROR, PURCHASE_ERROR, STATUS_ERROR, VALIDATION_ERROR)
+      },
       
       // Completion gates (completion section - derived but cached for performance)
       missingPrerequisites: [], // Track missing prerequisites
@@ -170,7 +191,7 @@ export function updateFlowContext(sessionId, updates) {
     const currentLineCount = context.lines.length;
     
     if (newLineCount > currentLineCount) {
-      // Add new lines
+      // Add new lines - eSIM will be automatically added to cart when plans are added
       for (let i = currentLineCount + 1; i <= newLineCount; i++) {
         context.lines.push({
           lineNumber: i,
@@ -180,7 +201,7 @@ export function updateFlowContext(sessionId, updates) {
           deviceId: null,
           protectionSelected: false,
           protectionId: null,
-          simType: null,
+          simType: null, // eSIM is automatically set when plan is added
           simIccId: null
         });
       }
@@ -248,7 +269,7 @@ export function checkPrerequisites(sessionId, action) {
 
   switch (action) {
     case 'checkout':
-      // Checkout gate: requires lineCount, plans for all lines, and SIM types
+      // Checkout gate: requires lineCount and plans for all lines (eSIM is automatically set when plan is added)
       if (!context.lineCount || context.lineCount === 0) {
         return {
           allowed: false,
@@ -259,16 +280,13 @@ export function checkPrerequisites(sessionId, action) {
       }
       
       const missingPlans = [];
-      const missingSims = [];
       
       for (let i = 0; i < context.lineCount; i++) {
         const line = context.lines[i];
         if (!line || !line.planSelected) {
           missingPlans.push(`Line ${i + 1}`);
         }
-        if (!line || !line.simType) {
-          missingSims.push(`Line ${i + 1}`);
-        }
+        // eSIM is automatically set when plan is added, so no need to check simType
       }
       
       if (missingPlans.length > 0) {
@@ -277,15 +295,6 @@ export function checkPrerequisites(sessionId, action) {
           reason: `Plans are required for all lines. Missing plans for: ${missingPlans.join(', ')}`,
           missing: missingPlans,
           gate: 'NEED_PLANS'
-        };
-      }
-      
-      if (missingSims.length > 0) {
-        return {
-          allowed: false,
-          reason: `SIM types are required for all lines. Missing SIM for: ${missingSims.join(', ')}`,
-          missing: missingSims,
-          gate: 'NEED_SIM'
         };
       }
       
@@ -345,7 +354,7 @@ export function checkPrerequisites(sessionId, action) {
       return { allowed: true, reason: null, missing: [], gate: 'OK' };
 
     case 'select_sim':
-      // SIM selection requires plans (but not blocking for browsing)
+      // SIM selection removed - eSIM is automatically set when plan is added
       if (!context.lineCount || context.lineCount === 0) {
         return {
           allowed: false,
@@ -371,18 +380,18 @@ export function getFlowProgress(sessionId) {
   const context = getFlowContext(sessionId);
   
   if (!context || !context.lineCount) {
-    return {
-      lineCount: 0,
-      completedLines: 0,
-      progress: 0,
-      missing: {
-        lineCount: true,
-        plans: [],
-        devices: [],
-        protection: [],
-        sim: []
-      }
-    };
+      return {
+        lineCount: 0,
+        completedLines: 0,
+        progress: 0,
+        missing: {
+          lineCount: true,
+          plans: [],
+          devices: [],
+          protection: []
+          // sim removed - eSIM is automatically set when plan is added
+        }
+      };
   }
 
   const completedLines = context.lines.filter(line => 
@@ -393,8 +402,8 @@ export function getFlowProgress(sessionId) {
     lineCount: false,
     plans: [],
     devices: [],
-    protection: [],
-    sim: []
+    protection: []
+    // sim removed - eSIM is automatically set when plan is added
   };
 
   for (let i = 0; i < context.lineCount; i++) {
@@ -410,20 +419,18 @@ export function getFlowProgress(sessionId) {
     if (!line.protectionSelected && line.deviceSelected) {
       missing.protection.push(i + 1);
     }
-    if (!line.simType) {
-      missing.sim.push(i + 1);
-    }
+    // eSIM is automatically set when plan is added, so no need to check simType
   }
 
-  const totalSteps = context.lineCount * 4; // plan, device, protection, sim per line
+  const totalSteps = context.lineCount * 3; // plan, device, protection per line (sim removed)
   const completedSteps = 
     context.lines.reduce((sum, line) => {
       if (!line) return sum;
       return sum + 
         (line.planSelected ? 1 : 0) +
         (line.deviceSelected ? 1 : 0) +
-        (line.protectionSelected ? 1 : 0) +
-        (line.simType ? 1 : 0);
+        (line.protectionSelected ? 1 : 0);
+        // sim removed - eSIM is automatically set when plan is added
     }, 0);
 
   const progress = totalSteps > 0 ? (completedSteps / totalSteps) * 100 : 0;
@@ -610,4 +617,120 @@ export function getGlobalContextFlags(sessionId) {
     linesConfigured: context.linesConfigured || false,
     coverageChecked: context.coverageChecked || false
   };
+}
+
+/**
+ * Update purchase state in flow context
+ * @param {string} sessionId - Session ID
+ * @param {Object} purchaseData - Purchase state data to update
+ * @returns {Object} Updated flow context
+ */
+export function updatePurchaseState(sessionId, purchaseData) {
+  if (!sessionId) {
+    throw new Error('Session ID is required');
+  }
+
+  const context = getFlowContext(sessionId);
+  
+  // Initialize purchase object if it doesn't exist
+  if (!context.purchase) {
+    context.purchase = {
+      transactionId: null,
+      clientAccountId: null,
+      state: null,
+      paymentStatus: null,
+      status: null,
+      paymentUrl: null,
+      paymentUrlExpiry: null,
+      customerId: null,
+      supportUrl: null,
+      quote: null,
+      initiatedAt: null,
+      completedAt: null,
+      lastPollAt: null,
+      pollAttempts: 0,
+      error: null,
+      errorType: null
+    };
+  }
+  
+  // Merge purchase data with existing purchase object
+  Object.assign(context.purchase, purchaseData, {
+    lastPollAt: purchaseData.lastPollAt || (purchaseData.pollAttempts ? Date.now() : context.purchase.lastPollAt)
+  });
+  
+  // Update lastUpdated timestamp
+  context.lastUpdated = Date.now();
+  
+  flowContexts.set(sessionId, context);
+  persist();
+  
+  logger.debug('Purchase state updated', {
+    sessionId,
+    purchaseState: context.purchase.state,
+    transactionId: context.purchase.transactionId
+  });
+  
+  return context;
+}
+
+/**
+ * Get current purchase state from flow context
+ * @param {string} sessionId - Session ID
+ * @returns {Object|null} Purchase state object or null if no purchase initiated
+ */
+export function getPurchaseState(sessionId) {
+  if (!sessionId) {
+    return null;
+  }
+
+  const context = getFlowContext(sessionId);
+  
+  if (!context || !context.purchase || !context.purchase.transactionId) {
+    return null;
+  }
+  
+  return context.purchase;
+}
+
+/**
+ * Clear purchase state (for retry scenarios)
+ * @param {string} sessionId - Session ID
+ * @returns {Object} Updated flow context
+ */
+export function clearPurchaseState(sessionId) {
+  if (!sessionId) {
+    throw new Error('Session ID is required');
+  }
+
+  const context = getFlowContext(sessionId);
+  
+  // Reset purchase object to initial state
+  context.purchase = {
+    transactionId: null,
+    clientAccountId: null,
+    state: null,
+    paymentStatus: null,
+    status: null,
+    paymentUrl: null,
+    paymentUrlExpiry: null,
+    customerId: null,
+    supportUrl: null,
+    quote: null,
+    initiatedAt: null,
+    completedAt: null,
+    lastPollAt: null,
+    pollAttempts: 0,
+    error: null,
+    errorType: null
+  };
+  
+  context.lastUpdated = Date.now();
+  
+  flowContexts.set(sessionId, context);
+  persist();
+  
+  logger.debug('Purchase state cleared', { sessionId });
+  
+  return context;
 }

@@ -122,35 +122,12 @@ export function determineOptimalLineAssignment(flowContext, itemType, requestedL
           break;
 
         case 'sim':
-          // Priority: Lines with plans but no SIM (required for checkout)
-          const lineWithPlanButNoSim = lines.findIndex((l, idx) => 
-            idx < lineCount && l && l.planSelected && !l.simType
-          );
-          
-          if (lineWithPlanButNoSim >= 0) {
-            targetLineNumber = lineWithPlanButNoSim + 1;
-            suggestion = `I'll add SIM type to Line ${targetLineNumber} which has a plan but needs a SIM type.`;
-            reason = 'matched_to_plan';
-          } else {
-            // Any line without SIM
-            const lineWithoutSim = lines.findIndex((l, idx) => 
-              idx < lineCount && (!l || !l.simType)
-            );
-            
-            if (lineWithoutSim >= 0) {
-              targetLineNumber = lineWithoutSim + 1;
-              const targetLine = lines[targetLineNumber - 1];
-              
-              if (!targetLine || !targetLine.planSelected) {
-                suggestion = `I'll add SIM type to Line ${targetLineNumber}. Note: You'll need to add a plan to this line before checkout.`;
-              } else {
-                suggestion = `I'll add SIM type to Line ${targetLineNumber}.`;
-              }
-            } else {
-              targetLineNumber = lines.length < lineCount ? lines.length + 1 : 1;
-              suggestion = `I'll add SIM type to Line ${targetLineNumber}.`;
-            }
-          }
+          // SIM selection removed - eSIM is automatically set when plan is added
+          // This case should not be used, but kept for backward compatibility
+          // If somehow called, just return first line with a note
+          targetLineNumber = 1;
+          suggestion = `Note: SIM selection is no longer needed. eSIM is automatically set when you add a plan.`;
+          reason = 'sim_auto_set';
           break;
 
         default:
