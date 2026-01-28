@@ -6685,7 +6685,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           state: 'QUOTING'
         });
 
+        // Update purchase state to POLLING when polling starts (if not skipped)
+        if (!args.skipPolling) {
+          // We'll update this in the flow, but set initial state
+          logger.info('Polling enabled - will wait for payment URL', {
+            sessionId,
+            skipPolling: false
+          });
+        }
+
         // Call purchase flow (triggers all 3 APIs)
+        // IMPORTANT: When skipPolling is false, this will wait until payment URL is found
         const result = await purchasePlansFlow(checkoutData, tenant, {
           redirectUrl: args.redirectUrl,
           skipPolling: args.skipPolling || false
@@ -6735,6 +6745,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         });
 
         // Build response based on result
+        // IMPORTANT: When polling is enabled (skipPolling = false), we should have waited for payment URL
+        // If payment URL is still not found after polling, it means it timed out or failed
         // PRIORITY: If payment URL exists, show it immediately regardless of status
         if (result.paymentUrl) {
           // Payment URL found - show it immediately
@@ -6781,12 +6793,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               }
             }
           };
-        } else if (result.paymentStatus === 'PENDING' && !result.paymentUrl) {
-          // Pending payment (no URL yet)
+        } else if (result.paymentStatus === 'PENDING' && !result.paymentUrl && result.polled) {
+          // This should not happen when polling is enabled - we should have waited for payment URL
+          // But if it does, it means polling completed without finding URL
+          logger.warn('Purchase completed polling but payment URL not found', {
+            sessionId,
+            transactionId: result.transactionId,
+            pollAttempts: result.pollAttempts,
+            state: result.state
+          });
           return {
             content: [{
               type: "text",
-              text: `⏳ **Purchase Initiated - Payment Pending**\n\nYour order has been created and is waiting for payment.\n\n**Transaction ID:** ${result.transactionId}\n**Customer ID:** ${result.customerId || 'N/A'}\n\n**Next Steps:**\n• Payment link is being generated - this usually takes a few seconds\n• You can say "retry payment" or "check payment status" to get the payment link\n• You may also receive payment instructions via email\n\n**Support:** ${result.supportUrl || 'N/A'}`
+              text: `⏳ **Purchase Initiated - Payment Link Still Generating**\n\nYour order has been created and payment link is still being generated.\n\n**Transaction ID:** ${result.transactionId}\n**Customer ID:** ${result.customerId || 'N/A'}\n**Poll Attempts:** ${result.pollAttempts || 'N/A'}\n\n**What happened:**\nWe checked ${result.pollAttempts || 'multiple'} times but the payment link wasn't ready yet. This is normal and usually resolves within a few seconds.\n\n**Next Steps:**\n• Say "retry payment" or "check payment status" to get the payment link\n• The payment link will be available shortly\n• You may receive payment instructions via email\n\n**Support:** ${result.supportUrl || 'N/A'}`
             }]
           };
         } else if (result.success && !result.paymentUrl && result.state === 'POLLING_TIMEOUT') {

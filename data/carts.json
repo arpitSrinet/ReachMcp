@@ -1,1 +1,60 @@
-{}
+{
+  "session_1769607045351_5xjbzau": {
+    "lines": [
+      {
+        "lineNumber": 1,
+        "plan": {
+          "type": "plan",
+          "id": "M0028122398KEDFEE0738C9E62",
+          "uniqueIdentifier": "M0028122398KEDFEE0738C9E62",
+          "name": "unlimited",
+          "displayName": "Unlimited (30GB)",
+          "displayNameWeb": "Unlimited (30GB)",
+          "price": 35,
+          "data": 30,
+          "dataUnit": "GB",
+          "planType": "LSD",
+          "planCharging": "MIA"
+        },
+        "device": null,
+        "protection": null,
+        "sim": {
+          "type": "sim",
+          "simType": "ESIM",
+          "iccId": null,
+          "price": 0,
+          "lineNumber": 1
+        }
+      },
+      {
+        "lineNumber": 2,
+        "plan": {
+          "type": "plan",
+          "id": "M0028122398KEDFEE0738C9E62",
+          "uniqueIdentifier": "M0028122398KEDFEE0738C9E62",
+          "name": "unlimited",
+          "displayName": "Unlimited (30GB)",
+          "displayNameWeb": "Unlimited (30GB)",
+          "price": 35,
+          "data": 30,
+          "dataUnit": "GB",
+          "planType": "LSD",
+          "planCharging": "MIA"
+        },
+        "device": null,
+        "protection": null,
+        "sim": {
+          "type": "sim",
+          "simType": "ESIM",
+          "iccId": null,
+          "price": 0,
+          "lineNumber": 2
+        }
+      }
+    ],
+    "total": 70,
+    "sessionId": "session_1769607045351_5xjbzau",
+    "expiresAt": 1769615650352,
+    "createdAt": 1769607099788
+  }
+}

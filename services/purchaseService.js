@@ -1454,18 +1454,20 @@ export async function purchasePlansFlow(checkoutData, tenant = DEFAULT_CONFIG.TE
     logger.info('═══════════════════════════════════════════════════════════');
     logger.info('FLOW STEP 4: STARTING STATUS POLLING');
     logger.info('═══════════════════════════════════════════════════════════');
-    logger.info('Purchase flow: Starting status polling', {
+    logger.info('Purchase flow: Starting status polling - WAITING FOR PAYMENT URL', {
       tenant,
       transactionId,
       maxAttempts: maxPollAttempts,
       pollInterval,
-      initialPollDelay
+      initialPollDelay,
+      note: 'Will continue polling until payment URL is found or max attempts reached'
     });
     
     // Wait initial delay before first poll
-    logger.info(`Waiting ${initialPollDelay}ms before first poll...`, {
+    logger.info(`⏳ Loading: Waiting ${initialPollDelay}ms before first poll...`, {
       transactionId,
-      initialPollDelay
+      initialPollDelay,
+      status: 'LOADING - Payment URL generation in progress'
     });
     await new Promise(resolve => setTimeout(resolve, initialPollDelay));
     
@@ -1501,7 +1503,8 @@ export async function purchasePlansFlow(checkoutData, tenant = DEFAULT_CONFIG.TE
           status,
           hasPaymentUrl: !!paymentUrl,
           paymentUrlPreview: paymentUrl ? paymentUrl.substring(0, 100) + '...' : null,
-          fullPaymentUrl: paymentUrl || null
+          fullPaymentUrl: paymentUrl || null,
+          loadingState: paymentUrl ? 'COMPLETE - Payment URL found' : `LOADING - Checking payment status (${pollAttempts}/${maxPollAttempts})`
         });
         
         // Check for terminal states
@@ -1627,12 +1630,13 @@ export async function purchasePlansFlow(checkoutData, tenant = DEFAULT_CONFIG.TE
           };
         }
         
-        // Continue polling
+        // Continue polling - Payment URL not found yet, keep waiting
         if (pollAttempts < maxPollAttempts) {
-          logger.info(`Waiting ${pollInterval}ms before next poll attempt...`, {
+          logger.info(`⏳ Loading: Waiting ${pollInterval}ms before next poll attempt...`, {
             transactionId,
             nextAttempt: pollAttempts + 1,
-            maxAttempts: maxPollAttempts
+            maxAttempts: maxPollAttempts,
+            status: `LOADING - Payment URL still being generated (attempt ${pollAttempts}/${maxPollAttempts})`
           });
           await new Promise(resolve => setTimeout(resolve, pollInterval));
         }
@@ -1659,27 +1663,31 @@ export async function purchasePlansFlow(checkoutData, tenant = DEFAULT_CONFIG.TE
       }
     }
     
-    // Max attempts reached
+    // Max attempts reached - Payment URL still not found after all polling attempts
     logger.warn('═══════════════════════════════════════════════════════════');
     logger.warn('⚠️ PURCHASE FLOW: MAX POLL ATTEMPTS REACHED');
     logger.warn('═══════════════════════════════════════════════════════════');
-    logger.warn('Purchase flow: Max poll attempts reached', {
+    logger.warn('Purchase flow: Max poll attempts reached - Payment URL not found', {
       tenant,
       transactionId,
       pollAttempts,
       maxAttempts: maxPollAttempts,
       lastStatus: lastStatus?.paymentStatus,
       lastError: lastError?.message,
-      totalDuration: `${Date.now() - flowStartTime}ms`
+      totalDuration: `${Date.now() - flowStartTime}ms`,
+      note: 'Polling completed but payment URL was not found. User should check status manually.'
     });
     
     logger.info('═══════════════════════════════════════════════════════════');
-    logger.info(`FINAL RESULT: TIMEOUT (Duration: ${Date.now() - flowStartTime}ms)`);
+    logger.info(`FINAL RESULT: TIMEOUT - Payment URL not found after ${pollAttempts} attempts (Duration: ${Date.now() - flowStartTime}ms)`);
     logger.info(`Transaction ID: ${transactionId}`);
     logger.info(`Payment URL: ${lastStatus?.paymentUrl || 'NOT FOUND'}`);
+    logger.info(`Last Payment Status: ${lastStatus?.paymentStatus || 'N/A'}`);
+    logger.info(`Last Order Status: ${lastStatus?.status || 'N/A'}`);
     logger.info('═══════════════════════════════════════════════════════════');
     
-    // Return last known status
+    // Return last known status - Payment URL not found after all polling attempts
+    // This means we waited in loading state but payment URL wasn't ready yet
     return {
       success: lastStatus ? true : false,
       state: FLOW_STATE.POLLING_TIMEOUT,
@@ -1687,12 +1695,12 @@ export async function purchasePlansFlow(checkoutData, tenant = DEFAULT_CONFIG.TE
       clientAccountId,
       paymentStatus: lastStatus?.paymentStatus || null,
       status: lastStatus?.status || null,
-      paymentUrl: lastStatus?.paymentUrl || null,
+      paymentUrl: lastStatus?.paymentUrl || null, // null - not found after polling
       paymentUrlExpiry: lastStatus?.paymentUrlExpiry || null,
       customerId: lastStatus?.customerId || null,
       supportUrl: lastStatus?.supportUrl || null,
       quote: quoteResponse.data,
-      error: lastError ? `Polling timeout: ${lastError.message}` : 'Polling timeout: Max attempts reached',
+      error: lastError ? `Polling timeout: ${lastError.message}` : `Polling timeout: Payment URL not found after ${pollAttempts} attempts (waited ~${Math.round((Date.now() - flowStartTime) / 1000)} seconds)`,
       polled: true,
       pollAttempts
     };
